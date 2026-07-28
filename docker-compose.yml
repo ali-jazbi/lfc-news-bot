@@ -1,0 +1,19 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+
+  # اختیاری: RSSHub محلی برای فید توییتر رومانو
+  # سپس در .env بگذار: ROMANO_FEEDS=http://rsshub:1200/twitter/user/FabrizioRomano
+  rsshub:
+    image: diygod/rsshub
+    restart: unless-stopped
+    ports:
+      - "1200:1200"
+    environment:
+      NODE_ENV: production
+      CACHE_EXPIRE: "60"
+      # TWITTER_AUTH_TOKEN: ""   # برای پایداری روت توییتر

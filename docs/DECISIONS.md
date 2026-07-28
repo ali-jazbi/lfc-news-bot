@@ -1,0 +1,14 @@
+# Decisions Log
+
+Record of notable product/technical decisions made during development, with rationale, so future contributors (human or AI agent) don't re-litigate them without cause.
+
+1. **Semi-automatic publishing (admin approval step)** — Posts are drafted and sent to an admin group first, not published straight to the channel. Rationale: translation quality and duplicate/relevance scoring aren't perfect yet; a human check avoids embarrassing mistranslations or spam on the public channel.
+2. **Multi-provider translation fallback chain** instead of a single LLM. Rationale: free/low-cost LLM endpoints are occasionally rate-limited or down; chaining `opencode-deepseek → opencode-ling → groq → deep-translator` maximizes uptime without paid infrastructure.
+3. **Display names for Twitter sources use real English names** (e.g. "Fabrizio Romano"), not Persian translations or raw handles. Rationale: users recognize journalists by their real name; Persian transliteration was confusing (reverted after user feedback).
+4. **No full video re-upload from Twitter/X.** Rationale: current pipeline only reliably retrieves a cover image via Nitter/RSS; downloading and re-hosting full video adds latency, risk of the source blocking the bot, and copyright exposure. Decision: keep sending the original tweet link so users can view/play the video themselves.
+5. **Instagram is out of scope for now.** Rationale: no RSS-equivalent; official Graph API only covers owned accounts; unofficial scraping requires logging in with a real account, risking a ban and frequent breakage. Revisit only if a specific high-value source requires it.
+6. **No full-text republishing of paywalled articles (e.g. The Athletic).** Rationale: ToS/copyright risk. Decision: only use the source's own tweet/summary + link, never scrape the paywalled article body.
+7. **Nitter mirrors + RSS fallback instead of the official paid X API.** Rationale: official API pricing is prohibitive for a hobby project; multiple mirrors + rotation + cooldown reduce single-point-of-failure risk (see THREAT_MODEL.md for the residual risk this creates).
+8. **Local file-based persistence instead of a hosted database.** Rationale: project scale doesn't yet justify the operational overhead of a managed DB; keep hosting options cheap/free (see RELEASE_POLICY.md).
+9. **`--once` / dry-run execution mode kept in `main.py`.** Rationale: enables both local testing without spamming the live channel, and (later) scheduled-job style deployment (e.g. GitHub Actions) as a zero-maintenance alternative to an always-on server.
+10. **Legacy `romano.py` feed checker is a retirement candidate** now that the generic `sources/twitter.py` also covers Fabrizio Romano via the handle list. Not yet removed to avoid regressions; revisit once the generic path is proven stable.
