@@ -1,18 +1,24 @@
-"""ترجمه و بازنویسی خبر به فارسی.
+"""ترجمه و بازنویسی خبر به فارسی — نسخه LiteLLM (فقط برای حالت دولوپ).
 
-زنجیره fallback کاملاً از .env کنترل می‌شود (TRANSLATE_ORDER).
-هر سرویس که خطا بدهد، خودکار می‌رود سراغ بعدی.
+تفاوت با نسخه قبلی:
+  • مدیریت زنجیره، retry، backoff و cooldown را LiteLLM Router انجام می‌دهد.
+  • مدلی که چند بار پشت‌سرهم خطا بدهد، خودکار چند دقیقه کنار گذاشته می‌شود
+    (یعنی دیگر برای هر خبر پای تایم‌اوت مدل مرده نمی‌سوزیم).
+  • رابط بیرونی دست‌نخورده است: translate(item) و chain_names() مثل قبل.
 
-دو نوع سرویس:
-  llm   → مدل زبانی (خروجی JSON ساختاریافته، با واژگان و لحن درست)
-  plain → مترجم ساده بدون کلید (deep-translator) — آخرین سنگر
+نصب:  pip install "litellm>=1.55"
+
+کلیدهای اختیاری .env:
+  LLM_COOLDOWN_SECONDS=180   چند ثانیه یک مدل خراب کنار گذاشته شود
+  LLM_NUM_RETRIES=1          چند بار تلاش مجدد روی همان مدل قبل از رفتن به بعدی
+  LLM_ALLOWED_FAILS=2        چند خطای پشت‌سرهم = کنار گذاشتن مدل
+  TRANSLATE_JSON_MODE=false  اجبار خروجی JSON (بعضی مدل‌های رایگان پشتیبانی نمی‌کنند)
 """
 import json
 import logging
+import os
 import re
 import time
-
-import requests
 
 import config
 import health
@@ -20,6 +26,39 @@ import health
 log = logging.getLogger("translate")
 
 _proxies = {"http": config.PROXY, "https": config.PROXY} if config.PROXY else None
+
+try:
+    import litellm
+    from litellm import Router
+
+    litellm.suppress_debug_info = True
+    litellm.drop_params = True          # پارامتری که مدل پشتیبانی نکند، حذف می‌شود
+    litellm.set_verbose = False
+    logging.getLogger("LiteLLM").setLevel(logging.ERROR)   # خفه‌کردن هشدار cost map
+    _HAS_LITELLM = True
+except Exception as _e:                  # پکیج نصب نیست → فقط مترجم ساده کار می‌کند
+    _HAS_LITELLM = False
+    log.error("litellm نصب نیست (%s) — pip install litellm", _e)
+
+
+def _env_int(name, default):
+    try:
+        return int(os.getenv(name, "") or default)
+    except ValueError:
+        return default
+
+
+COOLDOWN_SECONDS = _env_int("LLM_COOLDOWN_SECONDS", 180)
+NUM_RETRIES = _env_int("LLM_NUM_RETRIES", 1)
+ALLOWED_FAILS = _env_int("LLM_ALLOWED_FAILS", 2)
+JSON_MODE = (os.getenv("TRANSLATE_JSON_MODE", "false").strip().lower()
+             in ("1", "true", "yes", "on"))
+MAX_TOKENS = _env_int("LLM_MAX_TOKENS", 4000)
+# افزودن /no_think به انتهای پرامپت — در خانواده Qwen3 تفکر را خاموش می‌کند
+NO_THINK_SUFFIX = (os.getenv("TRANSLATE_NO_THINK_SUFFIX", "false").strip().lower()
+                   in ("1", "true", "yes", "on"))
+DEBUG_RAW = (os.getenv("TRANSLATE_DEBUG", "false").strip().lower()
+             in ("1", "true", "yes", "on"))
 
 SYSTEM_PROMPT = """تو مترجم و خبرنگار حرفه‌ای فوتبال هستی که برای کانال هواداران لیورپول در تلگرام می‌نویسی.
 
@@ -73,29 +112,73 @@ def _build_prompt(item):
         f"---\nمنبع: {item.get('source_tag')}\n"
         f"عنوان اصلی: {item.get('title')}\n"
         f"متن اصلی:\n{(item.get('body') or '')[:4000]}\n---\nخروجی JSON:"
+        + ("\n/no_think" if NO_THINK_SUFFIX else "")
     )
+
+
+def _repair_json(s):
+    """ترمیم JSON نیمه‌کاره‌ای که وسط جمله قطع شده (سقف توکن پر شده)."""
+    s = s.rstrip()
+    in_str, esc, depth = False, False, 0
+    for ch in s:
+        if esc:
+            esc = False
+            continue
+        if ch == "\\":
+            esc = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+    if in_str:
+        s += '"'
+    s = re.sub(r",\s*$", "", s)
+    if depth > 0:
+        s += "}" * depth
+    return s
 
 
 def _extract_json(text):
     text = (text or "").strip()
+    # مدل‌های reasoning گاهی اول بلندبلند فکر می‌کنند
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S | re.I)
+    text = re.sub(r"<think>.*$", "", text, flags=re.S | re.I)
     text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
+
+    start = text.find("{")
+    if start == -1:
         return None
-    try:
-        return json.loads(m.group(0))
-    except Exception:
+    cand = text[start:]
+    end = cand.rfind("}")
+    whole = cand[: end + 1] if end != -1 else cand
+
+    for attempt in (whole, whole.replace("\n", " "), _repair_json(cand)):
         try:
-            return json.loads(m.group(0).replace("\n", " "))
+            data = json.loads(attempt)
+            if isinstance(data, dict):
+                return data
         except Exception:
-            return None
+            continue
+    return None
+
+
+def _msg_text(resp):
+    """متن جواب؛ اگر content خالی بود سراغ reasoning_content می‌رویم."""
+    msg = resp.choices[0].message
+    txt = (getattr(msg, "content", None) or "").strip()
+    if not txt:
+        txt = (getattr(msg, "reasoning_content", None) or "").strip()
+    return txt
 
 
 # از این سقف رد نمی‌شویم — کپشن عکس در تلگرام ۱۰۲۴ کاراکتر است
-# و جای عنوان، منبع و آیدی کانال هم باید بماند.
 BODY_LIMIT = 820
-
-_SENT_END = "۰۱۲۳۴۵۶۷۸۹"  # فقط برای جلوگیری از برش وسط عدد
 
 
 def _trim(text, limit=BODY_LIMIT):
@@ -105,21 +188,18 @@ def _trim(text, limit=BODY_LIMIT):
         return text
 
     head = text[:limit]
-    # ۱) تا آخرین پایان جمله
     best = -1
     for mark in (".", "\u061f", "!", "\u060c\n", "\n", "\u00bb"):
         best = max(best, head.rfind(mark))
     if best > limit * 0.5:
         return head[: best + 1].strip()
 
-    # ۲) دست‌کم تا آخرین فاصله
     sp = head.rfind(" ")
     if sp > 0:
         head = head[:sp]
     return head.strip() + "\u2026"
 
 
-# این نشانه‌ها یعنی خبر فوری است، حتی اگر مدل تشخیص نداده باشد
 HIGH_SIGNALS = (
     "here we go", "official", "confirmed", "medical", "release clause",
     "agreement", "agreed", "signs", "signed", "injury", "ruled out",
@@ -128,7 +208,7 @@ HIGH_SIGNALS = (
 
 
 def _fix_importance(item, data):
-    """مدل‌های کوچک خبر فوری را normal می‌زنند؛ خودمان دوباره قضاوت می‌کنیم."""
+    """مدل‌های کوچک خبر فوری را normal می‌زنند؛ خودمان دوباره قضاوت م��‌کنیم."""
     if data.get("importance") == "high":
         return
     if item.get("priority"):
@@ -139,73 +219,8 @@ def _fix_importance(item, data):
         data["importance"] = "high"
 
 
-def _http_error(who, r):
-    """پیام خطای خوانا به جای raise_for_status خشک."""
-    body = (r.text or "")[:250].replace("\n", " ")
-    hint = ""
-    if r.status_code in (401, 403):
-        hint = " | کلید نامعتبر یا بدون دسترسی"
-    elif r.status_code == 400:
-        hint = " | درخواست غلط (معمولاً نام مدل یا کلید)"
-    elif r.status_code == 404:
-        hint = " | آدرس یا نام مدل اشتباه است"
-    elif r.status_code == 429:
-        hint = " | سقف مصرف پر شده → سرویس بعدی"
-    elif r.status_code >= 500:
-        hint = " | خطای سرور سرویس‌دهنده"
-    return f"{who} HTTP {r.status_code}{hint} | {body}"
-
-
-# ---------------- موتورها ----------------
-def _gemini(prompt, key, model):
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        + model
-        + ":generateContent?key="
-        + key
-    )
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"},
-    }
-    r = requests.post(url, json=payload, timeout=config.REQUEST_TIMEOUT, proxies=_proxies)
-    if r.status_code != 200:
-        raise RuntimeError(_http_error("gemini", r))
-    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-
-def _openai_like(prompt, key, base_url, model, label):
-    """هر سرویسی که API سازگار با OpenAI دارد: DeepSeek، Groq، OpenRouter، OpenCode، ..."""
-    url = base_url.rstrip("/")
-    if not url.endswith("/chat/completions"):
-        url = url + "/chat/completions"
-    headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
-    if "openrouter" in url:
-        headers["HTTP-Referer"] = "https://t.me/LiverpooliRani"
-        headers["X-Title"] = "LFC News Bot"
-    r = requests.post(
-        url,
-        headers=headers,
-        json={
-            "model": model,
-            "temperature": 0.3,
-            "messages": [{"role": "user", "content": prompt}],
-        },
-        timeout=config.REQUEST_TIMEOUT,
-        proxies=_proxies,
-    )
-    if r.status_code != 200:
-        raise RuntimeError(_http_error(label, r))
-    data = r.json()
-    try:
-        return data["choices"][0]["message"]["content"]
-    except Exception:
-        raise RuntimeError(f"{label}: ساختار پاسخ ناشناخته | {str(data)[:200]}")
-
-
 # ---------------- مترجم ساده (بدون کلید) ----------------
 def _apply_glossary(text):
-    """اسامی خاص را بعد از ترجمه ماشینی اصلاح می‌کند."""
     for en, fa in config.GLOSSARY.items():
         text = re.sub(re.escape(en), fa, text, flags=re.IGNORECASE)
     return text
@@ -230,7 +245,6 @@ def _deep_translate(item):
     fa_title = _apply_glossary(tr.translate(title[:900])) if title else ""
     fa_body = ""
     if body:
-        # تکه‌تکه می‌فرستیم چون سقف هر درخواست ۵۰۰۰ کاراکتر است
         chunks = [body[i:i + 4500] for i in range(0, min(len(body), 9000), 4500)]
         fa_body = _apply_glossary(" ".join(tr.translate(c) for c in chunks))
 
@@ -242,108 +256,247 @@ def _deep_translate(item):
         "body": _trim(fa_body or fa_title),
         "importance": "high" if item.get("priority") else "normal",
         "tags": [],
-        "machine": True,   # یعنی کیفیت ماشینی است، ادمین باید بازبینی کند
+        "machine": True,
     }
 
 
-# ---------------- زنجیره ----------------
-def _chain():
-    """به ترتیب TRANSLATE_ORDER سرویس‌های قابل استفاده را می‌دهد.
+# ---------------- ساخت زنجیره برای LiteLLM ----------------
+def _deployments():
+    """از TRANSLATE_ORDER یک model_list برای Router می‌سازد.
 
-    خروجی: (نام نمایشی، نوع, تابع)
+    خروجی: (deployments, names, plain_enabled)
     """
-    out = []
-    for slot in config.TRANSLATE_ORDER:
-        slot = slot.strip().lower()
+    deployments, names, plain = [], [], False
+
+    for raw in config.TRANSLATE_ORDER:
+        slot = raw.strip().lower()
 
         if slot in ("translate", "translator", "deep_translator", "google"):
             if config.ENABLE_DEEP_TRANSLATOR:
-                out.append(("مترجم گوگل", "plain", _deep_translate))
+                plain = True
             continue
 
         if slot == "gemini":
-            for k in config.GEMINI_API_KEYS:
-                out.append((
-                    "gemini/" + config.GEMINI_MODEL, "llm",
-                    (lambda p, k=k: _gemini(p, k, config.GEMINI_MODEL)),
-                ))
+            for i, k in enumerate(config.GEMINI_API_KEYS):
+                name = "gemini/" + config.GEMINI_MODEL + (f"#{i+1}" if i else "")
+                deployments.append({
+                    "model_name": name,
+                    "litellm_params": {
+                        "model": "gemini/" + config.GEMINI_MODEL,
+                        "api_key": k,
+                        "timeout": config.REQUEST_TIMEOUT,
+                    },
+                    "model_info": {"id": name},
+                })
+                names.append(name)
             continue
 
         cfg = config.LLM_SLOTS.get(slot)
         if not cfg or not cfg["key"] or not cfg["base_url"] or not cfg["model"]:
             continue
-        label = cfg["name"]
-        out.append((
-            label, "llm",
-            (lambda p, c=cfg, l=label: _openai_like(p, c["key"], c["base_url"], c["model"], l)),
-        ))
+
+        name = cfg["name"] or slot
+        # خاموش‌کردن حالت تفکر برای این اسلات:  LLM7_NOTHINK=true
+        nothink = (os.getenv(slot.upper() + "_NOTHINK", "").strip().lower()
+                   in ("1", "true", "yes", "on"))
+        # تایم‌اوت جداگانه برای این اسلات:  LLM1_TIMEOUT=60
+        timeout = _env_int(slot.upper() + "_TIMEOUT", config.REQUEST_TIMEOUT)
+        host = cfg["base_url"].lower()
+        params = {
+            # پیشوند openai/ یعنی «این اندپوینت سازگار با OpenAI است»
+            "model": "openai/" + cfg["model"],
+            "api_base": cfg["base_url"].rstrip("/"),
+            "api_key": cfg["key"],
+            "timeout": timeout,
+        }
+        if "openrouter" in cfg["base_url"]:
+            params["extra_headers"] = {
+                "HTTP-Referer": "https://t.me/LiverpooliRani",
+                "X-Title": "LFC News Bot",
+            }
+        if nothink:
+            # هر سرویس زبان خودش را دارد؛ همه‌چی از extra_body می‌رود تا درست عین همان JSON خام فرستاده شود
+            # (اگر top-level بفرستیم، litellm/مسیرهای SDK ممکنه قبل ارسال حذفش کنند)
+            if "openrouter" in host:
+                params["extra_body"] = {
+                    "reasoning": {"enabled": False, "exclude": True}
+                }
+            elif "groq.com" in host:
+                # qwen/qwen3.6-27b روی گروک: فقط none/default مجاز است؛ hidden یعنی اصلاً تگ فکر برنگردد
+                params["extra_body"] = {
+                    "reasoning_effort": "none",
+                    "reasoning_format": "hidden",
+                }
+            elif "googleapis.com" in host:
+                params["extra_body"] = {"reasoning_effort": "none"}
+            elif not any(h in host for h in ("cerebras.ai", "mistral.ai")):
+                # سرورهای vLLM-مانند (مثل opencode) این را می‌فهمند
+                params["extra_body"] = {
+                    "chat_template_kwargs": {"enable_thinking": False}
+                }
+        deployments.append({
+            "model_name": name,
+            "litellm_params": params,
+            "model_info": {"id": name},
+        })
+        names.append(name)
+
+    return deployments, names, plain
+
+
+_router = None
+_router_names = []
+
+
+def _get_router():
+    """Router یک بار ساخته می‌شود تا حافظه‌ی cooldown بین خبرها حفظ شود."""
+    global _router, _router_names
+    if _router is not None:
+        return _router, _router_names
+    if not _HAS_LITELLM:
+        return None, []
+
+    deployments, names, _ = _deployments()
+    if not deployments:
+        return None, []
+
+    # هر مدل، بقیه‌ی زنجیره را به‌عنوان جایگزین خودش دارد
+    fallbacks = [{names[i]: names[i + 1:]} for i in range(len(names) - 1)]
+
+    _router = Router(
+        model_list=deployments,
+        fallbacks=fallbacks,
+        num_retries=NUM_RETRIES,
+        retry_after=2,
+        allowed_fails=ALLOWED_FAILS,
+        cooldown_time=COOLDOWN_SECONDS,
+        routing_strategy="simple-shuffle",
+        set_verbose=False,
+    )
+    _router_names = names
+    log.info("زنجیره LiteLLM آماده شد: %s", " → ".join(names))
+    return _router, names
+
+
+def _single_call(dep, prompt):
+    """صدا زدن مستقیم یک مدل بدون Router — برای doctor و benchmark."""
+    if not _HAS_LITELLM:
+        raise RuntimeError("litellm نصب نیست: pip install litellm")
+    params = dict(dep["litellm_params"])
+    if JSON_MODE:
+        params.setdefault("response_format", {"type": "json_object"})
+    resp = litellm.completion(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=MAX_TOKENS,
+        **params,
+    )
+    txt = _msg_text(resp)
+    if DEBUG_RAW or not _extract_json(txt):
+        log.warning("[%s] خروجی خام: %s", dep["model_name"],
+                    (txt or "(خالی)")[:400].replace("\n", " "))
+    return txt
+
+
+def _chain():
+    """��ازگاری با doctor.py و benchmark.py.
+
+    خروجی: لیست (نام، نوع، تابع) دقیقاً مثل نسخه قبلی.
+    هر تابع فقط همان یک مدل را می‌زند، بدون fallback — تا تست تک‌تک مدل‌ها درست باشد.
+    """
+    deployments, _, plain = _deployments()
+    out = [
+        (d["model_name"], "llm", (lambda p, d=d: _single_call(d, p)))
+        for d in deployments
+    ]
+    if plain:
+        out.append(("مترجم گوگل", "plain", _deep_translate))
     return out
 
 
 def chain_names():
-    """فقط برای لاگ و doctor."""
-    return [n for n, _, _ in _chain()]
+    """فقط برای لاگ، /health و doctor."""
+    _, names, plain = _deployments()
+    return names + (["مترجم گوگل"] if plain else [])
 
 
+def _provider_of(resp, default):
+    """کدام مدل واقعاً جواب داد."""
+    try:
+        pid = (getattr(resp, "_hidden_params", {}) or {}).get("model_id")
+        if pid:
+            return str(pid)
+    except Exception:
+        pass
+    return str(getattr(resp, "model", "") or default)
+
+
+# ---------------- ورودی اصلی ----------------
 def translate(item):
     """خروجی: dict با کلیدهای title / body / importance / tags / provider یا None."""
-    chain = _chain()
-    if not chain:
-        log.error(
-            "هیچ سرویس ترجمه‌ای فعال نیست. در .env یا یک اسلات LLM پر کن "
-            "یا ENABLE_DEEP_TRANSLATOR=true بگذار."
-        )
-        return None
-
-    # سرویس‌هایی که قطع‌کننده مدار کنارشان گذاشته را رد می‌کنیم
-    usable = [c for c in chain if health.is_available(c[0])]
-    if not usable:
-        # همه در حالت استراحت‌اند — بهتر است دوباره امتحان کنیم تا هیچ خبری ندهیم
-        log.warning("همه سرویس‌ها در حالت کول‌داون‌اند — باز هم یک بار امتحان می‌کنم")
-        usable = chain
-    else:
-        for skipped in [c[0] for c in chain if c not in usable]:
-            log.info("%s فعلاً کنار گذاشته شده (%dث دیگر)",
-                     skipped, health.cooldown_left(skipped))
-
+    router, names = _get_router()
+    _, _, plain_enabled = _deployments()
     prompt = _build_prompt(item)
     errors = []
 
-    for name, kind, fn in usable:
+    if router and names:
+        kwargs = {
+            "model": names[0],
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": MAX_TOKENS,
+        }
+        if JSON_MODE:
+            kwargs["response_format"] = {"type": "json_object"}
+
         t0 = time.time()
         try:
-            if kind == "plain":
-                data = fn(item)
-            else:
-                data = _extract_json(fn(prompt))
+            resp = router.completion(**kwargs)
+            text = _msg_text(resp)
+            provider = _provider_of(resp, names[0])
+            data = _extract_json(text)
 
             if data and data.get("body"):
-                health.record_ok(name, ms=(time.time() - t0) * 1000)
+                health.record_ok(provider, ms=(time.time() - t0) * 1000)
                 health.record_counter("translated")
-                if data.get("machine"):
-                    health.record_counter("machine_used")
+                if provider != names[0]:
+                    health.record_counter("fallback_used")
+                    log.info("ترجمه با سرویس جایگزین انجام شد: %s", provider)
                 data.setdefault("title", item.get("title", ""))
                 data.setdefault("importance", "normal")
                 data.setdefault("tags", [])
                 data["body"] = _trim(str(data["body"]))
                 data["title"] = str(data["title"]).strip()[:120]
                 _fix_importance(item, data)
-                data["provider"] = name
-                if len(chain) > 1 and name != chain[0][0]:
-                    health.record_counter("fallback_used")
-                    log.info("ترجمه با سرویس جایگزین انجام شد: %s", name)
+                data["provider"] = provider
                 return data
 
-            health.record_fail(name, "خروجی نامعتبر (JSON خراب یا خالی)")
-            errors.append(f"{name}: خروجی نامعتبر")
-            log.warning("%s: خروجی نامعتبر، می‌روم سراغ بعدی", name)
+            health.record_fail(provider, "خروجی نامعتبر (JSON خراب یا خالی)")
+            errors.append(f"{provider}: خروجی نامعتبر")
+            log.warning("%s: خروجی نامعتبر | خام: %s", provider,
+                        (text or "(خالی)")[:400].replace("\n", " "))
         except Exception as e:
-            health.record_fail(name, e)
-            errors.append(f"{name}: {e}")
-            log.warning("%s ناموفق → سرویس بعدی | %s", name, e)
+            health.record_fail(names[0], e)
+            errors.append(f"زنجیره LLM: {e}")
+            log.warning("کل زنجیره LLM شکست خورد | %s", e)
+
+    # آخرین سنگر: مترجم ماشینی بدون کلید
+    if plain_enabled:
+        t0 = time.time()
+        try:
+            data = _deep_translate(item)
+            health.record_ok("مترجم گوگل", ms=(time.time() - t0) * 1000)
+            health.record_counter("translated")
+            health.record_counter("machine_used")
+            _fix_importance(item, data)
+            data["provider"] = "مترجم گوگل"
+            return data
+        except Exception as e:
+            health.record_fail("مترجم گوگل", e)
+            errors.append(f"مترجم گوگل: {e}")
 
     health.record_counter("chain_failed")
-    log.error("همه %d سرویس ترجمه شکست خوردند:", len(usable))
+    log.error("هیچ سرویس ترجمه‌ای کار نکرد:")
     for e in errors:
         log.error("   • %s", e)
 

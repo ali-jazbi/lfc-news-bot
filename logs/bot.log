@@ -1375,3 +1375,244 @@ Setting the record straight over summer w
 2026-07-29 02:01:39,575 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @JamesPearceLFC — Citi Field. Come on the Mets
 2026-07-29 02:01:39,577 | INFO    | main         | جمع‌آوری شد: 7 آیتم
 2026-07-29 02:01:39,578 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:03:18,127 | INFO    | main         | متصل شد به @lfc_news_development_bot | حالت انتشار: manual
+2026-07-31 01:03:18,129 | INFO    | main         | سرویس فعال شد — چک منابع هر 60 ثانیه
+2026-07-31 01:03:21,595 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:03:24,618 | WARNING | src.base     | GET https://lightbrd.com/FabrizioRomano/rss -> 403
+2026-07-31 01:03:24,692 | WARNING | src.base     | GET https://nitter.space/FabrizioRomano/rss -> 403
+2026-07-31 01:03:25,503 | WARNING | src.base     | GET https://rsshub.rssforever.com/twitter/user/FabrizioRomano -> 503
+2026-07-31 01:03:25,894 | WARNING | src.base     | GET https://xcancel.com/FabrizioRomano/rss -> 400
+2026-07-31 01:03:51,555 | INFO    | src.twitter  | آینه فعال توییتر: https://nitter.net (18 توییت، 0.8s)
+2026-07-31 01:03:53,174 | INFO    | src.twitter  | توییتر: 29 حساب در 1.6s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:03:53,175 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:03:53,177 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:03:53,313 | INFO    | main         | ترجمه: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 01:04:19,443 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 01:04:20,133 | ERROR   | telegram     | telegram sendPhoto failed: 400 — Bad Request: chat not found
+2026-07-31 01:04:20,133 | INFO    | telegram     | تلگرام نتوانست عکس را خودش بگیرد — دانلود و آپلود دستی…
+2026-07-31 01:04:22,998 | ERROR   | telegram     | telegram upload_photo failed: Bad Request: chat not found
+2026-07-31 01:04:22,998 | WARNING | telegram     | ارسال با عکس نشد (Bad Request: chat not found) — فقط متن می‌رود
+2026-07-31 01:04:23,184 | ERROR   | telegram     | telegram sendMessage failed: 400 — Bad Request: chat not found
+2026-07-31 01:04:23,185 | ERROR   | main         | ارسال به گروه ناموفق بود (ADMIN_CHAT_ID را چک کن)
+2026-07-31 01:04:23,186 | INFO    | main         | ترجمه: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 01:04:39,260 | INFO    | main         | خاموش شد.
+2026-07-31 01:04:44,671 | INFO    | main         | متصل شد به @lfc_news_development_bot | حالت انتشار: manual
+2026-07-31 01:04:44,672 | INFO    | main         | سرویس فعال شد — چک منابع هر 60 ثانیه
+2026-07-31 01:04:45,789 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:04:47,805 | INFO    | src.twitter  | توییتر: 29 حساب در 1.4s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:04:47,806 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:04:47,808 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:04:47,829 | INFO    | main         | ترجمه: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 01:05:33,478 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:06:19,247 | WARNING | translate    | opencode-ling ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:06:21,330 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:06:22,243 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 01:06:23,353 | INFO    | main         | → در گروه قرار گرفت: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 01:06:25,354 | INFO    | main         | ترجمه: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 01:07:11,163 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:07:56,841 | WARNING | translate    | opencode-ling ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:08:00,909 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:08:01,924 | INFO    | main         | → در گروه قرار گرفت: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 01:08:03,925 | INFO    | main         | ترجمه: Andoni Iraola offers update on Joe Gomez injury
+2026-07-31 01:08:49,631 | WARNING | health       | ALERT | ⚠️ سرویس <b>opencode-deepseek</b> از مدار خارج شد دلیل: <code>HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)</code> فعلاً رد می‌شود و سرویس بعدی زنجیره کار را ادامه می‌دهد.
+2026-07-31 01:08:49,848 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:09:35,567 | WARNING | health       | ALERT | ⚠️ سرویس <b>opencode-ling</b> از مدار خارج شد دلیل: <code>HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)</code> فعلاً رد می‌شود و سرویس بعدی زنجیره کار را ادامه می‌دهد.
+2026-07-31 01:09:35,859 | WARNING | translate    | opencode-ling ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:09:38,749 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:09:39,256 | INFO    | main         | → در گروه قرار گرفت: Andoni Iraola offers update on Joe Gomez injury
+2026-07-31 01:09:41,258 | INFO    | main         | ترجمه: Harvey Elliott: Putting on the Liverpool kit again is a feeling like n
+2026-07-31 01:09:41,259 | INFO    | translate    | opencode-deepseek فعلاً کنار گذاشته شده (248ث دیگر)
+2026-07-31 01:09:41,259 | INFO    | translate    | opencode-ling فعلاً کنار گذاشته شده (294ث دیگر)
+2026-07-31 01:09:43,316 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:09:43,806 | INFO    | main         | → در گروه قرار گرفت: Harvey Elliott: Putting on the Liverpool kit again is a feeling like n
+2026-07-31 01:09:45,807 | INFO    | main         | ترجمه: Harvey Elliott opens up about the mental toll of being frozen out at A
+2026-07-31 01:09:45,807 | INFO    | translate    | opencode-deepseek فعلاً کنار گذاشته شده (243ث دیگر)
+2026-07-31 01:09:45,808 | INFO    | translate    | opencode-ling فعلاً کنار گذاشته شده (289ث دیگر)
+2026-07-31 01:09:47,356 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:09:47,790 | INFO    | main         | → در گروه قرار گرفت: Harvey Elliott opens up about the mental toll of being frozen out at A
+2026-07-31 01:09:49,791 | INFO    | main         | در این سیکل 5 خبر ارسال شد
+2026-07-31 01:09:57,210 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:10:01,986 | INFO    | src.twitter  | توییتر: 29 حساب در 2.1s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:10:01,988 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:10:01,990 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:10:01,991 | INFO    | main         | ترجمه: Trey Nyoni was considered by Arne Slot to be close to a first-team bre
+2026-07-31 01:10:01,991 | INFO    | translate    | opencode-deepseek فعلاً کنار گذاشته شده (227ث دیگر)
+2026-07-31 01:10:01,991 | INFO    | translate    | opencode-ling فعلاً کنار گذاشته شده (273ث دیگر)
+2026-07-31 01:10:03,402 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:10:03,822 | INFO    | main         | → در گروه قرار گرفت: Trey Nyoni was considered by Arne Slot to be close to a first-team bre
+2026-07-31 01:10:05,824 | INFO    | main         | ترجمه: Lots to take from Liverpool's second friendly of the tour, including T
+2026-07-31 01:10:05,824 | INFO    | translate    | opencode-deepseek فعلاً کنار گذاشته شده (223ث دیگر)
+2026-07-31 01:10:05,824 | INFO    | translate    | opencode-ling فعلاً کنار گذاشته شده (269ث دیگر)
+2026-07-31 01:10:07,264 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:10:07,895 | INFO    | main         | → در گروه قرار گرفت: Lots to take from Liverpool's second friendly of the tour, including T
+2026-07-31 01:10:09,896 | INFO    | main         | ترجمه: A round-up from Andoni Iraola's latest press conference from our pre-s
+2026-07-31 01:10:09,896 | INFO    | translate    | opencode-deepseek فعلاً کنار گذاشته شده (219ث دیگر)
+2026-07-31 01:10:09,896 | INFO    | translate    | opencode-ling فعلاً کنار گذاشته شده (265ث دیگر)
+2026-07-31 01:10:11,431 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: groq
+2026-07-31 01:10:11,722 | ERROR   | telegram     | telegram sendPhoto failed: 400 — Bad Request: wrong type of the web page content
+2026-07-31 01:10:11,723 | INFO    | telegram     | تلگرام نتوانست عکس را خودش بگیرد — دانلود و آپلود دستی…
+2026-07-31 01:10:12,425 | WARNING | telegram     | fetch_image https://pbs.twimg.com/pbs.twimg.com/media/HOftYmOXsAADrZ-.jpg → HTTP 404 (0 bytes)
+2026-07-31 01:10:12,425 | WARNING | telegram     | ارسال با عکس نشد (دانلود عکس: HTTP 404) — فقط متن می‌رود
+2026-07-31 01:10:12,853 | INFO    | main         | → در گروه قرار گرفت: A round-up from Andoni Iraola's latest press conference from our pre-s
+2026-07-31 01:10:14,854 | INFO    | main         | در این سیکل 3 خبر ارسال شد
+2026-07-31 01:10:55,348 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:10:57,302 | INFO    | src.twitter  | توییتر: 29 حساب در 1.0s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:10:57,303 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:10:57,305 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:10:57,306 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:11:55,489 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:11:57,802 | INFO    | src.twitter  | توییتر: 29 حساب در 0.9s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:11:57,803 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:11:57,805 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:11:57,806 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:12:55,694 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:12:57,517 | INFO    | src.twitter  | توییتر: 29 حساب در 0.8s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:12:57,518 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:12:57,520 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:12:57,521 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:13:57,270 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:14:00,239 | INFO    | src.twitter  | توییتر: 29 حساب در 0.9s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:14:00,240 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:14:00,242 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:14:00,243 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:14:55,397 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:14:56,981 | INFO    | src.twitter  | توییتر: 29 حساب در 1.0s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:14:56,982 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:14:56,984 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:14:56,985 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:15:56,783 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:15:59,411 | INFO    | src.twitter  | توییتر: 29 حساب در 1.4s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:15:59,412 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:15:59,414 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:15:59,416 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:16:57,372 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:16:59,176 | INFO    | src.twitter  | توییتر: 29 حساب در 0.8s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:16:59,177 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:16:59,180 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:16:59,181 | INFO    | main         | ترجمه: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 01:17:44,786 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:17:53,670 | WARNING | health       | ALERT | ✅ دوباره سر پا شد: <b>opencode-ling</b>
+2026-07-31 01:17:54,330 | INFO    | translate    | ترجمه با سرویس جایگزین انجام شد: opencode-ling
+2026-07-31 01:17:55,464 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 01:17:56,375 | INFO    | main         | → در گروه قرار گرفت: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 01:17:58,376 | INFO    | main         | در این سیکل 1 خبر ارسال شد
+2026-07-31 01:18:04,234 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:18:06,822 | INFO    | src.twitter  | توییتر: 29 حساب در 1.2s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:18:06,823 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:18:06,826 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:18:06,827 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:19:04,548 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 01:19:06,518 | INFO    | src.twitter  | توییتر: 29 حساب در 1.3s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 01:19:06,519 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 01:19:06,521 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 01:19:06,522 | INFO    | main         | در این سیکل 0 خبر ارسال شد
+2026-07-31 01:19:42,012 | INFO    | main         | خاموش شد.
+2026-07-31 03:24:55,733 | INFO    | main         | متصل شد به @lfc_news_development_bot | حالت انتشار: manual
+2026-07-31 03:24:55,734 | INFO    | main         | بررسی کلیک‌های در انتظار (دکمه/دستور) قبل از سیکل جدید...
+2026-07-31 03:25:02,215 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 03:25:03,042 | WARNING | src.base     | GET https://lightbrd.com/FabrizioRomano/rss -> 403
+2026-07-31 03:25:03,285 | WARNING | src.base     | GET https://nitter.space/FabrizioRomano/rss -> 403
+2026-07-31 03:25:03,915 | WARNING | src.base     | GET https://rsshub.rssforever.com/twitter/user/FabrizioRomano -> 503
+2026-07-31 03:25:04,519 | WARNING | src.base     | GET https://xcancel.com/FabrizioRomano/rss -> 400
+2026-07-31 03:25:15,698 | INFO    | src.twitter  | آینه فعال توییتر: https://nitter.net (18 توییت، 0.6s)
+2026-07-31 03:25:17,789 | INFO    | src.twitter  | توییتر: 29 حساب در 2.1s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 03:25:17,791 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 03:25:17,792 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 03:25:17,793 | INFO    | main         | ترجمه: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:25:17,814 | INFO    | LiteLLM Router | Routing strategy: simple-shuffle
+2026-07-31 03:25:17,817 | INFO    | translate    | زنجیره LiteLLM آماده شد: qwen3.7-plus → groq → gemini-flash-lite → ling-openrouter → groq-qwen → openrouter → gemini-flash → nemotron-super
+2026-07-31 03:25:27,350 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:25:28,250 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 03:25:28,650 | INFO    | main         | → در گروه قرار گرفت: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:25:30,652 | INFO    | main         | ترجمه: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:25:37,721 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:25:38,082 | INFO    | main         | → در گروه قرار گرفت: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:25:40,083 | INFO    | main         | ترجمه: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:25:48,307 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:25:48,780 | INFO    | main         | → در گروه قرار گرفت: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:25:50,780 | INFO    | main         | ترجمه: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:26:01,641 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:26:02,170 | INFO    | main         | → در گروه قرار گرفت: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:26:04,171 | INFO    | main         | ترجمه: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:26:15,530 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:26:15,925 | INFO    | main         | → در گروه قرار گرفت: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:26:17,926 | INFO    | main         | در این سیکل 5 خبر ارسال شد
+2026-07-31 03:26:17,926 | INFO    | main         | سیکل تمام شد و ربات بسته شد — دکمه‌ها فقط وقتی کار می‌کنند که ربات روشن باشد: python main.py
+2026-07-31 03:38:10,289 | INFO    | main         | متصل شد به @lfc_news_development_bot | حالت انتشار: manual
+2026-07-31 03:38:10,289 | INFO    | main         | بررسی کلیک‌های در انتظار (دکمه/دستور) قبل از سیکل جدید...
+2026-07-31 03:38:19,436 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 03:38:21,358 | INFO    | src.twitter  | توییتر: 29 حساب در 1.4s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 03:38:21,360 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 03:38:21,362 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 03:38:21,362 | INFO    | main         | ترجمه: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:38:21,387 | INFO    | LiteLLM Router | Routing strategy: simple-shuffle
+2026-07-31 03:38:21,389 | INFO    | translate    | زنجیره LiteLLM آماده شد: qwen3.7-plus → groq → gemini-flash-lite → ling-openrouter → groq-qwen → openrouter → gemini-flash → nemotron-super
+2026-07-31 03:38:31,859 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:38:32,761 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 03:38:34,606 | INFO    | main         | → در گروه قرار گرفت: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:38:36,607 | INFO    | main         | ترجمه: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:38:45,105 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:38:45,713 | INFO    | main         | → در گروه قرار گرفت: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:38:47,714 | INFO    | main         | ترجمه: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:38:55,006 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:38:55,648 | INFO    | main         | → در گروه قرار گرفت: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:38:57,649 | INFO    | main         | ترجمه: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:39:09,379 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:39:10,882 | INFO    | main         | → در گروه قرار گرفت: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:39:12,883 | INFO    | main         | ترجمه: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:39:21,606 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:39:23,055 | INFO    | main         | → در گروه قرار گرفت: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:39:25,056 | INFO    | main         | در این سیکل 5 خبر ارسال شد
+2026-07-31 03:39:25,056 | INFO    | main         | سیکل تمام شد و ربات بسته شد — دکمه‌ها فقط وقتی کار می‌کنند که ربات روشن باشد: python main.py
+2026-07-31 03:43:22,674 | INFO    | main         | متصل شد به @lfc_news_development_bot | حالت انتشار: manual
+2026-07-31 03:43:22,674 | INFO    | main         | بررسی کلیک‌های در انتظار (دکمه/دستور) قبل از سیکل جدید...
+2026-07-31 03:43:31,549 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 03:43:35,215 | INFO    | src.twitter  | توییتر: 29 حساب در 2.3s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 03:43:35,216 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 03:43:35,218 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 03:43:35,218 | INFO    | main         | ترجمه: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:43:35,240 | INFO    | LiteLLM Router | Routing strategy: simple-shuffle
+2026-07-31 03:43:35,241 | INFO    | translate    | زنجیره LiteLLM آماده شد: qwen3.7-plus → groq → gemini-flash-lite → ling-openrouter → groq-qwen → openrouter → gemini-flash → nemotron-super
+2026-07-31 03:43:45,264 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:43:46,071 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 03:43:46,626 | INFO    | main         | → در گروه قرار گرفت: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:43:48,627 | INFO    | main         | ترجمه: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:43:55,720 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:43:56,265 | INFO    | main         | → در گروه قرار گرفت: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:43:58,266 | INFO    | main         | ترجمه: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:44:05,661 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:44:06,275 | INFO    | main         | → در گروه قرار گرفت: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:44:08,276 | INFO    | main         | ترجمه: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:44:19,798 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:44:20,547 | INFO    | main         | → در گروه قرار گرفت: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:44:22,548 | INFO    | main         | ترجمه: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:44:33,688 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:44:34,283 | INFO    | main         | → در گروه قرار گرفت: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:44:36,284 | INFO    | main         | در این سیکل 5 خبر ارسال شد
+2026-07-31 03:44:36,284 | INFO    | main         | سیکل تمام شد و ربات بسته شد — دکمه‌ها فقط وقتی کار می‌کنند که ربات روشن باشد: python main.py
+2026-07-31 03:57:13,305 | INFO    | main         | متصل شد به @lfc_news_development_bot | حالت انتشار: manual
+2026-07-31 03:57:13,305 | INFO    | main         | بررسی کلیک‌های در انتظار (دکمه/دستور) قبل از سیکل جدید...
+2026-07-31 03:57:19,745 | INFO    | src.lfc      | رد شد (gallery:): Gallery: Pre-season training continues for LFC Women in Wale
+2026-07-31 03:57:22,000 | INFO    | src.twitter  | توییتر: 29 حساب در 2.0s (FabrizioRomano, David_Ornstein, JamesPearceLFC, DavidLynchLFC, _pauljoyce, LFC)
+2026-07-31 03:57:22,003 | INFO    | src.twitter  | رد شد (توییت کوتاه/مدیا): @LFC — The winner at Yankee Stadium 🙌  Video
+2026-07-31 03:57:22,004 | INFO    | main         | جمع‌آوری شد: 10 آیتم
+2026-07-31 03:57:22,004 | INFO    | main         | ترجمه: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:57:22,026 | INFO    | LiteLLM Router | Routing strategy: simple-shuffle
+2026-07-31 03:57:22,027 | INFO    | translate    | زنجیره LiteLLM آماده شد: qwen3.7-plus → groq → gemini-flash-lite → ling-openrouter → groq-qwen → openrouter → gemini-flash → nemotron-super
+2026-07-31 03:57:29,884 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:57:30,749 | INFO    | guard        | نگهبان کانال: 21 پست اخیر خوانده شد
+2026-07-31 03:57:31,150 | INFO    | main         | → در گروه قرار گرفت: Sunday: Watch live as Liverpool face Leeds United in Chicago
+2026-07-31 03:57:33,152 | INFO    | main         | ترجمه: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:57:40,704 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:57:41,089 | INFO    | main         | → در گروه قرار گرفت: Watch live on Friday: Liverpool in pre-season training in Chicago
+2026-07-31 03:57:43,090 | INFO    | main         | ترجمه: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:57:49,555 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:57:49,990 | INFO    | main         | → در گروه قرار گرفت: Watch Iraola and Szoboszlai's press conferences in Chicago on Thursday
+2026-07-31 03:57:51,991 | INFO    | main         | ترجمه: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:58:04,738 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:58:05,347 | INFO    | main         | → در گروه قرار گرفت: Andoni Iraola press conference: Chicago benefits, Ngumoha and Wirtz po
+2026-07-31 03:58:07,348 | INFO    | main         | ترجمه: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:58:19,989 | INFO    | LiteLLM Router | litellm.completion(model=openai/qwen3.7-plus)[32m 200 OK[0m
+2026-07-31 03:58:20,455 | INFO    | main         | → در گروه قرار گرفت: Dominik Szoboszlai: I want to step up and be an example for Liverpool
+2026-07-31 03:58:22,455 | INFO    | main         | در این سیکل 5 خبر ارسال شد
+2026-07-31 03:58:22,455 | INFO    | main         | سیکل تمام شد و ربات بسته شد — دکمه‌ها فقط وقتی کار می‌کنند که ربات روشن باشد: python main.py

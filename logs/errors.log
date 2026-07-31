@@ -76,3 +76,29 @@
 2026-07-29 01:19:37,228 | WARNING | src.base     | GET https://nitter.net/PhysioScout/rss -> 429
 2026-07-29 01:20:38,264 | WARNING | src.base     | GET https://nitter.net/PhysioScout/rss -> 429
 2026-07-29 01:58:10,196 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:03:24,618 | WARNING | src.base     | GET https://lightbrd.com/FabrizioRomano/rss -> 403
+2026-07-31 01:03:24,692 | WARNING | src.base     | GET https://nitter.space/FabrizioRomano/rss -> 403
+2026-07-31 01:03:25,503 | WARNING | src.base     | GET https://rsshub.rssforever.com/twitter/user/FabrizioRomano -> 503
+2026-07-31 01:03:25,894 | WARNING | src.base     | GET https://xcancel.com/FabrizioRomano/rss -> 400
+2026-07-31 01:04:20,133 | ERROR   | telegram     | telegram sendPhoto failed: 400 — Bad Request: chat not found
+2026-07-31 01:04:22,998 | ERROR   | telegram     | telegram upload_photo failed: Bad Request: chat not found
+2026-07-31 01:04:22,998 | WARNING | telegram     | ارسال با عکس نشد (Bad Request: chat not found) — فقط متن می‌رود
+2026-07-31 01:04:23,184 | ERROR   | telegram     | telegram sendMessage failed: 400 — Bad Request: chat not found
+2026-07-31 01:04:23,185 | ERROR   | main         | ارسال به گروه ناموفق بود (ADMIN_CHAT_ID را چک کن)
+2026-07-31 01:05:33,478 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:06:19,247 | WARNING | translate    | opencode-ling ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:07:11,163 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:07:56,841 | WARNING | translate    | opencode-ling ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:08:49,631 | WARNING | health       | ALERT | ⚠️ سرویس <b>opencode-deepseek</b> از مدار خارج شد دلیل: <code>HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)</code> فعلاً رد می‌شود و سرویس بعدی زنجیره کار را ادامه می‌دهد.
+2026-07-31 01:08:49,848 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:09:35,567 | WARNING | health       | ALERT | ⚠️ سرویس <b>opencode-ling</b> از مدار خارج شد دلیل: <code>HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)</code> فعلاً رد می‌شود و سرویس بعدی زنجیره کار را ادامه می‌دهد.
+2026-07-31 01:09:35,859 | WARNING | translate    | opencode-ling ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:10:11,722 | ERROR   | telegram     | telegram sendPhoto failed: 400 — Bad Request: wrong type of the web page content
+2026-07-31 01:10:12,425 | WARNING | telegram     | fetch_image https://pbs.twimg.com/pbs.twimg.com/media/HOftYmOXsAADrZ-.jpg → HTTP 404 (0 bytes)
+2026-07-31 01:10:12,425 | WARNING | telegram     | ارسال با عکس نشد (دانلود عکس: HTTP 404) — فقط متن می‌رود
+2026-07-31 01:17:44,786 | WARNING | translate    | opencode-deepseek ناموفق → سرویس بعدی | HTTPSConnectionPool(host='opencode.ai', port=443): Read timed out. (read timeout=45)
+2026-07-31 01:17:53,670 | WARNING | health       | ALERT | ✅ دوباره سر پا شد: <b>opencode-ling</b>
+2026-07-31 03:25:03,042 | WARNING | src.base     | GET https://lightbrd.com/FabrizioRomano/rss -> 403
+2026-07-31 03:25:03,285 | WARNING | src.base     | GET https://nitter.space/FabrizioRomano/rss -> 403
+2026-07-31 03:25:03,915 | WARNING | src.base     | GET https://rsshub.rssforever.com/twitter/user/FabrizioRomano -> 503
+2026-07-31 03:25:04,519 | WARNING | src.base     | GET https://xcancel.com/FabrizioRomano/rss -> 400

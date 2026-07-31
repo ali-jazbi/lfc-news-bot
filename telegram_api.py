@@ -132,8 +132,81 @@ class Telegram:
                 return self.upload_photo(chat_id, blob, caption, reply_markup, silent)
         return None
 
-    def send_post(self, chat_id, text, image=None, reply_markup=None, silent=False):
-        """اگر عکس داشت با عکس می‌فرستد؛ کپشن بلندتر از ۱۰۲۴ کاراکتر را جدا می‌کند."""
+    def send_media_group(self, chat_id, image_urls, caption=None, silent=False):
+        """چند عکس را یکجا به صورت آلبوم می‌فرستد (2 تا 10 عکس).
+
+        کپشن فقط روی عکس اول می‌نشیند (محدودیت خود تلگرام). دکمه شیشه‌ای
+        روی آلبوم پشتیبانی نمی‌شود — اگر لازم است دکمه‌ها را جدا بفرست.
+        اگر کمتر از 2 عکس باشد، خودش را کم می‌کند و با همان تعداد ادامه می‌دهد.
+        """
+        urls = [u for u in (image_urls or []) if u][:10]
+        if len(urls) < 2:
+            return None
+
+        media = []
+        for i, u in enumerate(urls):
+            entry = {"type": "photo", "media": u}
+            if i == 0 and caption:
+                entry["caption"] = caption
+                entry["parse_mode"] = "HTML"
+            media.append(entry)
+
+        res = self.call(
+            "sendMediaGroup",
+            chat_id=chat_id,
+            media=media,
+            disable_notification=silent,
+        )
+        if res:
+            return res
+
+        log.info("sendMediaGroup با URL نشد (%s) — دانلود و آپلود دستی عکس‌ها…", self.last_error)
+        files = {}
+        media2 = []
+        for i, u in enumerate(urls):
+            blob = self.fetch_image(u)
+            if not blob:
+                continue
+            key = f"photo{i}"
+            files[key] = (f"photo{i}.jpg", blob)
+            entry = {"type": "photo", "media": f"attach://{key}"}
+            if i == 0 and caption:
+                entry["caption"] = caption
+                entry["parse_mode"] = "HTML"
+            media2.append(entry)
+        if len(media2) < 2:
+            return None
+        url = API_BASE + self.token + "/sendMediaGroup"
+        data = {"chat_id": str(chat_id), "media": json.dumps(media2),
+                "disable_notification": "true" if silent else "false"}
+        try:
+            r = self.s.post(url, data=data, files=files, timeout=120)
+            resj = r.json()
+            if resj.get("ok"):
+                return resj["result"]
+            log.error("sendMediaGroup (آپلود دستی) هم نشد: %s", resj.get("description"))
+            self.last_error = resj.get("description") or str(resj)
+        except Exception as e:
+            log.warning("sendMediaGroup آپلود دستی خطا: %s", e)
+            self.last_error = str(e)
+        return None
+
+    def send_post(self, chat_id, text, image=None, images=None, reply_markup=None, silent=False):
+        """اگر ≤۲ عکس داشت و دکمه‌ای در کار نبود آلبوم می‌فرستد؛
+        ورنه طبق رفتار قدیمی: یک عکس + متن (یا فقط متن اگر عکس نبود)."""
+        imgs = [u for u in (images or []) if u]
+        if len(imgs) >= 2 and not reply_markup:
+            caption = text if len(text) <= 1024 else None
+            res = self.send_media_group(chat_id, imgs, caption=caption, silent=silent)
+            if res:
+                if caption is None:
+                    self.send_message(chat_id, text, silent=silent)
+                return res
+            log.warning("آلبوم نرفت (%s) — با یک عکس ادامه می‌دهیم", self.last_error)
+
+        if not image and imgs:
+            image = imgs[0]
+
         if image and len(text) <= 1024:
             res = self.send_photo(chat_id, image, text, reply_markup, silent)
             if res:

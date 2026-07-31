@@ -16,9 +16,18 @@ APP_DIR="/home/lfcnewss/lfc-bot"                                        # اگه
 VENV_ACTIVATE="/home/lfcnewss/virtualenv/lfc-bot/3.11/bin/activate"     # این رو از Setup Python App کپی کن
 
 LOG_FILE="$APP_DIR/data/watchdog.log"
+LOCK_FILE="$APP_DIR/data/watchdog.lock"
 mkdir -p "$APP_DIR/data"
 
 cd "$APP_DIR" || exit 1
+
+# قفل فایلی: اگه یه اجرای قبلی این اسکریپت هنوز باز باشه (مثلاً کرون قبلی گیر
+# کرده)، این اجرای جدید بی‌سروصدا خارج می‌شه. بدون این، دو تا کرون هم‌زمان
+# می‌تونن هر دو main.py رو استارت کنن و با هم قاپ getUpdates بندازن (409).
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+	exit 0   # یه اجرای دیگه از watchdog همین الان در حال کاره
+fi
 
 if pgrep -f "python3 .*main\.py" > /dev/null 2>&1; then
 	exit 0   # بات روشنه، کاری لازم نیست

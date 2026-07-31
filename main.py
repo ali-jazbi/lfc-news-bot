@@ -2,7 +2,7 @@
 
 حالت پیش‌فرض = manual:
   ربات فقط در گروه تست/ادمین پیش‌نمایش می‌گذارد. با دکمه
-  "📤 نسخه آماده انتشار" یک پیام تمیز (بدون دکمه و لینک منبع) در همان
+  "\U0001F4E4 نسخه آماده انتشار" یک پیام تمیز (بدون دکمه و لینک منبع) در همان
   گروه می‌فرستد تا ادمین خودش فوروارد/کپی کند. هیچ چیزی خودکار
   روی کانال نمی‌رود.
 
@@ -152,6 +152,7 @@ def process_item(item, force=False):
     if DRY_RUN:
         print("\n" + "=" * 60)
         print("IMAGE:", item.get("image"))
+        print("IMAGES:", item.get("images"))
         print(caption)
         original = formatter.build_original_message(item)
         if original:
@@ -162,13 +163,26 @@ def process_item(item, force=False):
         return True
 
     high = tr.get("importance") == "high"
-    msg = tg.send_post(
-        config.ADMIN_CHAT_ID,
-        caption,
-        image=item.get("image"),
-        reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
-        silent=not high,
-    )
+    images = [u for u in (item.get("images") or []) if u]
+
+    if len(images) >= 2:
+        # دکمه روی آلبوم کار نمی‌کند — اول آلبوم را جدا می‌فرستیم،
+        # بعد کپشن + دکمه‌ها را به صورت پیام متنی جداگانه
+        tg.send_media_group(config.ADMIN_CHAT_ID, images, silent=not high)
+        msg = tg.send_message(
+            config.ADMIN_CHAT_ID,
+            caption,
+            reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+            silent=not high,
+        )
+    else:
+        msg = tg.send_post(
+            config.ADMIN_CHAT_ID,
+            caption,
+            image=item.get("image"),
+            reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+            silent=not high,
+        )
     if msg:
         db.save(item, status="sent_admin", admin_msg=msg.get("message_id"))
 
@@ -209,9 +223,10 @@ def approve(key, chat_id):
         return False, "ترجمه ذخیره نشده"
 
     text = formatter.build_caption(item, tr)
+    images = item.get("images")
 
     if config.PUBLISH_MODE == "auto" and config.CHANNEL_ID:
-        res = tg.send_post(config.CHANNEL_ID, text, image=item.get("image"))
+        res = tg.send_post(config.CHANNEL_ID, text, image=item.get("image"), images=images)
         if res:
             db.set_status(key, "published")
             return True, "\u2705 روی کانال منتشر شد"
@@ -219,7 +234,7 @@ def approve(key, chat_id):
 
     # حالت دستی
     tg.send_message(chat_id, "\U0001F447 نسخه نهایی — فوروارد/کپی کن در کانال", silent=True)
-    res = tg.send_post(chat_id, text, image=item.get("image"))
+    res = tg.send_post(chat_id, text, image=item.get("image"), images=images)
     if res:
         db.set_status(key, "approved")
         return True, "\U0001F4E4 نسخه آماده ارسال شد"
@@ -250,7 +265,7 @@ def drain_pending_updates(timeout=5):
 
     برای اجراهای کوتاه‌مدت و بدون حلقه‌ی دائمی (مثلاً یک اجرای زمان‌بندی‌شده
     در GitHub Actions) لازم است، وگرنه کلیک روی دکمه‌های «انتشار/رد/ترجمه
-    مجدد» هیچ‌وقت پردازش ��می‌شود.
+    مجدد» هیچ‌وقت پردازش نمی‌شود.
     """
     offset = None
     try:
@@ -464,7 +479,7 @@ def main():
             sys.exit(1)
         log.info("متصل شد به @%s | حالت انتشار: %s", me.get("username"), config.PUBLISH_MODE)
 
-        # از این به بعد هشداره��ی health در گروه ادمین می‌افتند
+        # از این به بعد هشدارهای health در گروه ادمین می‌افتند
         health.set_notifier(
             lambda text: tg.send_message(config.ADMIN_CHAT_ID, text, silent=False)
         )

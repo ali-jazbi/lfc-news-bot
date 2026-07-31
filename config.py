@@ -148,7 +148,7 @@ BOOTSTRAP_SILENT = _get("BOOTSTRAP_SILENT", "false").lower() == "true"
 
 # --- ترجمه ---
 # زنجیره سرویس‌ها به ترتیب اولویت. هر کدام خطا بدهد خودکار می‌رود سراغ بعدی.
-# مقادیر مجاز: llm1 تا llm5 ، gemini ، translate
+# مقادیر مجاز: llm1 تا llm10 ، gemini ، translate
 TRANSLATE_ORDER = _list("TRANSLATE_ORDER", "llm1,llm2,llm3,gemini,translate")
 
 
@@ -162,8 +162,7 @@ def _llm_slot(n):
     }
 
 
-LLM_SLOTS = {("llm%d" % n): _llm_slot(n) for n in range(1, 6)}
-
+LLM_SLOTS = {("llm%d" % n): _llm_slot(n) for n in range(1, 21)}
 # مترجم ماشینی گوگل — بدون کلید، بدون سقف. کیفیت پایین‌تر ولی همیشه در دسترس
 ENABLE_DEEP_TRANSLATOR = _get("ENABLE_DEEP_TRANSLATOR", "true").lower() == "true"
 
