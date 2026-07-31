@@ -252,7 +252,7 @@ def approve(key, chat_id):
 def run_cycle(force=False):
     health.record_counter("cycles")
     items = collect()
-    log.info("جمع‌آوری شد: %d آیتم", len(items))
+    log.info("��مع‌آوری شد: %d آیتم", len(items))
     if not items:
         log.warning("هیچ خبری از منابع گرفته نشد. برای تست عملکرد: python main.py --sample")
         return 0
@@ -315,13 +315,30 @@ def poller_loop():
 
 
 # ------------------------------------------------------------------ bot
+def _is_admin(user_id):
+    """اگر ADMIN_USER_IDS خالی باشد همه اجازه دارند (رفتار قدیم)،
+    وگرنه فقط آیدی‌های فهرست شده اجازه دارند."""
+    if not config.ADMIN_USER_IDS:
+        return True
+    return user_id in config.ADMIN_USER_IDS
+
+
 def handle_callback(cq):
     data = cq.get("data", "")
     cid = cq["id"]
     msg = cq.get("message", {})
     chat_id = msg.get("chat", {}).get("id")
     msg_id = msg.get("message_id")
-    user = cq.get("from", {}).get("first_name", "admin")
+    from_user = cq.get("from", {})
+    user = from_user.get("first_name", "admin")
+
+    if not _is_admin(from_user.get("id")):
+        tg.answer_callback(cid, "\u26d4 اجازه نداری این دکمه را بزنی.", alert=True)
+        log.warning(
+            "\u062aلاش دکمه از کاربر غیرمجاز: %s (%s)",
+            from_user.get("id"), user,
+        )
+        return
 
     if ":" not in data:
         tg.answer_callback(cid)
@@ -374,12 +391,22 @@ def handle_callback(cq):
 def handle_message(m):
     text = (m.get("text") or "").strip()
     chat_id = m.get("chat", {}).get("id")
+    from_user = m.get("from", {})
     if not text.startswith("/"):
         return
     cmd = text.split()[0].split("@")[0]
 
+    # /id همیشه باز می‌ماند تا خودت بتونی آیدیات را بگیری و توی ADMIN_USER_IDS بگذاری
+    if cmd != "/id" and not _is_admin(from_user.get("id")):
+        tg.send_message(chat_id, "\u26d4 اجازه نداری این دستور را بزنی.")
+        log.warning(
+            "\u062aلاش دستور از کاربر غیرمجاز: %s (%s)",
+            from_user.get("id"), from_user.get("first_name"),
+        )
+        return
+
     if cmd == "/id":
-        tg.send_message(chat_id, f"chat_id این گفتگو: <code>{chat_id}</code>")
+        tg.send_message(chat_id, f"chat_id این گفتگو: <code>{chat_id}</code>\nآیدی عددی تو: <code>{from_user.get('id')}</code>")
     elif cmd == "/status":
         tg.send_message(
             chat_id,

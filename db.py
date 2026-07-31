@@ -35,6 +35,13 @@ def init():
     os.makedirs(os.path.dirname(os.path.abspath(config.DB_PATH)), exist_ok=True)
     _conn = sqlite3.connect(config.DB_PATH, check_same_thread=False)
     _conn.row_factory = sqlite3.Row
+    # WAL: چون poller_loop (ترد پس‌زمینه) و bot_loop (ترد اصلی) هم‌زمان به
+    # دیتابیس می‌نویسند/می‌خوانند، WAL خواندن و نوشتن هم‌زمان را ممکن می‌کند
+    # و ریسک قفل‌شدن دیتابیس ("database is locked") را عملاً از بین می‌برد.
+    _conn.execute("PRAGMA journal_mode=WAL")
+    _conn.execute("PRAGMA synchronous=NORMAL")
+    # اگر با وجود WAL یک لحظه قفل شد، به‌جای خطای فوری تا ۵ ثانیه صبر کند.
+    _conn.execute("PRAGMA busy_timeout=5000")
     _conn.executescript(SCHEMA)
     _conn.commit()
     return _conn

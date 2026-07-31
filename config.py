@@ -35,6 +35,11 @@ CHANNEL_ID = _get("CHANNEL_ID")                # فقط در حالت auto لا�
 CHANNEL_USERNAME = _get("CHANNEL_USERNAME", "@LiverpooliRani")
 PROXY = _get("PROXY")                          # مثال: socks5h://127.0.0.1:1080
 
+# آیدی عددی کاربرانی که اجازه دارند دستور/دکمه بزنند (با کاما جدا کن).
+# خالی = همه‌ی اعضای گروه ادمین اجازه دارند (رفتار قدیم، برای سازگاری).
+# آیدی عددی خودت را با /id در همان گروه می‌گیری.
+ADMIN_USER_IDS = [int(x) for x in _list("ADMIN_USER_IDS") if x.lstrip("-").isdigit()]
+
 # manual = ربات فقط نسخه آماده را در همان گروه می‌دهد (انتشار دستی توسط ادمین)
 # auto   = ربات خودش روی CHANNEL_ID می‌فرستد
 PUBLISH_MODE = _get("PUBLISH_MODE", "manual").lower()
