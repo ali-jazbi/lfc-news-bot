@@ -28,7 +28,7 @@ import formatter
 import health
 import sample_item
 import translate
-from sources import lfc_official, romano, twitter
+from sources import lfc_official, romano, twitter, outlet_rss, bluesky
 from telegram_api import Telegram
 
 
@@ -95,7 +95,14 @@ def collect():
     items = []
     if config.ENABLE_LFC:
         items += _fetch_source("سایت باشگاه", lfc_official.fetch)
+    if getattr(config, "ENABLE_OUTLET_RSS", True):
+        # منبع رسمی و پایدار — هیچ وابستگی به آینه/میرور ندارد
+        items += _fetch_source("خبرگزاری رسمی", outlet_rss.fetch)
+    if getattr(config, "ENABLE_BLUESKY", False):
+        # جایگزین رسمی نیتر برای خبرنگارانی که BLUESKY_HANDLES دارند
+        items += _fetch_source("بلواسکای", bluesky.fetch)
     if getattr(config, "ENABLE_TWITTER", True):
+        # توییتر/نیتر حالا دیگر تنها منبع نیست — یک لایه کمکی بعد از RSS/بلواسکای
         items += _fetch_source("توییتر", twitter.fetch)
     elif config.ENABLE_ROMANO:
         items += _fetch_source("رومانو", romano.fetch)
@@ -398,7 +405,7 @@ def handle_message(m):
         if _check_running:
             tg.send_message(chat_id, "⏳ یک چک منابع همین الان در حال اجراست — صبر کن تمام شود.")
             return
-        tg.send_message(chat_id, "در حال چک کردن منابع...")
+        tg.send_message(chat_id, "در حال چ�� کردن منابع...")
 
         def _run_check():
             global _check_running

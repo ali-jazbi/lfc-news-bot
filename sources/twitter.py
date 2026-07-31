@@ -1,15 +1,24 @@
-"""منبع توییتر — چندین حساب، موازی، با انتخاب هوشمند آینه.
+"""منبع توییتر — چند لایه، برای پایداری واقعی.
 
-سه درس از تست‌های واقعی:
+چالش اصلی این فایل: گرفتن توییت‌های تازه از آیدی‌های مشخص، به‌صورت پایدار،
+بدون پول دادن به API رسمی توییتر. سه لایه به ترتیب امتحان می‌شوند:
 
-۱) بعضی آینه‌ها «جواب می‌دهند» ولی محتوایشان آشغال است
-   (مثلاً xcancel که می‌نویسد: RSS reader not yet whitelisted!).
-   پس فقط «خالی نبودن» کافی نیست — محتوا هم اعتبارسنجی می‌شود.
+۱) سندیکیشن مستقیم توییتر (cdn.syndication.twimg.com) — همان چیزی که خودِ
+   توییتر برای نمایش توییت در ویجت/امبد سایت‌های دیگر استفاده می‌کند.
+   رایگان و بدون کلید است و به هیچ آینه‌ای وابسته نیست، پس وقتی جواب می‌دهد
+   از همه پایدارتر است. نقطه ضعفش: مستند رسمی ندارد، ساختار پاسخش می‌تواند
+   بدون اطلاع عوض شود و گاهی نرخش محدود می‌شود. برای همین با احتیاط پارس
+   می‌شود (به‌جای وابستگی به یک مسیر ثابت در JSON، کل درخت پاسخ گشته می‌شود)
+   و اگر هر جای این لایه شکست بخورد، بقیه خط لوله دست‌نخورده می‌ماند.
 
-۲) خواندن ۱۲ حساب پشت سر هم با آینه کند = چند دقیقه هنگ.
-   پس همه حساب‌ها موازی خوانده می‌شوند با تایم‌اوت کوتاه.
+۲) آینه‌های نیتر (RSS) — همان روال قبلی، ولی حالا با «امتیاز سلامت»:
+   هر آینه که در سنجش دوره‌ای شکست بخورد یک backoff نمایی می‌گیرد (۵ دقیقه،
+   ۱۰، ۲۰، ... تا سقف ۶ ساعت) و تا آن زمان دیگر امتحان نمی‌شود، مگر این‌که
+   همه آینه‌ها در backoff باشند که آن‌وقت محدودیت نادیده گرفته می‌شود تا
+   ربات کامل متوقف نشود.
 
-۳) آینه‌ها بی‌ثبات‌اند. بهترین آینه با امتیاز انتخاب می‌شود، نه اولین جوابگو.
+لایه ۲ فقط برای حساب‌هایی اجرا می‌شود که لایه ۱ برایشان چیزی نداد — یعنی
+نیتر دیگر تنها راه نیست، فقط یک پشتیبان است.
 """
 import json
 import logging
@@ -17,6 +26,8 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
 
 import config
 from sources.base import parse_rss, clean_text
@@ -32,6 +43,12 @@ FEED_TIMEOUT = 12
 FALLBACK_TIMEOUT = 8          # آینه کمکی نباید کل سیکل را معطل کند
 ACCOUNT_COOLDOWN = 1800       # حسابی که هیچ آینه‌ای ندادش، ۳۰ دقیقه کنار می‌رود
 WORKERS = 8          # چند حساب همزمان
+
+SYNDICATION_TIMEOUT = 10
+
+# backoff نمایی برای آینه‌های خراب — تا این سقف بالا می‌رود
+MIRROR_BACKOFF_BASE = 300        # ۵ دقیقه اولین شکست
+MIRROR_BACKOFF_MAX = 6 * 3600    # حداکثر ۶ ساعت
 
 # جملاتی که یعنی «این فید واقعی نیست»
 JUNK_MARKERS = (
@@ -67,6 +84,34 @@ def _save():
             json.dump(_state, f)
     except Exception as e:
         log.debug("state save failed: %s", e)
+
+
+# ------------------------------------------------------------- سلامت آینه‌ها
+def _mirror_health():
+    _load()
+    return _state.setdefault("mirror_health", {})
+
+
+def _mirror_is_backed_off(base, health):
+    info = health.get(base)
+    if not info:
+        return False
+    return time.time() < info.get("until", 0)
+
+
+def _mirror_record(base, ok):
+    health = _mirror_health()
+    info = health.setdefault(base, {"fails": 0, "until": 0})
+    if ok:
+        info["fails"] = 0
+        info["until"] = 0
+    else:
+        info["fails"] = info.get("fails", 0) + 1
+        delay = min(MIRROR_BACKOFF_MAX, MIRROR_BACKOFF_BASE * (2 ** (info["fails"] - 1)))
+        info["until"] = time.time() + delay
+        log.info("آینه %s به مدت %d دقیقه کنار گذاشته شد (شکست پیاپی: %d)",
+                 base, delay // 60, info["fails"])
+    _save()
 
 
 # ------------------------------------------------------------------ helpers
@@ -239,9 +284,157 @@ def canonical(link, user):
     return link
 
 
-# ------------------------------------------------------------------ mirror
+# --------------------------------------------------- لایه ۱: سندیکیشن مستقیم
+_SYNDICATION_URL = "https://cdn.syndication.twimg.com/timeline/profile"
+_SYNDICATION_HEADERS = {
+    "User-Agent": getattr(config, "USER_AGENT", "Mozilla/5.0"),
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def _twitter_date_to_rfc822(raw):
+    """created_at توییتر (مثلاً Wed Oct 10 20:19:24 +0000 2018) را به فرمت
+    استانداردی تبدیل می‌کند که tweet_age_hours() همین حالا می‌فهمد."""
+    if not raw:
+        return ""
+    try:
+        from datetime import datetime
+        from email.utils import format_datetime
+        dt = datetime.strptime(raw, "%a %b %d %H:%M:%S %z %Y")
+        return format_datetime(dt)
+    except Exception:
+        return raw
+
+
+def _tweet_media(node):
+    ext = node.get("extended_entities") or node.get("entities") or {}
+    for m in ext.get("media", []) or []:
+        url = m.get("media_url_https") or m.get("media_url")
+        if url:
+            return url
+    return None
+
+
+def _tweet_author(node):
+    """نویسنده واقعی این آبجکت توییت‌مانند را پیدا می‌کند (اگر پیدا شود).
+
+    لازم است چون پاسخ سندیکیشن ممکن است شامل توییت‌های نقل‌قول‌شده/ریتوییت‌شده
+    از حساب‌های دیگر هم باشد؛ این‌ها نباید به‌جای توییت خودِ حساب حساب شوند.
+    """
+    for path in (
+        ("core", "user_results", "result", "legacy", "screen_name"),
+        ("user_results", "result", "legacy", "screen_name"),
+        ("user", "screen_name"),
+    ):
+        cur = node
+        ok = True
+        for k in path:
+            if isinstance(cur, dict) and k in cur:
+                cur = cur[k]
+            else:
+                ok = False
+                break
+        if ok and isinstance(cur, str):
+            return cur
+    return None
+
+
+def _extract_tweets(node, found=None):
+    """به‌صورت بازگشتی هر آبجکتی که شبیه توییت واقعی است را پیدا می‌کند.
+
+    چون ساختار این endpoint رسمی مستند نیست و ممکن است هر زمان بدون اطلاع
+    عوض شود، به‌جای وابستگی به یک مسیر ثابت در JSON، کل درخت گشته می‌شود.
+    """
+    if found is None:
+        found = []
+    if isinstance(node, dict):
+        text = node.get("full_text") or node.get("text")
+        tid = node.get("id_str") or node.get("rest_id")
+        if text and tid and re.match(r"^\d+$", str(tid)):
+            found.append(node)
+        for v in node.values():
+            _extract_tweets(v, found)
+    elif isinstance(node, list):
+        for v in node:
+            _extract_tweets(v, found)
+    return found
+
+
+def syndication_fetch(user, timeout=SYNDICATION_TIMEOUT):
+    """لایه ۱ — مستقیم از سرور خود توییتر، بدون هیچ آینه‌ای.
+
+    بهترین حالت: کاملاً پایدار چون واسطه ندارد. بدترین حالت: پاسخ خالی یا
+    ساختار غیرمنتظره — که هر دو بی‌خطر مدیریت می‌شوند و لایه ۲ (نیتر) جایگزین
+    می‌شود.
+    """
+    try:
+        r = requests.get(
+            _SYNDICATION_URL,
+            params={"screen_name": user.lstrip("@"), "showReplies": "false"},
+            headers=_SYNDICATION_HEADERS,
+            timeout=timeout,
+        )
+        if r.status_code != 200 or not r.text.strip():
+            log.debug("syndication @%s -> HTTP %s", user, r.status_code)
+            return []
+        data = r.json()
+    except Exception as e:
+        log.debug("syndication @%s failed: %s", user, e)
+        return []
+
+    raw_tweets = _extract_tweets(data)
+    seen, out = set(), []
+    for t in raw_tweets:
+        tid = t.get("id_str") or t.get("rest_id")
+        if not tid or tid in seen:
+            continue
+        author = _tweet_author(t)
+        if author and author.lower() != user.lstrip("@").lower():
+            continue    # توییت نقل‌قول‌شده/ریتوییت‌شده از حساب دیگر — رد می‌شود
+        seen.add(tid)
+        text = t.get("full_text") or t.get("text") or ""
+        out.append(
+            {
+                "title": text,
+                "link": "https://x.com/%s/status/%s" % (user.lstrip("@"), tid),
+                "summary": text,
+                "image": _tweet_media(t),
+                "published": _twitter_date_to_rfc822(t.get("created_at", "")),
+            }
+        )
+
+    def _sort_key(e):
+        age = tweet_age_hours(e)
+        return age if age is not None else 999999
+
+    try:
+        out.sort(key=_sort_key)
+    except Exception:
+        pass
+    return out
+
+
+def _read_many_syndication(users, timeout=SYNDICATION_TIMEOUT):
+    result = {}
+    if not users:
+        return result
+    with ThreadPoolExecutor(max_workers=min(len(users), WORKERS)) as pool:
+        futures = {pool.submit(syndication_fetch, u, timeout): u for u in users}
+        for fut in as_completed(futures):
+            u = futures[fut]
+            try:
+                result[u] = fut.result()
+            except Exception as e:
+                log.debug("syndication @%s failed: %s", u, e)
+                result[u] = []
+    return result
+
+
+# --------------------------------------------------- لایه ۲: آینه‌های نیتر
 def rank_bases(probe_user=None, timeout=FEED_TIMEOUT):
-    """همه آینه‌ها را موازی می‌سنجد و مرتب‌شده برمی‌گرداند.
+    """همه آینه‌ها را موازی می‌سنجد، امتیاز سلامت‌شان را ثبت می‌کند و
+    مرتب‌شده برمی‌گرداند.
 
     خروجی: [(base, تعداد توییت واقعی, ثانیه), ...] از بهترین به بدترین.
     """
@@ -254,6 +447,7 @@ def rank_bases(probe_user=None, timeout=FEED_TIMEOUT):
     def probe(base):
         t0 = time.time()
         entries = read_feed(base, user, timeout=timeout)
+        _mirror_record(base, ok=len(entries) >= 1)
         return (base, len(entries), round(time.time() - t0, 1))
 
     out = []
@@ -270,27 +464,33 @@ def rank_bases(probe_user=None, timeout=FEED_TIMEOUT):
 
 
 def pick_base(force=False):
-    """بهترین آینه را انتخاب و تا BASE_TTL ذخیره می‌کند."""
+    """بهترین آینه سالم (بیرون از backoff) را انتخاب و تا BASE_TTL ذخیره می‌کند."""
     _load()
     now = time.time()
     if not force and _state.get("base") and now - _state.get("base_at", 0) < BASE_TTL:
         return _state["base"]
 
     ranked = rank_bases()
+    health = _mirror_health()
+    alive = [r for r in ranked if not _mirror_is_backed_off(r[0], health)]
+    # اگر همه آینه‌ها در backoff بودند، محدودیت را نادیده می‌گیریم تا کاملاً
+    # بی‌آینه نمانیم — بهتر است آینه‌ی نه‌چندان تازه امتحان شود تا هیچ‌کدام
+    pool = alive or ranked
+
     # حداقل ۳ توییت واقعی = آینه سالم
-    healthy = [r for r in ranked if r[1] >= 3]
+    healthy = [r for r in pool if r[1] >= 3]
 
     if healthy:
         base = healthy[0][0]
         _state.update({"base": base, "base_at": now})
         _save()
-        log.info("\u0622ینه فعال توییتر: %s (%d توییت، %ss)",
+        log.info("آینه فعال توییتر: %s (%d توییت، %ss)",
                  base, healthy[0][1], healthy[0][2])
         return base
 
     _state.update({"base": "", "base_at": now})
     _save()
-    log.error("\u0647یچ آینه سالمی پیدا نشد — python check_mirrors.py را بزن")
+    log.error("هیچ آینه سالمی پیدا نشد — python check_mirrors.py را بزن")
     return ""
 
 
@@ -309,7 +509,6 @@ def _due_accounts():
     return tier1 + picked
 
 
-# ------------------------------------------------------------------ fetch
 def _read_many(base, users):
     """چند حساب را موازی می‌خواند — خروجی: {user: entries}."""
     result = {}
@@ -350,36 +549,50 @@ def _read_many(base, users):
                     entries = []
                 if entries:
                     result[u] = entries
-                    log.info("\u0622\u06cc\u0646\u0647 \u06a9\u0645\u06a9\u06cc %s \u0628\u0631\u0627\u06cc @%s \u062c\u0648\u0627\u0628 \u062f\u0627\u062f", alt, u)
+                    log.info("آینه کمکی %s برای @%s جواب داد", alt, u)
         for u in missing:
             if not result.get(u):
                 cool[u.lower()] = now      # تا مدتی سراغش نمی‌رویم
-                log.info("@%s \u062c\u0648\u0627\u0628 \u0646\u062f\u0627\u062f \u2014 %d \u062f\u0642\u06cc\u0642\u0647 \u06a9\u0646\u0627\u0631 \u06af\u0630\u0627\u0634\u062a\u0647 \u0634\u062f", u, ACCOUNT_COOLDOWN // 60)
+                log.info("@%s جواب نداد — %d دقیقه کنار گذاشته شد", u, ACCOUNT_COOLDOWN // 60)
         _save()
     return result
 
 
+# ------------------------------------------------------------------ fetch
 def fetch(limit=6):
-    base = pick_base()
-    if not base:
-        return []
-
     users = _due_accounts()
+    if not users:
+        return []
     t0 = time.time()
-    feeds = _read_many(base, users)
-    dead = [u for u in users if not feeds.get(u)]
 
-    # اگر بیشتر حساب‌ها خالی برگشتند یعنی آینه خراب شده — یک بار عوض می‌کنیم
-    if users and len(dead) > len(users) * 0.6:
-        log.warning("\u0622ینه %s جواب نمی‌دهد (%d از %d خالی) — آینه دیگری امتحان می‌شود",
-                    base, len(dead), len(users))
-        new_base = pick_base(force=True)
-        if new_base and new_base != base:
-            base = new_base
-            feeds = _read_many(base, users)
+    # لایه ۱: مستقیم از خود توییتر — بدون آینه
+    use_syndication = getattr(config, "ENABLE_TWITTER_SYNDICATION", True)
+    feeds = _read_many_syndication(users) if use_syndication else {}
+    synd_hits = [u for u in users if feeds.get(u)]
 
-    log.info("\u062aوییتر: %d حساب در %ss (%s)",
-             len(users), round(time.time() - t0, 1), ", ".join(users[:6]))
+    # لایه ۲: آینه‌های نیتر — فقط برای حساب‌هایی که لایه ۱ چیزی نداد
+    missing = [u for u in users if not feeds.get(u)]
+    if missing:
+        base = pick_base()
+        if base:
+            mirror_feeds = _read_many(base, missing)
+            for u, entries in mirror_feeds.items():
+                if entries:
+                    feeds[u] = entries
+            dead = [u for u in missing if not feeds.get(u)]
+            if len(dead) > len(missing) * 0.6:
+                log.warning("آینه %s جواب نمی‌دهد (%d از %d خالی) — آینه دیگری امتحان می‌شود",
+                            base, len(dead), len(missing))
+                new_base = pick_base(force=True)
+                still_missing = [u for u in missing if not feeds.get(u)]
+                if new_base and new_base != base and still_missing:
+                    mirror_feeds = _read_many(new_base, still_missing)
+                    for u, entries in mirror_feeds.items():
+                        if entries:
+                            feeds[u] = entries
+
+    log.info("توییتر: %d حساب در %ss (سندیکیشن مستقیم: %d، نیتر: %d)",
+             len(users), round(time.time() - t0, 1), len(synd_hits), len(users) - len(synd_hits))
 
     out = []
     for user in users:
@@ -389,13 +602,13 @@ def fetch(limit=6):
             max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
             age = tweet_age_hours(e)
             if max_age and age is not None and age > max_age:
-                log.debug("\u0631\u062f \u0634\u062f (\u0642\u062f\u06cc\u0645\u06cc %.0f\u0633\u0627\u0639\u062a): @%s", age, user)
+                log.debug("رد شد (قدیمی %.0fساعت): @%s", age, user)
                 continue
             text = tweet_text(e)
             if not text or text.startswith("RT "):
                 continue
             if tweet_is_noise(text):
-                log.info("\u0631\u062f \u0634\u062f (\u062a\u0648\u06cc\u06cc\u062a \u06a9\u0648\u062a\u0627\u0647/\u0645\u062f\u06cc\u0627): @%s \u2014 %s", user, text[:50].replace("\n", " "))
+                log.info("رد شد (توییت کوتاه/مدیا): @%s — %s", user, text[:50].replace("\n", " "))
                 continue
             if not _is_relevant(text, user):
                 continue

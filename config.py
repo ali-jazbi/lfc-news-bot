@@ -49,6 +49,27 @@ ENABLE_LFC = _get("ENABLE_LFC", "true").lower() == "true"
 ENABLE_ROMANO = _get("ENABLE_ROMANO", "true").lower() == "true"
 ENABLE_TWITTER = _get("ENABLE_TWITTER", "true").lower() == "true"
 
+# لایه یک برداشت توییت — مستقیم از سرور خود توییتر (بدون آینه).
+# تست واقعی نشان داد این endpoint فعلاً همیشه HTTP 200 با بدنه کاملاً خالی
+# برمی‌گرداند (یعنی توییتر بی‌سروصدا بلاکش کرده)، پس پیش‌فرض خاموشه تا وقتی
+# روزی دوباره درست شد روشنش کنیم. کدش همچنان هست و فقط با یک true در .env فعال می‌شود.
+ENABLE_TWITTER_SYNDICATION = (
+    _get("ENABLE_TWITTER_SYNDICATION", "false").lower() == "true"
+)
+
+# فیدهای RSS رسمی خبرگزاری‌ها — رسمی و پایدار، هیچ وابستگی به آینه/میرور ندارد.
+# برای افزودن فید جدید کافی است آدرسش را اینجا اضافه کنی (با کاما جدا کن).
+ENABLE_OUTLET_RSS = _get("ENABLE_OUTLET_RSS", "true").lower() == "true"
+OUTLET_RSS_FEEDS = _list(
+    "OUTLET_RSS_FEEDS",
+    "https://feeds.bbci.co.uk/sport/football/teams/liverpool/rss.xml",
+)
+
+# بلواسکای — جایگزین رسمی نیتر برای خبرنگارانی که آنجا هم پست می‌گذارند.
+# غیرفعال است تا وقتی BLUESKY_HANDLES پر شود (نمونه: someone.bsky.social)
+ENABLE_BLUESKY = _get("ENABLE_BLUESKY", "false").lower() == "true"
+BLUESKY_HANDLES = _list("BLUESKY_HANDLES", "")
+
 # --- حساب‌های توییتر ---
 # آینه‌هایی که توییتر را به RSS تبدیل می‌کنند (اولین زنده انتخاب می‌شود)
 NITTER_BASES = _list(
@@ -58,7 +79,12 @@ NITTER_BASES = _list(
     "https://xcancel.com,"
     "https://nitter.tiekoetter.com,"
     "https://nitter.space,"
-    "https://rsshub.rssforever.com/twitter/user",
+    "https://rsshub.rssforever.com/twitter/user,"
+    # کاندیدهای جدید — تست‌نشده‌اند از اینجا؛ با اجرای test_twitter_sources.py
+    # روی اینترنت واقعی مشخص می‌شود کدام زنده‌اند — مرده‌ها خودکار backoff می‌خورند
+    "https://nitter.poast.org,"
+    "https://nitter.privacyredirect.com,"
+    "https://nitter.d420.de",
 )
 
 # درجه‌یک: هر سیکل چک می‌شوند (خبرشکن‌های اصلی)
@@ -162,7 +188,8 @@ def _llm_slot(n):
     }
 
 
-LLM_SLOTS = {("llm%d" % n): _llm_slot(n) for n in range(1, 21)}
+LLM_SLOTS = {("llm%d" % n): _llm_slot(n) for n in range(1, 11)}
+
 # مترجم ماشینی گوگل — بدون کلید، بدون سقف. کیفیت پایین‌تر ولی همیشه در دسترس
 ENABLE_DEEP_TRANSLATOR = _get("ENABLE_DEEP_TRANSLATOR", "true").lower() == "true"
 
