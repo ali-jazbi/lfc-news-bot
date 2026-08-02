@@ -16,7 +16,6 @@ import re
 import time
 
 import config
-import health
 
 log = logging.getLogger("src.vision")
 
@@ -113,12 +112,10 @@ def classify(url, text="", timeout=60):
         ],
     }]
 
-    t0 = time.time()
     try:
         from litellm import completion
         resp = completion(messages=messages, max_tokens=8, temperature=0, **params)
         raw = resp.choices[0].message.content or ""
-        health.record_ok("vision", ms=(time.time() - t0) * 1000, kind="source")
         m = re.search(r"\b(yes|no)\b", raw, re.I)
         if not m:
             log.debug("vision: جواب نامفهوم: %s", raw[:80])
@@ -129,9 +126,9 @@ def classify(url, text="", timeout=60):
         log.info("vision: عکس %s → %s (%s)", url[:60], verdict, cfg["model"])
         return verdict
     except Exception as e:
-        # خطای مدل (مثل rate limit) را کش نمی‌کنیم — سیکل بعد دوباره تلاش می‌شود
-        health.record_fail("vision", e, kind="source")
-        log.debug("vision: خطای مدل: %s", e)
+        # خطای مدل (مثل rate limit) — فقط لاگ، بدون هشدار به گروه ادمین.
+        # vision یک قابلیت کمکی best-effort است؛ خرابی‌اش نباید گروه را اذیت کند.
+        log.info("vision: خطای مدل (%s) — رد می‌شود: %s", cfg["model"], str(e)[:80])
         return None
 
 
