@@ -23,6 +23,13 @@ def _int(key, default):
         return default
 
 
+def _float(key, default):
+    try:
+        return float(_get(key, str(default)))
+    except ValueError:
+        return default
+
+
 def _list(key, default=""):
     raw = _get(key, default)
     return [x.strip() for x in raw.split(",") if x.strip()]
@@ -126,6 +133,19 @@ TWEET_MIN_WORDS = _int("TWEET_MIN_WORDS", 8)
 
 # توییت قدیمی‌تر از این (ساعت) خبر حساب نمی‌شود — ۰ یعنی بی‌خیال تاریخ
 TWEET_MAX_AGE_HOURS = _int("TWEET_MAX_AGE_HOURS", 24)
+
+# --- رسانه‌های توییتر ---
+# استخراج همه عکس‌های خودِ توییت (آلبوم) + ویدیو از طریق API بدون کلید
+ENABLE_TWITTER_MEDIA = _get("ENABLE_TWITTER_MEDIA", "true").lower() == "true"
+ENABLE_TWITTER_VIDEO = _get("ENABLE_TWITTER_VIDEO", "true").lower() == "true"
+TWITTER_ALBUM_MAX = _int("TWITTER_ALBUM_MAX", 10)      # سقف آلبوم تلگرام = ۱۰
+TWITTER_ENRICH_TTL = _int("TWITTER_ENRICH_TTL", 900)    # کش رسانه، ۱۵ دقیقه
+
+# --- پالایش نرخ درخواست نیتر (جلوگیری از 429) ---
+TWITTER_WORKERS = _int("TWITTER_WORKERS", 4)            # بود ۸
+TWITTER_INTER_ACCOUNT_DELAY = _float("TWITTER_INTER_ACCOUNT_DELAY", 0.25)
+TWITTER_ACCOUNT_SKIP_SECONDS = _int("TWITTER_ACCOUNT_SKIP_SECONDS", 60)  # بود ۱۸۰۰
+TWITTER_BASE_SWITCH_THRESHOLD = _float("TWITTER_BASE_SWITCH_THRESHOLD", 0.5)
 
 # فیدهای رومانو - اولین فیدی که جواب بدهد استفاده می‌شود
 ROMANO_FEEDS = _list(
