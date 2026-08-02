@@ -30,7 +30,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 import config
-from sources.base import parse_rss, clean_text
+import health
+from sources.base import (
+    parse_rss,
+    clean_text,
+    images_in_html,
+    extract_tweet_id_from_link,
+)
 
 log = logging.getLogger("src.twitter")
 
@@ -41,8 +47,13 @@ _loaded = False
 BASE_TTL = 3600      # هر یک ساعت آینه را دوباره می‌سنجیم
 FEED_TIMEOUT = 12
 FALLBACK_TIMEOUT = 8          # آینه کمکی نباید کل سیکل را معطل کند
-ACCOUNT_COOLDOWN = 1800       # حسابی که هیچ آینه‌ای ندادش، ۳۰ دقیقه کنار می‌رود
-WORKERS = 8          # چند حساب همزمان
+# حسابی که (بدون 429) چیزی نداد، فقط این مدت کنار می‌رود تا سیکل بعد دوباره
+# خوانده شود — دیگر ۳۰ دقیقه محرومیت نداریم که خبر از دست برود.
+ACCOUNT_SKIP_SECONDS = 60
+WORKERS = 4          # چند حساب همزمان — کمتر تا نیتر 429 ندهد
+INTER_ACCOUNT_DELAY = 0.25    # فاصله کوتاه بین درخواست حساب‌ها (۲۹ حساب = ~۷ ثانیه)
+BASE_SWITCH_THRESHOLD = 0.5   # اگر بیش از نیمی از حساب‌ها خالی ماندند آینه عوض کن
+ALBUM_MAX = 10                # سقف آلبوم تلگرام
 
 SYNDICATION_TIMEOUT = 10
 
@@ -143,6 +154,9 @@ def fix_image(url):
 
     نیتر عکس‌ها را پراکسی می‌کند (…/pic/card_img%2F…) که تلگرام اغلب
     نمی‌تواند بردارد؛ نسخه اصلی روی pbs.twimg.com همیشه کار می‌کند.
+    دو شکل URL از نیتر می‌آید:
+      …/pic/media%2F…            → نسبی، به pbs.twimg.com/ اضافه می‌شود
+      …/pic/pbs.twimg.com%2F…    → کامل (فقط بدون scheme)، باید https:// بگیرد
     """
     if not url:
         return None
@@ -155,6 +169,8 @@ def fix_image(url):
         return url
     if tail.startswith("http"):
         return tail
+    if tail.startswith("pbs.twimg.com/"):
+        return "https://" + tail
     if tail.startswith("orig/"):
         tail = tail[5:]
     return "https://pbs.twimg.com/" + tail
@@ -171,6 +187,13 @@ _DOMAIN_LINE = re.compile(r"^[\w.-]+\.(com|co\.uk|net|org|io|tv|it|fr|de)\S*$", 
 _POSTER = re.compile(r'poster="([^"]+)"', re.I)
 _ANY_IMG = re.compile(r'src="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"', re.I)
 
+# پوستر ویدیوی خودِ توییت — این یعنی «توییت ویدیویی است»
+_IMG_VIDEO_THUMB = re.compile(
+    r"(?:ext_tw_video_thumb|amplify_video_thumb|video_thumb)", re.I
+)
+# کارت لینک و آواتار/بک‌گراند — نباید در آلبوم بیایند
+_IMG_CARD = re.compile(r"(?:card_img|profile_images|profile_banners)", re.I)
+
 
 def tweet_image(entry):
     """عکس توییت — اگر ویدیو باشد از پوستر ویدیو استفاده می‌کند."""
@@ -183,6 +206,53 @@ def tweet_image(entry):
     if img and img.startswith("/"):
         img = (_state.get("base") or "").rstrip("/") + img
     return fix_image(img)
+
+
+def _own_media_urls(entry, max_imgs=ALBUM_MAX):
+    """عکس‌های خودِ توییت از خلاصه نیتر.
+
+    قانون: همه <img> های قبل از اولین <blockquote> که الگوی media دارند.
+    عکس توییتِ نقل‌قولی داخل <blockquote> است و هرگز در آلبوم نمی‌آید.
+    کارت لینک (card_img) و آواتار/بک‌گراند (profile_*) حذف می‌شوند.
+
+    نکته: دسته‌بندی روی URL خام نیتر انجام می‌شود (هنوز media%2F دارد) چون
+    fix_image() آن را به pbs.twimg.com/media/… تبدیل می‌کند و %2F از بین می‌رود.
+    """
+    html = entry.get("summary") or ""
+    if not html:
+        return []
+    own_part = re.split(r"<blockquote>", html, maxsplit=1)[0]
+    out, seen = [], set()
+    for u in images_in_html(own_part, max_imgs=max_imgs * 3):
+        if _IMG_CARD.search(u):
+            continue
+        if "media%2F" not in u and "media/" not in u:
+            continue
+        fixed = fix_image(u)
+        if not fixed or fixed in seen:
+            continue
+        seen.add(fixed)
+        out.append(fixed)
+        if len(out) >= max_imgs:
+            break
+    return out
+
+
+def tweet_has_video(entry):
+    """آیا خلاصه پوستر ویدیوی خودِ توییت را دارد؟"""
+    return bool(_IMG_VIDEO_THUMB.search(entry.get("summary") or ""))
+
+
+def tweet_poster(entry):
+    """پوستر ویدیوی خودِ توییت — برای وقتی ویدیو فرستاده نمی‌شود."""
+    html = entry.get("summary") or ""
+    m = _POSTER.search(html) or _ANY_IMG.search(html)
+    if m:
+        img = m.group(1)
+        if img.startswith("/"):
+            img = (_state.get("base") or "").rstrip("/") + img
+        return fix_image(img)
+    return None
 
 
 def _dedupe_parts(text):
@@ -509,53 +579,187 @@ def _due_accounts():
     return tier1 + picked
 
 
+def _read_feed_diag(base, user, timeout=FEED_TIMEOUT):
+    """مانند read_feed ولی وضعیت دقیق را هم برمی‌گرداند.
+
+    خروجی: (entries, why) که why یکی از ok | rate_limit | whitelist | empty | network
+    است. 429 نیتر همیشه HTTP 429 نیست — گاهی صفحه 200 با متن «rate limit» می‌دهد،
+    پس هم کد وضعیت و هم متن بدنه چک می‌شود.
+    """
+    url = feed_url(base, user)
+    try:
+        r = requests.get(url, headers={"User-Agent": config.USER_AGENT},
+                         timeout=timeout, allow_redirects=True)
+    except Exception:
+        return [], "network"
+    if r.status_code == 429:
+        return [], "rate_limit"
+    if r.status_code != 200:
+        return [], "empty"
+    raw = r.text
+    low = raw.lower()
+    if "rate limit" in low:
+        return [], "rate_limit"
+    try:
+        entries = clean_entries(parse_rss(raw, raw=raw))
+    except Exception:
+        return [], "parse"
+    if not entries:
+        if "whitelist" in low:
+            return [], "whitelist"
+        return [], "empty"
+    _mirror_record(base, ok=True)
+    return entries, "ok"
+
+
 def _read_many(base, users):
-    """چند حساب را موازی می‌خواند — خروجی: {user: entries}."""
+    """چند حساب را موازی می‌خواند — خروجی: (result, rl_flagged).
+
+    سیاست «هیچ خبری از دست نره»:
+      - 429 (rate_limit) را با «بی‌خبری» یکی نمی‌گیریم. حساب 429 را در سیکلِ
+        بعد فوراً دوباره می‌خوانیم — محرومیت ۳۰ دقیقه‌ای دیگر نداریم.
+      - حسابی که واقعاً (بدون 429) چیزی نداد فقط ACCOUNT_SKIP_SECONDS (۶۰ ثانیه)
+        کنار می‌رود و بعد دوباره خوانده می‌شود. db.is_duplicate جلوی تکرار خبر
+        شناخته‌شده را می‌گیرد، پس چیزی از دست نمی‌رود.
+    """
     result = {}
+    rl_flagged, missing = [], []
     if not users:
-        return result
+        return result, rl_flagged
     with ThreadPoolExecutor(max_workers=min(len(users), WORKERS)) as pool:
-        futures = {pool.submit(read_feed, base, u): u for u in users}
+        futures = {pool.submit(_read_feed_diag, base, u): u for u in users}
         for fut in as_completed(futures):
             u = futures[fut]
-            try:
-                result[u] = fut.result()
-            except Exception as e:
-                log.debug("@%s failed: %s", u, e)
-                result[u] = []
+            entries, why = fut.result()
+            if why == "rate_limit":
+                rl_flagged.append(u)
+            if entries:
+                result[u] = entries
+            else:
+                missing.append(u)
+            time.sleep(INTER_ACCOUNT_DELAY)   # فاصله کوتاه بین حساب‌ها — ضد 429
 
-    # حساب‌هایی که خالی ماندند (مثلاً 429) — همه‌ی آینه‌های کمکی با هم
     now = time.time()
     cool = _state.setdefault("cooldown", {})
-    missing = [
-        u for u in users
-        if not result.get(u) and now - float(cool.get(u.lower(), 0)) > ACCOUNT_COOLDOWN
+    # 429 ≠ بی‌خبری: با یک زمان بسیار قدیمی علامت می‌زنیم تا سیکل بعد فوراً بخواند
+    for u in rl_flagged:
+        cool[u.lower()] = now - 1_000_000
+
+    fresh_missing = [
+        u for u in missing
+        if now - float(cool.get(u.lower(), 0)) > ACCOUNT_SKIP_SECONDS
     ]
-    if missing:
+    if fresh_missing:
         others = [b for b in config.NITTER_BASES if b and b != base][:2]
-        pairs = [(alt, u) for u in missing for alt in others]
+        pairs = [(alt, u) for u in fresh_missing for alt in others]
         with ThreadPoolExecutor(max_workers=min(len(pairs), WORKERS)) as pool:
             futures = {
-                pool.submit(read_feed, alt, u, FALLBACK_TIMEOUT): (alt, u)
+                pool.submit(_read_feed_diag, alt, u, FALLBACK_TIMEOUT): (alt, u)
                 for alt, u in pairs
             }
             for fut in as_completed(futures):
                 alt, u = futures[fut]
-                if result.get(u):
-                    continue
-                try:
-                    entries = fut.result()
-                except Exception:
-                    entries = []
+                entries, why = fut.result()
                 if entries:
                     result[u] = entries
                     log.info("آینه کمکی %s برای @%s جواب داد", alt, u)
-        for u in missing:
+        for u in fresh_missing:
             if not result.get(u):
-                cool[u.lower()] = now      # تا مدتی سراغش نمی‌رویم
-                log.info("@%s جواب نداد — %d دقیقه کنار گذاشته شد", u, ACCOUNT_COOLDOWN // 60)
-        _save()
-    return result
+                cool[u.lower()] = now     # فقط یک سیکل (≈۶۰ ثانیه) صبر
+                log.info("@%s جواب نداد — سیکل بعد دوباره", u)
+    _save()
+    return result, rl_flagged
+
+
+# --------------------------------------- غنی‌سازی رسانه (fxtwitter/vxtwitter)
+# کش رسانه: tweet_id -> (زمان, payload). فقط برای توییت‌هایی که رسانه دارند
+# فراخوانی می‌شود تا API بیهوده اذیت نشود.
+_ENRICH_CACHE = {}
+
+
+def _enrich_tweet(handle, tweet_id, timeout=12):
+    """مستقیم از fxtwitter/vxtwitter — خروجی None اگر رسانه نداشت یا خطا داد."""
+    now = time.time()
+    hit = _ENRICH_CACHE.get(tweet_id)
+    if hit and now - hit[0] < getattr(config, "TWITTER_ENRICH_TTL", 900):
+        return hit[1]
+    payload = _enrich_fxtwitter(handle, tweet_id, timeout) \
+        or _enrich_vxtwitter(handle, tweet_id, timeout)
+    _ENRICH_CACHE[tweet_id] = (now, payload)
+    if len(_ENRICH_CACHE) > 256:
+        _ENRICH_CACHE.pop(next(iter(_ENRICH_CACHE)))   # حافظه سبک
+    return payload
+
+
+def _enrich_fxtwitter(handle, tweet_id, timeout=12):
+    """fxtwitter: لینک مستقیم ویدیو (video.twimg.com/...mp4) و عکس‌ها را می‌دهد."""
+    try:
+        r = requests.get(
+            "https://api.fxtwitter.com/%s/status/%s" % (handle.lstrip("@"), tweet_id),
+            headers={"User-Agent": config.USER_AGENT}, timeout=timeout,
+        )
+        if r.status_code != 200:
+            return None
+        media = (r.json().get("tweet") or {}).get("media") or {}
+        all_media = media.get("all") or []
+        if not all_media:
+            return None
+        videos = [m for m in all_media if m.get("type") == "video"]
+        photos = [m for m in all_media if m.get("type") == "photo"]
+        return {
+            "video_url": videos[0].get("url") if videos else None,
+            "thumbnail_url": videos[0].get("thumbnail_url") if videos else None,
+            "media_urls": [m.get("url") for m in photos if m.get("url")],
+            "source": "fxtwitter",
+        }
+    except Exception as e:
+        log.debug("fxtwitter %s failed: %s", tweet_id, e)
+        return None
+
+
+def _enrich_vxtwitter(handle, tweet_id, timeout=12):
+    """vxtwitter: همه عکس‌ها (mediaURLs) را می‌دهد — جایگزین fxtwitter."""
+    try:
+        r = requests.get(
+            "https://api.vxtwitter.com/%s/status/%s" % (handle.lstrip("@"), tweet_id),
+            headers={"User-Agent": config.USER_AGENT}, timeout=timeout,
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        media_urls = [u for u in (data.get("mediaURLs") or []) if u]
+        if not media_urls and not data.get("mediaType"):
+            return None
+        video_url = media_urls[0] if data.get("mediaType") == "video" and media_urls else None
+        return {"video_url": video_url, "media_urls": media_urls, "source": "vxtwitter"}
+    except Exception as e:
+        log.debug("vxtwitter %s failed: %s", tweet_id, e)
+        return None
+
+
+def _attach_media(item, entry, user):
+    """item را با عکس/آلبوم/ویدیو پر می‌کند.
+
+    عکس‌ها مستقیم از RSS نیتر می‌آیند (سبک و بدون API اضافه). فقط توییت‌هایی
+    که پوستر ویدیو دارند به fxtwitter/vxtwitter می‌روند تا لینک mp4 بگیرند —
+    توییت عکسی را بیهوده اذیت نمی‌کنیم.
+    """
+    if getattr(config, "ENABLE_TWITTER_MEDIA", True):
+        item["images"] = _own_media_urls(entry)
+        if not item.get("image"):
+            item["image"] = item["images"][0] if item["images"] else None
+
+    if getattr(config, "ENABLE_TWITTER_VIDEO", True) and tweet_has_video(entry):
+        tid = extract_tweet_id_from_link(entry.get("link")) \
+            or extract_tweet_id_from_link(item.get("url"))
+        if tid:
+            got = _enrich_tweet(user, tid)
+            if got:
+                if got.get("video_url"):
+                    item["video_url"] = got["video_url"]
+                    item["video_thumb"] = got.get("thumbnail_url") or item.get("image")
+                if got.get("media_urls") and not item.get("images"):
+                    item["images"] = got["media_urls"][:getattr(config, "TWITTER_ALBUM_MAX", 10)]
 
 
 # ------------------------------------------------------------------ fetch
@@ -565,34 +769,37 @@ def fetch(limit=6):
         return []
     t0 = time.time()
 
-    # لایه ۱: مستقیم از خود توییتر — بدون آینه
-    use_syndication = getattr(config, "ENABLE_TWITTER_SYNDICATION", True)
+    # لایه ۱: سندیکیشن مستقیم توییتر — فعلاً بلاک شده، خاموش می‌ماند
+    use_syndication = getattr(config, "ENABLE_TWITTER_SYNDICATION", False)
     feeds = _read_many_syndication(users) if use_syndication else {}
-    synd_hits = [u for u in users if feeds.get(u)]
-
-    # لایه ۲: آینه‌های نیتر — فقط برای حساب‌هایی که لایه ۱ چیزی نداد
     missing = [u for u in users if not feeds.get(u)]
+    rl_flagged = []
+
+    # لایه ۲: آینه‌های نیتر — برای حساب‌هایی که لایه ۱ چیزی نداد
     if missing:
         base = pick_base()
         if base:
-            mirror_feeds = _read_many(base, missing)
+            mirror_feeds, rl_flagged = _read_many(base, missing)
             for u, entries in mirror_feeds.items():
                 if entries:
                     feeds[u] = entries
             dead = [u for u in missing if not feeds.get(u)]
-            if len(dead) > len(missing) * 0.6:
-                log.warning("آینه %s جواب نمی‌دهد (%d از %d خالی) — آینه دیگری امتحان می‌شود",
+            # اگر بیشتر از آستانه حساب‌ها خالی ماندند → آینه دیگری
+            if dead and len(dead) > len(missing) * BASE_SWITCH_THRESHOLD:
+                log.warning("آینه %s پاسخ گنگ است (%d/%d) — آینه دیگری",
                             base, len(dead), len(missing))
                 new_base = pick_base(force=True)
                 still_missing = [u for u in missing if not feeds.get(u)]
                 if new_base and new_base != base and still_missing:
-                    mirror_feeds = _read_many(new_base, still_missing)
+                    mirror_feeds, _ = _read_many(new_base, still_missing)
                     for u, entries in mirror_feeds.items():
                         if entries:
                             feeds[u] = entries
 
-    log.info("توییتر: %d حساب در %ss (سندیکیشن مستقیم: %d، نیتر: %d)",
-             len(users), round(time.time() - t0, 1), len(synd_hits), len(users) - len(synd_hits))
+    log.info("توییتر: %d حساب در %ss (429: %d)",
+             len(users), round(time.time() - t0, 1), len(rl_flagged))
+    if rl_flagged:
+        health.record_counter("twitter_rl", len(rl_flagged))
 
     out = []
     for user in users:
@@ -607,23 +814,25 @@ def fetch(limit=6):
             text = tweet_text(e)
             if not text or text.startswith("RT "):
                 continue
-            if tweet_is_noise(text):
-                log.info("رد شد (توییت کوتاه/مدیا): @%s — %s", user, text[:50].replace("\n", " "))
+            has_media = bool(tweet_has_video(e) or (e.get("summary") or "").strip())
+            if tweet_is_noise(text) and not has_media:
+                log.info("رد شد (کوتاه/بدون مدیا): @%s — %s",
+                         user, text[:50].replace("\n", " "))
                 continue
             if not _is_relevant(text, user):
                 continue
-            out.append(
-                {
-                    "source": "Twitter",
-                    "source_tag": config.display_name(user),
-                    "handle": "@" + user,
-                    "url": canonical(e.get("link"), user),
-                    "title": text[:200],
-                    "body": text,
-                    "image": tweet_image(e),
-                    "priority": True,
-                }
-            )
+            item = {
+                "source": "Twitter",
+                "source_tag": config.display_name(user),
+                "handle": "@" + user,
+                "url": canonical(e.get("link"), user),
+                "title": text[:200],
+                "body": text,
+                "image": tweet_image(e),
+                "priority": True,
+            }
+            _attach_media(item, e, user)   # عکس‌ها/آلبوم/ویدیو اینجا
+            out.append(item)
             if len(out) >= limit:
                 break
 
