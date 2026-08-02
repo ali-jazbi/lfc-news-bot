@@ -21,14 +21,19 @@ import health
 log = logging.getLogger("src.vision")
 
 _REVIEW_PROMPT = (
-    "This is a photo from a football journalist's tweet about Liverpool. "
-    "Is the photo genuinely about Liverpool FC (LFC)?\n"
-    "Answer YES if you see: the Liverpool FC badge/crest, a player in the "
-    "current Liverpool kit (red with LFC branding), Anfield, an LFC training "
-    "session/match, or LFC players/staff.\n"
-    "Answer NO if: it is just a generic red football kit with no LFC branding, "
-    "the person clearly plays for a different club (even in red, e.g. a former "
-    "LFC player at another team), or there is no clear LFC connection.\n"
+    "You are checking a football journalist's tweet for a Liverpool FC (LFC) "
+    "news channel. Decide if this tweet is genuinely about Liverpool FC.\n"
+    "You get the tweet text AND the attached photo/video poster.\n\n"
+    "Answer YES only if the photo clearly shows LFC (the club badge, a player "
+    "in the current Liverpool kit with LFC branding, Anfield, an LFC training "
+    "session or match) AND the text does not say the player is at a different club.\n\n"
+    "Answer NO if ANY of these is true:\n"
+    "- The text names another club, stadium, or team the player now plays for "
+    "  (e.g. 'Chicago Fire', 'his new team', 'Newcastle') — the person is NOT "
+    "  an LFC player even in a red shirt.\n"
+    "- The photo is just a generic red kit with no LFC branding, or a former "
+    "  LFC player at another club.\n"
+    "- There is no clear LFC connection.\n\n"
     "If you are unsure, answer no.\n"
     "Reply with exactly one word: yes or no"
 )
@@ -55,8 +60,11 @@ def _fetch_image_b64(url, timeout=25):
     return None
 
 
-def classify(url, timeout=60):
+def classify(url, text="", timeout=60):
     """True = به لیورپول مرتبط است. False = مرتبط نیست. None = نتوانست قضاوت کند.
+
+    text = متن توییت (اختیاری ولی مهم) — به مدل کمک می‌کند بفهمد بازیکن
+    متعلق به کدام تیم است، حتی اگر عکس قرمز باشد.
 
     خروجی None یعنی «به حالت قبل برمی‌گردیم» یعنی همان ردِ عادی — امن است،
     خبر از دست نمی‌رود چون قرار بود همین حالا هم رد شود.
@@ -76,10 +84,13 @@ def classify(url, timeout=60):
         "api_key": cfg["key"],
         "timeout": timeout,
     }
+    prompt = _REVIEW_PROMPT
+    if text:
+        prompt += "\n\nTweet text: " + (text[:400] or "")
     messages = [{
         "role": "user",
         "content": [
-            {"type": "text", "text": _REVIEW_PROMPT},
+            {"type": "text", "text": prompt},
             {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + b64}},
         ],
     }]

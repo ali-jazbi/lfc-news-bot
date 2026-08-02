@@ -285,7 +285,7 @@ def _vision_pass():
             return
         log.info("تحلیل AI: %d توییت نامرتبط با عکس/ویدیو بررسی می‌شود", len(cands))
         for c in cands:
-            verdict = vision.classify(c["img_url"])
+            verdict = vision.classify(c["img_url"], text=c["item"].get("body") or c["item"].get("title") or "")
             if verdict:
                 c["item"]["vision_review"] = True
                 log.info("AI مرتبط یافت: %s", (c["item"].get("title") or "")[:50])
