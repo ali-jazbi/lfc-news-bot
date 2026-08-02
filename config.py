@@ -220,11 +220,17 @@ TRANSLATE_ORDER = _list("TRANSLATE_ORDER", "llm1,llm2,llm3,gemini,translate")
 
 
 def _llm_slot(n):
-    """هر سرویسی که API سازگار با OpenAI دارد در یک اسلات جا می‌شود."""
+    """هر سرویسی که API سازگار با OpenAI دارد در یک اسلات جا می‌شود.
+
+    کلید بکاپ (اختیاری):  LLM<n>_KEY_BACKUP
+    وقتی کلید اصلی به لیمیت/خطا بخورد، اسلات به کلید بکاپ سوییچ می‌کند —
+    مخصوصاً برای سرویس‌های رایگان مثل qwen که سقف روزانه دارند.
+    """
     return {
         "name": _get("LLM%d_NAME" % n) or ("llm%d" % n),
         "base_url": _get("LLM%d_BASE_URL" % n),
         "key": _get("LLM%d_KEY" % n),
+        "key_backup": _get("LLM%d_KEY_BACKUP" % n),
         "model": _get("LLM%d_MODEL" % n),
     }
 

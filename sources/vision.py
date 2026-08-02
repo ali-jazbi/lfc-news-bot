@@ -95,12 +95,6 @@ def classify(url, text="", timeout=60):
     if not b64:
         return None
 
-    params = {
-        "model": "openai/" + cfg["model"],
-        "api_base": cfg["base_url"].rstrip("/"),
-        "api_key": cfg["key"],
-        "timeout": timeout,
-    }
     prompt = _REVIEW_PROMPT
     if text:
         prompt += "\n\nTweet text: " + (text[:400] or "")
@@ -112,24 +106,42 @@ def classify(url, text="", timeout=60):
         ],
     }]
 
-    try:
-        from litellm import completion
-        resp = completion(messages=messages, max_tokens=8, temperature=0, **params)
-        raw = resp.choices[0].message.content or ""
-        m = re.search(r"\b(yes|no)\b", raw, re.I)
-        if not m:
-            log.debug("vision: جواب نامفهوم: %s", raw[:80])
-            _remember(ck, None)
+    # کلید اصلی + کلید بکاپ (اگر هست): وقتی اولی rate-limit شود، دومی امتحان می‌شود
+    keys = [cfg["key"]]
+    bk = cfg.get("key_backup") or ""
+    if bk and bk != cfg["key"]:
+        keys.append(bk)
+
+    from litellm import completion
+    for i, key in enumerate(keys):
+        params = {
+            "model": "openai/" + cfg["model"],
+            "api_base": cfg["base_url"].rstrip("/"),
+            "api_key": key,
+            "timeout": timeout,
+        }
+        try:
+            resp = completion(messages=messages, max_tokens=8, temperature=0, **params)
+            raw = resp.choices[0].message.content or ""
+            m = re.search(r"\b(yes|no)\b", raw, re.I)
+            if not m:
+                log.debug("vision: جواب نامفهوم: %s", raw[:80])
+                _remember(ck, None)
+                return None
+            verdict = m.group(1).lower() == "yes"
+            _remember(ck, verdict)
+            if i > 0:
+                log.info("vision: با کلید بکاپ انجام شد")
+            log.info("vision: عکس %s → %s (%s)", url[:60], verdict, cfg["model"])
+            return verdict
+        except Exception as e:
+            # خطای مدل (مثل rate limit) — فقط لاگ، بدون هشدار به گروه ادمین.
+            if i < len(keys) - 1:
+                log.info("vision: کلید %d ناموفق (%s) — کلید بکاپ", i + 1, str(e)[:60])
+                continue
+            log.info("vision: خطای مدل (%s) — رد می‌شود: %s", cfg["model"], str(e)[:80])
             return None
-        verdict = m.group(1).lower() == "yes"
-        _remember(ck, verdict)
-        log.info("vision: عکس %s → %s (%s)", url[:60], verdict, cfg["model"])
-        return verdict
-    except Exception as e:
-        # خطای مدل (مثل rate limit) — فقط لاگ، بدون هشدار به گروه ادمین.
-        # vision یک قابلیت کمکی best-effort است؛ خرابی‌اش نباید گروه را اذیت کند.
-        log.info("vision: خطای مدل (%s) — رد می‌شود: %s", cfg["model"], str(e)[:80])
-        return None
+    return None
 
 
 def _remember(ck, verdict):

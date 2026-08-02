@@ -341,6 +341,21 @@ def _deployments():
         })
         names.append(name)
 
+        # کلید بکاپ (مثلاً برای qwen وقتی سقف روزانه خورد):  LLM<n>_KEY_BACKUP
+        # یک دپلویمنت جدا با همین مدل ولی کلید دوم ساخته می‌شود — litellm وقتی
+        # کلید اصلی rate-limit شود خودکار به این سوییچ می‌کند.
+        backup_key = cfg.get("key_backup") or ""
+        if backup_key and backup_key != cfg["key"]:
+            bk_params = dict(params)
+            bk_params["api_key"] = backup_key
+            bk_name = name + "#2"
+            deployments.append({
+                "model_name": bk_name,
+                "litellm_params": bk_params,
+                "model_info": {"id": bk_name},
+            })
+            names.append(bk_name)
+
     return deployments, names, plain
 
 
