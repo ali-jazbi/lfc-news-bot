@@ -94,7 +94,7 @@ class Telegram:
             if r.status_code == 200 and "image" in ctype and len(r.content) > 1024:
                 return r.content
             if r.status_code == 200 and "image" not in ctype:
-                log.warning("fetch_image: پاسخ عکس نیست (%s)", ctype)
+                log.warning("fetch_image: response is not an image (%s)", ctype)
                 self.last_error = "آدرس عکس نیست (Content-Type: " + ctype + ")"
                 return None
             log.warning("fetch_image %s → HTTP %s (%s bytes)",
@@ -126,7 +126,7 @@ class Telegram:
         if res:
             return res
         if isinstance(photo, str) and photo.startswith("http"):
-            log.info("تلگرام نتوانست عکس را خودش بگیرد — دانلود و آپلود دستی…")
+            log.info("Telegram could not fetch the image itself — manual download and upload...")
             blob = self.fetch_image(photo)
             if blob:
                 return self.upload_photo(chat_id, blob, caption, reply_markup, silent)
@@ -189,7 +189,7 @@ class Telegram:
         if res:
             return res
         if isinstance(video_url, str) and video_url.startswith("http"):
-            log.info("تلگرام نتوانست ویدیو را خودش بگیرد — دانلود و آپلود دستی…")
+            log.info("Telegram could not fetch the video itself — manual download and upload...")
             blob = self.fetch_video(video_url)
             if blob:
                 return self.upload_video(chat_id, blob, caption, reply_markup, silent)
@@ -223,7 +223,7 @@ class Telegram:
         if res:
             return res
 
-        log.info("sendMediaGroup با URL نشد (%s) — دانلود و آپلود دستی عکس‌ها…", self.last_error)
+        log.info("sendMediaGroup with URL failed (%s) — manual download and upload of images...", self.last_error)
         files = {}
         media2 = []
         for i, u in enumerate(urls):
@@ -247,10 +247,10 @@ class Telegram:
             resj = r.json()
             if resj.get("ok"):
                 return resj["result"]
-            log.error("sendMediaGroup (آپلود دستی) هم نشد: %s", resj.get("description"))
+            log.error("sendMediaGroup (manual upload) also failed: %s", resj.get("description"))
             self.last_error = resj.get("description") or str(resj)
         except Exception as e:
-            log.warning("sendMediaGroup آپلود دستی خطا: %s", e)
+            log.warning("sendMediaGroup manual upload error: %s", e)
             self.last_error = str(e)
         return None
 
@@ -264,7 +264,7 @@ class Telegram:
             res = self.send_video(chat_id, video, text, reply_markup, silent, thumb)
             if res:
                 return res
-            log.warning("ارسال ویدیو نشد (%s) — با پوستر/عکس ادامه می‌دهیم", self.last_error)
+            log.warning("video send failed (%s) — continuing with poster/photo", self.last_error)
             if thumb:
                 image = thumb
             elif not image and imgs:
@@ -277,7 +277,7 @@ class Telegram:
                 if caption is None:
                     self.send_message(chat_id, text, silent=silent)
                 return res
-            log.warning("آلبوم نرفت (%s) — با یک عکس ادامه می‌دهیم", self.last_error)
+            log.warning("album failed (%s) — continuing with a single photo", self.last_error)
 
         if not image and imgs:
             image = imgs[0]
@@ -286,10 +286,10 @@ class Telegram:
             res = self.send_photo(chat_id, image, text, reply_markup, silent)
             if res:
                 return res
-            log.warning("ارسال با عکس نشد (%s) — فقط متن می‌رود", self.last_error)
+            log.warning("send with photo failed (%s) — text only will be sent", self.last_error)
         elif image:
             if not self.send_photo(chat_id, image, "", None, silent):
-                log.warning("ارسال عکس جداگانه نشد (%s)", self.last_error)
+                log.warning("separate photo send failed (%s)", self.last_error)
         return self.send_message(chat_id, text, reply_markup, silent=silent)
 
     def edit_caption(self, chat_id, message_id, caption, reply_markup=None):

@@ -43,12 +43,12 @@ def fetch(limit=6):
             log.warning("feed %s failed: %s", feed_url, e)
             continue
         if entries:
-            log.info("فید فعال رومانو: %s (%d آیتم)", feed_url, len(entries))
+            log.info("active romano feed: %s (%d items)", feed_url, len(entries))
             break
 
     from_google = False
     if not entries and getattr(config, "ROMANO_GOOGLE_FALLBACK", True):
-        log.warning("هیچ پل توییتری جواب نداد — فال‌بک گوگل نیوز")
+        log.warning("no twitter bridge worked - falling back to Google News")
         try:
             entries = parse_rss(GOOGLE_FALLBACK)
             from_google = bool(entries)
@@ -56,7 +56,7 @@ def fetch(limit=6):
             log.warning("google fallback failed: %s", e)
 
     if not entries:
-        log.error("هیچ فیدی برای رومانو جواب نداد — ROMANO_FEEDS را بررسی کنید")
+        log.error("no romano feed worked — check ROMANO_FEEDS")
         return []
 
     out = []

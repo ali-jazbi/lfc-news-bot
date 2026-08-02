@@ -88,13 +88,13 @@ def refresh(force=False):
     try:
         posts = _scrape(url)
     except Exception as e:
-        log.warning("خواندن کانال نشد: %s", e)
+        log.warning("failed to read channel: %s", e)
         posts = []
 
     if posts:
         _cache.update({"at": now, "posts": posts, "ok": True})
         _warned = False
-        log.info("نگهبان کانال: %d پست اخیر خوانده شد", len(posts))
+        log.info("channel guard: read %d recent posts", len(posts))
     else:
         _cache["at"] = now
         _cache["ok"] = False

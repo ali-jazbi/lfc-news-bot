@@ -88,5 +88,5 @@ def fetch(limit=6):
             got += 1
             if len(out) >= limit:
                 return out
-        log.info("فید %s (%s): %d خبر مرتبط", name, feed_url, got)
+        log.info("feed %s (%s): %d relevant items", name, feed_url, got)
     return out

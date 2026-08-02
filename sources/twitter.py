@@ -120,7 +120,7 @@ def _mirror_record(base, ok):
         info["fails"] = info.get("fails", 0) + 1
         delay = min(MIRROR_BACKOFF_MAX, MIRROR_BACKOFF_BASE * (2 ** (info["fails"] - 1)))
         info["until"] = time.time() + delay
-        log.info("آینه %s به مدت %d دقیقه کنار گذاشته شد (شکست پیاپی: %d)",
+        log.info("mirror %s put on backoff for %d min (consecutive fails: %d)",
                  base, delay // 60, info["fails"])
     _save()
 
@@ -544,13 +544,13 @@ def pick_base(force=False):
         base = healthy[0][0]
         _state.update({"base": base, "base_at": now})
         _save()
-        log.info("آینه فعال توییتر: %s (%d توییت، %ss)",
+        log.info("active twitter mirror: %s (%d tweets, %ss)",
                  base, healthy[0][1], healthy[0][2])
         return base
 
     _state.update({"base": "", "base_at": now})
     _save()
-    log.error("هیچ آینه سالمی پیدا نشد — python check_mirrors.py را بزن")
+    log.error("no healthy mirror found — run python check_mirrors.py")
     return ""
 
 
@@ -652,11 +652,11 @@ def _read_many(base, users):
                 entries, why = fut.result()
                 if entries:
                     result[u] = entries
-                    log.info("آینه کمکی %s برای @%s جواب داد", alt, u)
+                    log.info("backup mirror %s responded for @%s", alt, u)
         for u in fresh_missing:
             if not result.get(u):
                 cool[u.lower()] = now     # فقط یک سیکل (≈۶۰ ثانیه) صبر
-                log.info("@%s جواب نداد — سیکل بعد دوباره", u)
+                log.info("@%s gave nothing - retrying next cycle", u)
     _save()
     return result, rl_flagged
 
@@ -773,9 +773,9 @@ def fetch(limit=6):
                 if entries:
                     feeds[u] = entries
             dead = [u for u in missing if not feeds.get(u)]
-            # اگر بیشتر از آستانه حساب‌ها خالی ماندند → آینه دیگری
+            # اگر بیشتر از آستانه حساب‌ها خالی ماندند → switching mirrors
             if dead and len(dead) > len(missing) * BASE_SWITCH_THRESHOLD:
-                log.warning("آینه %s پاسخ گنگ است (%d/%d) — آینه دیگری",
+                log.warning("mirror %s unresponsive (%d/%d) — switching mirrors",
                             base, len(dead), len(missing))
                 new_base = pick_base(force=True)
                 still_missing = [u for u in missing if not feeds.get(u)]
@@ -785,7 +785,7 @@ def fetch(limit=6):
                         if entries:
                             feeds[u] = entries
 
-    log.info("توییتر: %d حساب در %ss (429: %d)",
+    log.info("twitter: %d accounts in %ss (429: %d)",
              len(users), round(time.time() - t0, 1), len(rl_flagged))
     if rl_flagged:
         health.record_counter("twitter_rl", len(rl_flagged))
@@ -798,13 +798,13 @@ def fetch(limit=6):
             max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
             age = tweet_age_hours(e)
             if max_age and age is not None and age > max_age:
-                log.debug("رد شد (قدیمی %.0fساعت): @%s", age, user)
+                log.debug("skipped (%.0fh old): @%s", age, user)
                 continue
             text = tweet_text(e)
             if not text or text.startswith("RT "):
                 continue
             if tweet_is_noise(text):
-                log.info("رد شد (توییت کوتاه): @%s — %s",
+                log.info("skipped (short tweet): @%s — %s",
                          user, text[:50].replace("\n", " "))
                 continue
             if not _is_relevant(text, user):

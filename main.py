@@ -87,7 +87,7 @@ def _fetch_source(label, fn):
         return got or []
     except Exception as e:
         health.record_fail(label, e, kind="source")
-        log.error("خطا در منبع %s: %s", label, e)
+        log.error("source error %s: %s", label, e)
         return []
 
 
@@ -114,7 +114,7 @@ def process_item(item, force=False):
     if not force and db.is_duplicate(item):
         return False
 
-    log.info("ترجمه: %s", (item.get("title") or "")[:70])
+    log.info("translating: %s", (item.get("title") or "")[:70])
     tr = translate.translate(item)
     if not tr:
         db.save(item, status="skipped")
@@ -136,8 +136,8 @@ def process_item(item, force=False):
             "\u26A0\uFE0F این خبر قبلاً در کانال منتشر شده (شباهت "
             + str(round(float(score))) + "٪)" + who
         )
-        log.info("هشدار کانال (%d%%): %s", score, (tr.get("title") or "")[:50])
-        log.debug("پست مشابه در کانال: %s", sample)
+        log.info("channel dupe warning (%d%%): %s", score, (tr.get("title") or "")[:50])
+        log.debug("similar post in channel: %s", sample)
         health.record_counter("channel_dupe")
 
     # اگر منبع دیگری هم همین خبر را داده، جلویش را نمی‌گیریم
@@ -148,7 +148,7 @@ def process_item(item, force=False):
         others = []
     if others:
         notes.append("\U0001F501 این خبر را این‌ها هم داده‌اند: " + "، ".join(others[:4]))
-        log.info("خبر مشترک با %s", ", ".join(others[:4]))
+        log.info("shared with: %s", ", ".join(others[:4]))
 
     item["translated"] = tr
     key = db.save(item, status="new")
@@ -218,7 +218,7 @@ def process_item(item, force=False):
                 reply_to=msg.get("message_id"),
             )
             if not sent:
-                log.warning("متن اصلی نرفت (%s) — بدون بلاک‌کووت تلاش مجدد",
+                log.warning("original text not sent (%s) \u2014 retrying without blockquote",
                             getattr(tg, "last_error", "?"))
                 tg.send_message(
                     config.ADMIN_CHAT_ID,
@@ -227,9 +227,9 @@ def process_item(item, force=False):
                     reply_to=msg.get("message_id"),
                 )
 
-        log.info("\u2192 در گروه قرار گرفت: %s", (item.get("title") or "")[:70])
+        log.info("\u2192 posted to group: %s", (item.get("title") or "")[:70])
         return True
-    log.error("ارسال به گروه ناموفق بود (ADMIN_CHAT_ID را چک کن)")
+    log.error("sending to group failed (check ADMIN_CHAT_ID)")
     return False
 
 
@@ -283,18 +283,18 @@ def maybe_prune():
     try:
         import db_prune
         s = db_prune.prune(dry=False)
-        log.info("پاک‌سازی دیتابیس: %d حذف، %d فشرده", s["deleted"], s["trimmed"])
+        log.info("db prune: %d deleted, %d trimmed", s["deleted"], s["trimmed"])
     except Exception as e:
-        log.warning("پاک‌سازی دیتابیس ناموفق: %s", e)
+        log.warning("db prune failed: %s", e)
 
 
 def run_cycle(force=False):
     health.record_counter("cycles")
     maybe_prune()
     items = collect()
-    log.info("��مع‌آوری شد: %d آیتم", len(items))
+    log.info("collected %d items", len(items))
     if not items:
-        log.warning("هیچ خبری از منابع گرفته نشد. برای تست عملکرد: python main.py --sample")
+        log.warning("no items from sources. test with: python main.py --sample")
         return 0
     sent = 0
     for it in items:
@@ -303,7 +303,7 @@ def run_cycle(force=False):
         if process_item(it, force=force):
             sent += 1
             time.sleep(2)
-    log.info("در این سیکل %d خبر ارسال شد", sent)
+    log.info("sent %d item(s) this cycle", sent)
     return sent
 
 
@@ -318,7 +318,7 @@ def drain_pending_updates(timeout=5):
     try:
         updates = tg.get_updates(offset=offset, timeout=timeout)
     except Exception as e:
-        log.warning("دریافت آپدیت‌های در انتظار ناموفق بود: %s", e)
+        log.warning("failed to fetch pending updates: %s", e)
         return
     while updates:
         for u in updates:
@@ -330,7 +330,7 @@ def drain_pending_updates(timeout=5):
         try:
             updates = tg.get_updates(offset=offset, timeout=2)
         except Exception as e:
-            log.warning("دریافت آپدیت‌های در انتظار ناموفق بود: %s", e)
+            log.warning("failed to fetch pending updates: %s", e)
             break
 
 
@@ -343,12 +343,12 @@ def poller_loop():
                 items = collect()
                 for it in items:
                     db.save(it, status="skipped")
-                log.info("اجرای اول: %d خبر قدیمی بی‌صدا ثبت شد (بدون اسپم گروه)", len(items))
+                log.info("first run: %d old items recorded silently", len(items))
                 first_run = False
             else:
                 run_cycle()
         except Exception as e:
-            log.exception("خطای poller: %s", e)
+            log.exception("poller error: %s", e)
 
         wait = max(5, config.POLL_INTERVAL - (time.time() - started))
         _stop.wait(wait)
@@ -523,7 +523,7 @@ def bot_loop():
                 elif "message" in u:
                     handle_message(u["message"])
         except Exception as e:
-            log.exception("خطای حلقه ربات: %s", e)
+            log.exception("bot loop error: %s", e)
             time.sleep(5)
 
 
@@ -542,16 +542,16 @@ def main():
 
     if not DRY_RUN:
         if not config.BOT_TOKEN:
-            log.error("BOT_TOKEN خالی است — فایل .env را پر کن.")
+            log.error("BOT_TOKEN is empty - set it in .env.")
             sys.exit(1)
         if not config.ADMIN_CHAT_ID:
-            log.error("ADMIN_CHAT_ID خالی است — در گروه تست /id بزن و عدد را در .env بگذار.")
+            log.error("ADMIN_CHAT_ID is empty — run /id in the test group and set it in .env.")
             sys.exit(1)
         me = tg.get_me()
         if not me:
-            log.error("اتصال به تلگرام برقرار نشد (توکن یا پراکسی را چک کن).")
+            log.error("could not connect to Telegram (check token or proxy).")
             sys.exit(1)
-        log.info("متصل شد به @%s | حالت انتشار: %s", me.get("username"), config.PUBLISH_MODE)
+        log.info("connected to @%s | publish mode: %s", me.get("username"), config.PUBLISH_MODE)
 
         # از این به بعد هشدارهای health در گروه ادمین می‌افتند
         health.set_notifier(
@@ -562,25 +562,24 @@ def main():
         for it in sample_item.all_samples():
             process_item(it, force=True)
             time.sleep(1)
-        log.info("خبرهای نمونه ارسال شدند. برای تست دکمه‌ها ربات را با python main.py روشن نگه دار.")
+        log.info("sample items sent. keep the bot running with python main.py to test buttons.")
         return
 
     if args.once or args.test:
         if not DRY_RUN:
-            log.info("بررسی کلیک‌های در انتظار (دکمه/دستور) قبل از سیکل جدید...")
+            log.info("checking pending clicks/commands before new cycle...")
             drain_pending_updates()
         run_cycle(force=args.test)
-        log.info("سیکل تمام شد و ربات بسته شد — دکمه‌ها فقط وقتی کار می‌کنند که "
-                 "ربات روشن باشد: python main.py")
+        log.info("cycle finished and bot closed - buttons only work while the bot is running: python main.py")
         return
 
     threading.Thread(target=poller_loop, daemon=True).start()
-    log.info("سرویس فعال شد — چک منابع هر %d ثانیه", config.POLL_INTERVAL)
+    log.info("service active - checking sources every %d seconds", config.POLL_INTERVAL)
     try:
         bot_loop()
     except KeyboardInterrupt:
         _stop.set()
-        log.info("خاموش شد.")
+        log.info("shutdown.")
 
 
 if __name__ == "__main__":

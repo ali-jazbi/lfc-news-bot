@@ -2,7 +2,7 @@
 
 روش: صفحه لیست را می‌گیرد، لینک خبرها را درمی‌آورد، سپس هر خبر را با
 متاتگ‌های og: (عنوان/توضیح/عکس) + پاراگراف‌های متن استخراج می‌کند.
-اگر ساختار سایت عوض شد، فال‌بک Google News RSS خودکار فعال می‌شود.
+اگر ساختار سایت عوض شد، falling back to Google News RSS خودکار فعال می‌شود.
 """
 import logging
 import re
@@ -239,14 +239,14 @@ def fetch(limit=6):
                 continue
             why = is_noise(art["title"], art["url"], art.get("body") or art.get("summary") or "")
             if why:
-                log.info("رد شد (%s): %s", why, art["title"][:60])
+                log.info("rejected (%s): %s", why, art["title"][:60])
                 continue
             out.append(art)
         except Exception as e:
             log.warning("article failed %s: %s", url, e)
 
     if not out:
-        log.warning("پارس مستقیم سایت نتیجه نداد — فال‌بک Google News")
+        log.warning("direct site parse gave nothing — falling back to Google News")
         try:
             out = [
                 it for it in _google_fallback(limit * 2)

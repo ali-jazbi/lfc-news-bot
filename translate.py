@@ -38,7 +38,7 @@ try:
     _HAS_LITELLM = True
 except Exception as _e:                  # پکیج نصب نیست → فقط مترجم ساده کار می‌کند
     _HAS_LITELLM = False
-    log.error("litellm نصب نیست (%s) — pip install litellm", _e)
+    log.error("litellm not installed (%s) — pip install litellm", _e)
 
 
 def _env_int(name, default):
@@ -389,7 +389,7 @@ def _get_router():
         set_verbose=False,
     )
     _router_names = names
-    log.info("زنجیره LiteLLM آماده شد: %s", " → ".join(names))
+    log.info("LiteLLM chain ready: %s", " → ".join(names))
     return _router, names
 
 
@@ -408,7 +408,7 @@ def _single_call(dep, prompt):
     )
     txt = _msg_text(resp)
     if DEBUG_RAW or not _extract_json(txt):
-        log.warning("[%s] خروجی خام: %s", dep["model_name"],
+        log.warning("[%s] raw output: %s", dep["model_name"],
                     (txt or "(خالی)")[:400].replace("\n", " "))
     return txt
 
@@ -476,7 +476,7 @@ def translate(item):
                 health.record_counter("translated")
                 if provider != names[0]:
                     health.record_counter("fallback_used")
-                    log.info("ترجمه با سرویس جایگزین انجام شد: %s", provider)
+                    log.info("translated with fallback service: %s", provider)
                 data.setdefault("title", item.get("title", ""))
                 data.setdefault("importance", "normal")
                 data.setdefault("tags", [])
@@ -488,12 +488,12 @@ def translate(item):
 
             health.record_fail(provider, "خروجی نامعتبر (JSON خراب یا خالی)")
             errors.append(f"{provider}: خروجی نامعتبر")
-            log.warning("%s: خروجی نامعتبر | خام: %s", provider,
+            log.warning("%s: invalid output | raw: %s", provider,
                         (text or "(خالی)")[:400].replace("\n", " "))
         except Exception as e:
             health.record_fail(names[0], e)
             errors.append(f"زنجیره LLM: {e}")
-            log.warning("کل زنجیره LLM شکست خورد | %s", e)
+            log.warning("full LLM chain failed | %s", e)
 
     # آخرین سنگر: مترجم ماشینی بدون کلید
     if plain_enabled:
@@ -511,7 +511,7 @@ def translate(item):
             errors.append(f"مترجم گوگل: {e}")
 
     health.record_counter("chain_failed")
-    log.error("هیچ سرویس ترجمه‌ای کار نکرد:")
+    log.error("no translation service worked:")
     for e in errors:
         log.error("   • %s", e)
 

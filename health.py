@@ -71,7 +71,7 @@ def save():
             json.dump(_state, f, ensure_ascii=False, indent=1)
         os.replace(tmp, STATE_PATH)
     except Exception as e:
-        log.debug("ذخیره health ناموفق: %s", e)
+        log.debug("failed to save health: %s", e)
 
 
 # ------------------------------------------------------------------ هشدار
@@ -92,7 +92,7 @@ def alert(text, key=None, once=True):
         try:
             _notifier(text)
         except Exception as e:
-            log.error("ارسال هشدار ناموفق: %s", e)
+            log.error("failed to send alert: %s", e)
 
 
 def clear_alert(key):
