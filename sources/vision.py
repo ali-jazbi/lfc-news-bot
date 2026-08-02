@@ -21,8 +21,15 @@ import health
 log = logging.getLogger("src.vision")
 
 _REVIEW_PROMPT = (
-    "Is this image related to Liverpool FC (Liverpool players, the club badge, "
-    "the red kit, Anfield, an LFC match or event, an LFC transfer story)? "
+    "This is a photo from a football journalist's tweet about Liverpool. "
+    "Is the photo genuinely about Liverpool FC (LFC)?\n"
+    "Answer YES if you see: the Liverpool FC badge/crest, a player in the "
+    "current Liverpool kit (red with LFC branding), Anfield, an LFC training "
+    "session/match, or LFC players/staff.\n"
+    "Answer NO if: it is just a generic red football kit with no LFC branding, "
+    "the person clearly plays for a different club (even in red, e.g. a former "
+    "LFC player at another team), or there is no clear LFC connection.\n"
+    "If you are unsure, answer no.\n"
     "Reply with exactly one word: yes or no"
 )
 
