@@ -243,16 +243,6 @@ def tweet_has_video(entry):
     return bool(_IMG_VIDEO_THUMB.search(entry.get("summary") or ""))
 
 
-def tweet_poster(entry):
-    """پوستر ویدیوی خودِ توییت — برای وقتی ویدیو فرستاده نمی‌شود."""
-    html = entry.get("summary") or ""
-    m = _POSTER.search(html) or _ANY_IMG.search(html)
-    if m:
-        img = m.group(1)
-        if img.startswith("/"):
-            img = (_state.get("base") or "").rstrip("/") + img
-        return fix_image(img)
-    return None
 
 
 def _dedupe_parts(text):
@@ -335,20 +325,6 @@ def _accounts():
 
 def _lfc_only(user):
     return user.lower() in {a.lstrip("@").lower() for a in config.TWITTER_LFC_ONLY}
-
-
-def _journalists():
-    """حساب‌های خبرنگار لیورپولی که توییت نامرتبطِ عکسی‌شان AI تحلیل می‌شود.
-
-    از TWITTER_VISION_ACCOUNTS می‌آید (لیست صریح در .env) — خبرنگاران عمومی
-    مثل رومانو که خبر فوتبال جهان می‌دهند شامل نمی‌شوند تا برای هر عکسِ
-    نقل‌وانتقالِ بیربط تماس AI نزنیم.
-    """
-    out = {a.lstrip("@").lower() for a in config.TWITTER_VISION_ACCOUNTS if a.strip()}
-    if not out:
-        tier1, _ = _accounts()
-        out = {a.lower() for a in tier1 if not _lfc_only(a)}
-    return out
 
 
 def _is_relevant(text, user):
@@ -690,11 +666,6 @@ def _read_many(base, users):
 # فراخوانی می‌شود تا API بیهوده اذیت نشود.
 _ENRICH_CACHE = {}
 
-# توییت‌های عکسی/ویدیویی که فیلتر کلمه‌ای رد کرد ولی شاید با تحلیل AI
-# به لیورپول مرتبط باشند — در main.run_cycle به‌صورت پس‌زمینه پردازش می‌شود.
-VISION_CANDIDATES = []
-
-
 def _enrich_tweet(handle, tweet_id, timeout=12):
     """مستقیم از fxtwitter/vxtwitter — خروجی None اگر رسانه نداشت یا خطا داد."""
     now = time.time()
@@ -780,43 +751,6 @@ def _attach_media(item, entry, user):
                     item["images"] = got["media_urls"][:getattr(config, "TWITTER_ALBUM_MAX", 10)]
 
 
-def _maybe_queue_vision(entry, user, text):
-    """توییت نامرتبطِ عکسی/ویدیوییِ خبرنگار را برای تحلیل AI ثبت می‌کند.
-
-    فقط وقتی ENABLE_TWITTER_VISION روشن است، حساب خبرنگار است و رسانه دارد.
-    عکس برای تحلیل: اول عکس‌های خود توییت، بعد پوستر ویدیو، بعد عکس تکی.
-    """
-    if not getattr(config, "ENABLE_TWITTER_VISION", False):
-        return
-    if user.lower() not in _journalists():
-        return
-    imgs = _own_media_urls(entry)
-    if imgs:
-        img_url = imgs[0]
-    elif tweet_has_video(entry):
-        img_url = tweet_poster(entry)     # پوستر ویدیوی واقعی، نه کارت لینک
-    else:
-        img_url = None                    # فقط کارت لینک است — AI نمی‌خواهیم
-    if not img_url or _IMG_CARD.search(img_url):
-        return
-    item = {
-        "source": "Twitter",
-        "source_tag": config.display_name(user),
-        "handle": "@" + user,
-        "url": canonical(entry.get("link"), user),
-        "title": text[:200],
-        "body": text,
-        "image": tweet_image(entry),
-        "priority": True,
-    }
-    _attach_media(item, entry, user)
-    if len(VISION_CANDIDATES) >= getattr(config, "TWITTER_VISION_MAX", 5):
-        return
-    VISION_CANDIDATES.append({"item": item, "img_url": img_url})
-    log.info("نامزد تحلیل AI: @%s — %s (عکس: %s)",
-             user, text[:40].replace("\n", " "), img_url[:60])
-
-
 # ------------------------------------------------------------------ fetch
 def fetch(limit=6):
     users = _due_accounts()
@@ -869,15 +803,11 @@ def fetch(limit=6):
             text = tweet_text(e)
             if not text or text.startswith("RT "):
                 continue
-            has_media = bool(tweet_has_video(e) or (e.get("summary") or "").strip())
-            if tweet_is_noise(text) and not has_media:
-                log.info("رد شد (کوتاه/بدون مدیا): @%s — %s",
+            if tweet_is_noise(text):
+                log.info("رد شد (توییت کوتاه): @%s — %s",
                          user, text[:50].replace("\n", " "))
                 continue
             if not _is_relevant(text, user):
-                # دومین شانس: توییت عکسی/ویدیوییِ خبرنگار که متنش کلمه لیورپولی
-                # ندارد — شاید عکسش به لیورپول مرتبط باشد. برای تحلیل AI ثبت کن.
-                _maybe_queue_vision(e, user, text)
                 continue
             item = {
                 "source": "Twitter",
