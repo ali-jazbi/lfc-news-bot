@@ -28,7 +28,7 @@ import formatter
 import health
 import sample_item
 import translate
-from sources import lfc_official, romano, twitter, outlet_rss, bluesky
+from sources import lfc_official, romano, twitter, outlet_rss, bluesky, vision
 from telegram_api import Telegram
 
 
@@ -267,6 +267,45 @@ def approve(key, chat_id):
 
 # ------------------------------------------------------------------ poller
 _last_prune = [0.0]
+_vision_running = threading.Lock()   # فقط یک تحلیل AI در هر زمان
+
+
+def _vision_pass():
+    """تحلیل AI عکس توییت‌های نامرتبطِ خبرنگاران — در ترد پس‌زمینه.
+
+    هر تماس vision چند ثانیه طول می‌کشد؛ پس این‌جا کل سیکل را بلاک نمی‌کند.
+    فقط وقتی AI بگوید عکس به لیورپول مرتبط است، خبر با برچسب ⚠ فرستاده می‌شود.
+    """
+    if not _vision_running.acquire(blocking=False):
+        return
+    try:
+        cands = list(twitter.VISION_CANDIDATES)
+        twitter.VISION_CANDIDATES.clear()
+        if not cands:
+            return
+        log.info("تحلیل AI: %d توییت نامرتبط با عکس/ویدیو بررسی می‌شود", len(cands))
+        for c in cands:
+            verdict = vision.classify(c["img_url"])
+            if verdict:
+                c["item"]["vision_review"] = True
+                log.info("AI مرتبط یافت: %s", (c["item"].get("title") or "")[:50])
+                process_item(c["item"], force=False)
+            else:
+                log.info("AI نامرتبط/نامشخص — رد شد: %s",
+                         (c["item"].get("title") or "")[:50].replace("\n", " "))
+            time.sleep(1)   # llm6 را اذیت نکن
+    except Exception as e:
+        log.warning("تحلیل AI خطا: %s", e)
+    finally:
+        _vision_running.release()
+
+
+def _start_vision_pass():
+    """یک تحلیل AI پس‌زمینه را اگر تازه نباشد استارت می‌کند."""
+    if not getattr(config, "ENABLE_TWITTER_VISION", False):
+        return
+    if twitter.VISION_CANDIDATES:
+        threading.Thread(target=_vision_pass, daemon=True).start()
 
 
 def maybe_prune():
@@ -304,6 +343,8 @@ def run_cycle(force=False):
             sent += 1
             time.sleep(2)
     log.info("در این سیکل %d خبر ارسال شد", sent)
+    # تحلیل AI عکس توییت‌های نامرتبط خبرنگاران — پس‌زمینه، سیکل را نمی‌بندد
+    _start_vision_pass()
     return sent
 
 

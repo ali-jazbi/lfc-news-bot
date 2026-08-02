@@ -27,6 +27,8 @@ def build_admin_caption(item, tr):
         tail += f" | ترجمه: {esc(str(tr['provider']))}"
     if tr.get("machine"):
         tail += "\n\u26A0\uFE0F ترجمه ماشینی — قبل از انتشار متن را بازبینی کن"
+    if item.get("vision_review"):
+        tail += "\n\U0001F9E0 این خبر با تحلیل عکس توسط AI مرتبط تشخیص داده شد — قبل از انتشار بازبینی کن"
     return caption + tail
 
 
