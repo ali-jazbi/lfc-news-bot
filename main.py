@@ -160,6 +160,8 @@ def process_item(item, force=False):
         print("\n" + "=" * 60)
         print("IMAGE:", item.get("image"))
         print("IMAGES:", item.get("images"))
+        print("VIDEO:", item.get("video_url"))
+        print("VIDEO_THUMB:", item.get("video_thumb"))
         print(caption)
         original = formatter.build_original_message(item)
         if original:
@@ -171,8 +173,19 @@ def process_item(item, force=False):
 
     high = tr.get("importance") == "high"
     images = [u for u in (item.get("images") or []) if u]
+    video = item.get("video_url")
+    thumb = item.get("video_thumb")
 
-    if len(images) >= 2:
+    if video and not DRY_RUN:
+        # ویدیو جدا از دکمه‌ها — اول ویدیو (بی‌صدا)، بعد کپشن + دکمه‌ها
+        tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high, thumb=thumb)
+        msg = tg.send_message(
+            config.ADMIN_CHAT_ID,
+            caption,
+            reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+            silent=not high,
+        )
+    elif len(images) >= 2:
         # دکمه روی آلبوم کار نمی‌کند — اول آلبوم را جدا می‌فرستیم،
         # بعد کپشن + دکمه‌ها را به صورت پیام متنی جداگانه
         tg.send_media_group(config.ADMIN_CHAT_ID, images, silent=not high)
@@ -187,6 +200,8 @@ def process_item(item, force=False):
             config.ADMIN_CHAT_ID,
             caption,
             image=item.get("image"),
+            video=video,
+            thumb=thumb,
             reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
             silent=not high,
         )
@@ -233,7 +248,8 @@ def approve(key, chat_id):
     images = item.get("images")
 
     if config.PUBLISH_MODE == "auto" and config.CHANNEL_ID:
-        res = tg.send_post(config.CHANNEL_ID, text, image=item.get("image"), images=images)
+        res = tg.send_post(config.CHANNEL_ID, text, image=item.get("image"), images=images,
+                           video=item.get("video_url"), thumb=item.get("video_thumb"))
         if res:
             db.set_status(key, "published")
             return True, "\u2705 روی کانال منتشر شد"
@@ -241,7 +257,8 @@ def approve(key, chat_id):
 
     # حالت دستی
     tg.send_message(chat_id, "\U0001F447 نسخه نهایی — فوروارد/کپی کن در کانال", silent=True)
-    res = tg.send_post(chat_id, text, image=item.get("image"), images=images)
+    res = tg.send_post(chat_id, text, image=item.get("image"), images=images,
+                       video=item.get("video_url"), thumb=item.get("video_thumb"))
     if res:
         db.set_status(key, "approved")
         return True, "\U0001F4E4 نسخه آماده ارسال شد"
@@ -249,8 +266,31 @@ def approve(key, chat_id):
 
 
 # ------------------------------------------------------------------ poller
+_last_prune = [0.0]
+
+
+def maybe_prune():
+    """هر PRUNE_INTERVAL یک‌بار دیتابیس را پاک‌سازی می‌کند تا حافظه اشتراکی
+    پر نشود. فقط ردیف‌های قدیمی/فشرده می‌شوند — ردیف تازهٔ لازم برای دکمه‌ها
+    دست نمی‌خورد."""
+    interval = int(os.environ.get("DB_PRUNE_INTERVAL_SECONDS", "3600"))
+    if interval <= 0:
+        return
+    now = time.time()
+    if now - _last_prune[0] < interval:
+        return
+    _last_prune[0] = now
+    try:
+        import db_prune
+        s = db_prune.prune(dry=False)
+        log.info("پاک‌سازی دیتابیس: %d حذف، %d فشرده", s["deleted"], s["trimmed"])
+    except Exception as e:
+        log.warning("پاک‌سازی دیتابیس ناموفق: %s", e)
+
+
 def run_cycle(force=False):
     health.record_counter("cycles")
+    maybe_prune()
     items = collect()
     log.info("��مع‌آوری شد: %d آیتم", len(items))
     if not items:
