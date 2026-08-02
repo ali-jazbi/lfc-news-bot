@@ -57,11 +57,35 @@ def first_image_in_html(fragment):
     return m.group(1) if m else None
 
 
-def parse_rss(url, timeout=25):
-    """خروجی: لیستی از dict با کلیدهای title, link, summary, image."""
+def images_in_html(fragment, max_imgs=10):
+    """همه <img> های یک تکه HTML — بدون تکرار و با سقف."""
+    out, seen = [], set()
+    for m in re.finditer(r'<img[^>]+src="([^"]+)"', fragment or ""):
+        u = html_mod.unescape(m.group(1))
+        if u and u not in seen:
+            seen.add(u)
+            out.append(u)
+            if len(out) >= max_imgs:
+                break
+    return out
+
+
+def extract_tweet_id_from_link(link):
+    """آیدی عددی توییت از لینک نیتر (/status/<id>#m)."""
+    m = re.search(r"/status(?:es)?/(\d+)", link or "")
+    return m.group(1) if m else None
+
+
+def parse_rss(url, timeout=25, raw=None):
+    """خروجی: لیستی از dict با کلیدهای title, link, summary, image.
+
+    اگر raw داده شود، همان متن استفاده می‌شود و دوباره گرفته نمی‌شود
+    (برای وقتی خودمان خام را گرفتیم تا وضعیت 429 را هم تشخیص دهیم).
+    """
     import feedparser
     try:
-        raw = http_get(url, timeout=timeout)
+        if raw is None:
+            raw = http_get(url, timeout=timeout)
         feed = feedparser.parse(raw if raw else url)
     except Exception as e:
         log.warning("rss %s failed: %s", url, e)
