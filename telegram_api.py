@@ -132,6 +132,69 @@ class Telegram:
                 return self.upload_photo(chat_id, blob, caption, reply_markup, silent)
         return None
 
+    def fetch_video(self, video_url):
+        """دانلود ویدیو فقط وقتی تلگرام نتواند URL را مستقیم بگیرد."""
+        try:
+            r = self.s.get(
+                video_url,
+                headers={"User-Agent": getattr(config, "USER_AGENT", "Mozilla/5.0")},
+                timeout=120, stream=True,
+            )
+            ctype = r.headers.get("Content-Type", "")
+            if r.status_code == 200 and "video" in ctype:
+                return r.content
+            log.warning("fetch_video %s → HTTP %s (%s)", video_url[:70], r.status_code, ctype)
+            self.last_error = "دانلود ویدیو: HTTP " + str(r.status_code)
+        except Exception as e:
+            log.warning("fetch_video error: %s", e)
+            self.last_error = str(e)
+        return None
+
+    def upload_video(self, chat_id, video_bytes, caption=None, reply_markup=None,
+                     silent=False, filename="video.mp4"):
+        """آپلود مستقیم ویدیو — وقتی خود تلگرام نتواند URL را بگیرد."""
+        url = API_BASE + self.token + "/sendVideo"
+        data = {"chat_id": str(chat_id), "parse_mode": "HTML",
+                "disable_notification": "true" if silent else "false"}
+        if caption:
+            data["caption"] = caption
+        if reply_markup:
+            data["reply_markup"] = json.dumps(reply_markup)
+        try:
+            r = self.s.post(url, data=data,
+                            files={"video": (filename, video_bytes)}, timeout=300)
+            res = r.json()
+            if res.get("ok"):
+                return res["result"]
+            log.error("telegram upload_video failed: %s", res.get("description"))
+            self.last_error = res.get("description") or str(res)
+        except Exception as e:
+            log.warning("telegram upload_video error: %s", e)
+            self.last_error = str(e)
+        return None
+
+    def send_video(self, chat_id, video_url, caption=None, reply_markup=None,
+                   silent=False, thumb=None):
+        """اول URL را به تلگرام می‌دهیم (خودش دانلود می‌کند)؛ اگر نشد
+        خودمان دانلود و آپلود می‌کنیم. thumb فقط وقتی خودمان آپلود می‌کنیم."""
+        res = self.call(
+            "sendVideo",
+            chat_id=chat_id,
+            video=video_url,
+            caption=caption,
+            parse_mode="HTML",
+            disable_notification=silent,
+            reply_markup=reply_markup,
+        )
+        if res:
+            return res
+        if isinstance(video_url, str) and video_url.startswith("http"):
+            log.info("تلگرام نتوانست ویدیو را خودش بگیرد — دانلود و آپلود دستی…")
+            blob = self.fetch_video(video_url)
+            if blob:
+                return self.upload_video(chat_id, blob, caption, reply_markup, silent)
+        return None
+
     def send_media_group(self, chat_id, image_urls, caption=None, silent=False):
         """چند عکس را یکجا به صورت آلبوم می‌فرستد (2 تا 10 عکس).
 
@@ -191,10 +254,22 @@ class Telegram:
             self.last_error = str(e)
         return None
 
-    def send_post(self, chat_id, text, image=None, images=None, reply_markup=None, silent=False):
-        """اگر ≤۲ عکس داشت و دکمه‌ای در کار نبود آلبوم می‌فرستد؛
-        ورنه طبق رفتار قدیمی: یک عکس + متن (یا فقط متن اگر عکس نبود)."""
+    def send_post(self, chat_id, text, image=None, images=None, video=None, thumb=None,
+                  reply_markup=None, silent=False):
+        """اگر ویدیو بود sendVideo می‌فرستد؛ اگر ≤۲ عکس داشت و دکمه‌ای در کار
+        نبود آلبوم؛ ورنه طبق رفتار قدیمی: یک عکس + متن (یا فقط متن)."""
         imgs = [u for u in (images or []) if u]
+
+        if video and len(text) <= 1024:
+            res = self.send_video(chat_id, video, text, reply_markup, silent, thumb)
+            if res:
+                return res
+            log.warning("ارسال ویدیو نشد (%s) — با پوستر/عکس ادامه می‌دهیم", self.last_error)
+            if thumb:
+                image = thumb
+            elif not image and imgs:
+                image = imgs[0]
+
         if len(imgs) >= 2 and not reply_markup:
             caption = text if len(text) <= 1024 else None
             res = self.send_media_group(chat_id, imgs, caption=caption, silent=silent)
