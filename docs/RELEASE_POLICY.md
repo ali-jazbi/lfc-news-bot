@@ -9,6 +9,17 @@ Manual/local execution during development: run with `python main.py`, optionally
 - Persistent disk if de-duplication history / cooldown state should survive restarts (optional but recommended).
 - Environment variables / secrets manager for `.env` values (never commit `.env`).
 
+## Disk / memory control (important on shared hosts)
+- The SQLite DB (`data/news.db`) grew unbounded before 2026-08. **`db_prune.py`** now bounds it: it deletes rows older than `DB_KEEP_DAYS` (default 7) and strips the heavy fields (`body`, `translated`, `images`, `video_url`) from rows older than `DB_TRIM_AFTER_HOURS` (default 24) — keeping only `title`/`url` which is all the duplicate filter needs. It runs automatically from `main.run_cycle()` every `DB_PRUNE_INTERVAL_SECONDS` (default 3600), or manually via `python db_prune.py`.
+  - Result: with ~40 items/day and 7-day retention, the DB stays **bounded at ~400 KB** instead of growing forever.
+  - Safety: rows in `new`/`sent_admin`/`approved` status that are under 48h old are NOT trimmed, so admin buttons keep working.
+- Logs are already size-capped by `RotatingFileHandler` (~13 MB max). On very tight hosts, lower `maxBytes` in `main._setup_logging()`.
+
+## Serverless note
+- Telegram announced a **Serverless** platform (core.telegram.org/bots/serverless). This bot currently uses **long-polling** (`getUpdates` in a persistent `while` loop), which is NOT directly compatible with a purely webhook/serverless model that expects a short-lived HTTP handler per request.
+- If the Serverless platform provides a way to host a long-running process (like a VM/container) or a cron-like scheduled runner, then `python main.py --once` (already supported) could run there on a schedule — same pattern as the GitHub Actions option below.
+- **Not yet migrated** because (a) this environment couldn't reach core.telegram.org to verify current availability/limits, and (b) the shared-host watchdog already works. Revisit if the user wants it.
+
 ## Free/low-cost deployment options (trade-offs)
 | Option | Cost | Always-on? | Setup effort | Notes |
 |---|---|---|---|---|
