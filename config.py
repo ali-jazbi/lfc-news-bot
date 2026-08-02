@@ -87,16 +87,11 @@ BLUESKY_HANDLES = _list("BLUESKY_HANDLES", "")
 NITTER_BASES = _list(
     "NITTER_BASES",
     "https://nitter.net,"
-    "https://lightbrd.com,"
     "https://xcancel.com,"
     "https://nitter.tiekoetter.com,"
-    "https://nitter.space,"
-    "https://rsshub.rssforever.com/twitter/user,"
-    # کاندیدهای جدید — تست‌نشده‌اند از اینجا؛ با اجرای test_twitter_sources.py
-    # روی اینترنت واقعی مشخص می‌شود کدام زنده‌اند — مرده‌ها خودکار backoff می‌خورند
-    "https://nitter.poast.org,"
-    "https://nitter.privacyredirect.com,"
-    "https://nitter.d420.de",
+    "https://nitter.privacyredirect.com",
+    # آینه‌های مرده حذف شدند (lightbrd 403، nitter.space 403، rsshub 503،
+    # poast 403، d420.de DNS dead) تا rank_bases هر ساعت برایشان probe نکند.
 )
 
 # درجه‌یک: هر سیکل چک می‌شوند (خبرشکن‌های اصلی)
