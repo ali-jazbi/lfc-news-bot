@@ -141,6 +141,22 @@ ENABLE_TWITTER_VIDEO = _get("ENABLE_TWITTER_VIDEO", "true").lower() == "true"
 TWITTER_ALBUM_MAX = _int("TWITTER_ALBUM_MAX", 10)      # سقف آلبوم تلگرام = ۱۰
 TWITTER_ENRICH_TTL = _int("TWITTER_ENRICH_TTL", 900)    # کش رسانه، ۱۵ دقیقه
 
+# --- تحلیل AI عکس/ویدیو (vision) ---
+# برای توییت‌های عکسی/ویدیویی خبرنگاران که متنشان کلمه لیورپولی ندارد،
+# عکس با مدل بینا تحلیل می‌شود: اگر به لیورپول مرتبط بود خبر با برچسب ⚠ می‌رود.
+# پیش‌فرض خاموش — چون هر تماس vision چند ثانیه طول می‌کشد و توکن مصرف می‌کند.
+ENABLE_TWITTER_VISION = _get("ENABLE_TWITTER_VISION", "false").lower() == "true"
+VISION_SLOT = _get("VISION_SLOT", "llm6")               # qwen3.7-plus — تنها مدل بینای زنجیره
+TWITTER_VISION_MAX = _int("TWITTER_VISION_MAX", 5)      # سقف تماس vision در هر سیکل
+# حساب‌هایی که توییت نامرتبطِ عکسی/ویدیوییشان با AI تحلیل شود.
+# فقط خبرنگاران لیورپولی — نه خبرنگاران عمومی مثل رومانو که خبر فوتبال جهان می‌دهند.
+# خالی = از TWITTER_TIER1 به‌جز خبرنگاران عمومی استفاده می‌شود.
+TWITTER_VISION_ACCOUNTS = _list(
+    "TWITTER_VISION_ACCOUNTS",
+    "David_Ornstein,JamesPearceLFC,DavidLynchLFC,_pauljoyce,LewisSteele_,"
+    "_ChrisBascombe,MelissaReddy_,ptgorst",
+)
+
 # --- پالایش نرخ درخواست نیتر (جلوگیری از 429) ---
 TWITTER_WORKERS = _int("TWITTER_WORKERS", 4)            # بود ۸
 TWITTER_INTER_ACCOUNT_DELAY = _float("TWITTER_INTER_ACCOUNT_DELAY", 0.25)
