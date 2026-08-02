@@ -20,6 +20,17 @@ import health
 
 log = logging.getLogger("src.vision")
 
+# کش نتیجه قضاوت: کلید = URL عکس + متن کوتاه، مقدار = (زمان, verdict).
+# چون توییت‌های ردشده هر سیکل دوباره نامزد می‌شوند، بدون این کش هر سیکل
+# دوباره به مدل می‌زدیم و سقف روزانه‌ی llm6 (که هم برای vision است هم ترجمه)
+# زود پر می‌شد.
+_VISION_CACHE = {}
+_VISION_CACHE_TTL = 6 * 3600      # ۶ ساعت — توییت ردشده دوباره تحلیل نمی‌شود
+
+
+def _cache_key(url, text):
+    return (url or "")[:120] + "|" + (text or "")[:60]
+
 _REVIEW_PROMPT = (
     "You are checking a football journalist's tweet for a Liverpool FC (LFC) "
     "news channel. Decide if this tweet is genuinely about Liverpool FC.\n"
@@ -74,6 +85,13 @@ def classify(url, text="", timeout=60):
         log.warning("vision: اسلات %s تنظیم نشده", getattr(config, "VISION_SLOT", "llm6"))
         return None
 
+    # کش: همین عکس+متن قبلاً قضاوت شده؟ (جلوگیری از هدر دادن سقف روزانه)
+    ck = _cache_key(url, text)
+    hit = _VISION_CACHE.get(ck)
+    if hit and time.time() - hit[0] < _VISION_CACHE_TTL:
+        log.debug("vision: کش %s → %s", url[:50], hit[1])
+        return hit[1]
+
     b64 = _fetch_image_b64(url)
     if not b64:
         return None
@@ -104,11 +122,25 @@ def classify(url, text="", timeout=60):
         m = re.search(r"\b(yes|no)\b", raw, re.I)
         if not m:
             log.debug("vision: جواب نامفهوم: %s", raw[:80])
+            _remember(ck, None)
             return None
         verdict = m.group(1).lower() == "yes"
+        _remember(ck, verdict)
         log.info("vision: عکس %s → %s (%s)", url[:60], verdict, cfg["model"])
         return verdict
     except Exception as e:
+        # خطای مدل (مثل rate limit) را کش نمی‌کنیم — سیکل بعد دوباره تلاش می‌شود
         health.record_fail("vision", e, kind="source")
         log.debug("vision: خطای مدل: %s", e)
         return None
+
+
+def _remember(ck, verdict):
+    """نتیجه را کش می‌کند تا توییتِ ردشده هر سیکل دوباره تحلیل نشود.
+
+    ck از _cache_key(url, text) ساخته شده؛ verdict می‌تواند True/False/None
+    باشد (None یعنی نامشخص — باز هم تحلیل مجدد لازم نیست).
+    """
+    _VISION_CACHE[ck] = (time.time(), verdict)
+    if len(_VISION_CACHE) > 512:
+        _VISION_CACHE.pop(next(iter(_VISION_CACHE)))
