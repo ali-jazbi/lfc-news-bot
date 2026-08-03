@@ -142,6 +142,12 @@ TWITTER_INTER_ACCOUNT_DELAY = _float("TWITTER_INTER_ACCOUNT_DELAY", 0.25)
 TWITTER_ACCOUNT_SKIP_SECONDS = _int("TWITTER_ACCOUNT_SKIP_SECONDS", 60)  # بود ۱۸۰۰
 TWITTER_BASE_SWITCH_THRESHOLD = _float("TWITTER_BASE_SWITCH_THRESHOLD", 0.5)
 
+# --- عکس خودکار برای خبرهای بدون عکس ---
+# از ویکی‌مدیا کامانز (بدون کلید) یک عکس مرتبط پیدا می‌کند.
+# فقط وقتی روشن باشد که خبر عکس ندارد و آپدیت لحظه‌ای مسابقه نیست.
+ENABLE_AUTO_IMAGE = _get("ENABLE_AUTO_IMAGE", "false").lower() == "true"
+WEBIMG_TIMEOUT = _int("WEBIMG_TIMEOUT", 8)    # سقف انتظار هر درخواست ویکی‌مدیا
+
 # فیدهای رومانو - اولین فیدی که جواب بدهد استفاده می‌شود
 ROMANO_FEEDS = _list(
     "ROMANO_FEEDS",

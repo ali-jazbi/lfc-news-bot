@@ -28,7 +28,7 @@ import formatter
 import health
 import sample_item
 import translate
-from sources import lfc_official, romano, twitter, outlet_rss, bluesky
+from sources import lfc_official, romano, twitter, outlet_rss, bluesky, webimg
 from telegram_api import Telegram
 
 
@@ -175,6 +175,17 @@ def process_item(item, force=False):
     images = [u for u in (item.get("images") or []) if u]
     video = item.get("video_url")
     thumb = item.get("video_thumb")
+
+    # عکس خودکار برای خبرِ بدون عکس (به‌جز آپدیت لحظه‌ای مسابقه)
+    if not images and not item.get("image") and not video \
+            and not webimg.is_live_update(item):
+        auto = webimg.find_for_article(
+            item.get("title") or "", item.get("body") or "", item.get("url") or "",
+            timeout=getattr(config, "WEBIMG_TIMEOUT", 8),
+        )
+        if auto:
+            item["image"] = auto
+            images = [auto]
 
     if video and not DRY_RUN:
         # ویدیو جدا از دکمه‌ها — اول ویدیو (بی‌صدا)، بعد کپشن + دکمه‌ها
