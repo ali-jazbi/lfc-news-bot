@@ -61,6 +61,17 @@ _VIDEO_CTA = re.compile(
     re.IGNORECASE,
 )
 
+# جملات خطاب به مخاطب که بخش خبری نیستند — باید حذف شوند تا فقط متن خبر بماند.
+# این‌ها در متن سایت/آرتیکل میان (Read on..., Members can watch..., Subscribe...) و
+# مخاطب را مستقیم صدا می‌زنند؛ کارفرما خواسته حذف شوند.
+_CTA_BLOCKLIST = re.compile(
+    r"\b(read on|read our match report|read the full|watch the (key moments|highlights|full)"
+    r"|members of all red|members can (watch|view)|all red (full|members)|in the section below"
+    r"|in the videos? below|sign up|subscribe|join here|click here|download the app"
+    r"|follow (the |us )?(club|the reds)|get involved|be there|matchday live|live blog)\b",
+    re.IGNORECASE,
+)
+
 
 def _clean_title(title):
     """دم تکراری «- Liverpool FC» را از عنوان می‌کند."""
@@ -186,7 +197,9 @@ def _parse_article(url):
     paras = []
     for p in s.find_all("p"):
         t = clean_text(p.get_text(" ", strip=True))
-        if len(t) > 40 and "cookie" not in t.lower() and not _VIDEO_CTA.search(t):
+        low = t.lower()
+        if len(t) > 40 and "cookie" not in low \
+                and not _VIDEO_CTA.search(t) and not _CTA_BLOCKLIST.search(t):
             paras.append(t)
         if len(" ".join(paras)) > 1800:
             break
