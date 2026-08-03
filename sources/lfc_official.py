@@ -74,10 +74,18 @@ _CTA_BLOCKLIST = re.compile(
 
 
 def _clean_title(title):
-    """دم تکراری «- Liverpool FC» را از عنوان می‌کند."""
+    """دم تکراری «- Liverpool FC» و پسوندهای CTA (Watch highlights...) را حذف می‌کند."""
     t = clean_text(title)
     for _ in range(2):
         t = _TITLE_TAIL.sub("", t).strip()
+    # «…: Watch highlights / Watch full match / Live» — عنوانِ خبر نباید دعوت به تماشا باشد
+    m = re.search(
+        r"\s*[:\-–]\s*(watch\s+(the\s+)?(highlights?|full\s+match|all the goals)|highlights?|"
+        r"live\s+(blog|updates?)|match\s+report)\s*$",
+        t, re.IGNORECASE,
+    )
+    if m:
+        t = t[: m.start()].strip()
     return t
 
 
