@@ -412,14 +412,6 @@ def handle_callback(cq):
             tg.edit_markup(
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
-    elif action == "rej":
-        db.set_status(key, "rejected")
-        tg.answer_callback(cid, "\u274C رد شد")
-        tg.edit_markup(
-            chat_id,
-            msg_id,
-            {"inline_keyboard": [[{"text": f"\u274C رد شد توسط {user}", "callback_data": "noop"}]]},
-        )
     elif action == "rtr":
         tg.answer_callback(cid, "در حال ترجمه مجدد...")
         item = row["payload"]

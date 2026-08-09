@@ -68,12 +68,11 @@ def keyboard(key, mode="manual"):
         if mode == "manual"
         else "\u2705 انتشار در کانال"
     )
+    # دکمه «رد» حذف شد — بنا به خواسته کاربر: اگه ادمین خبر را چند ساعت
+    # منتشر نکند یعنی نخواسته؛ خبر همان sent_admin می‌ماند و هرگز دوباره نمی‌آید.
     return {
         "inline_keyboard": [
-            [
-                {"text": first, "callback_data": f"pub:{key}"},
-                {"text": "\u274C رد", "callback_data": f"rej:{key}"},
-            ],
+            [{"text": first, "callback_data": f"pub:{key}"}],
             [{"text": "\U0001F504 ترجمه مجدد", "callback_data": f"rtr:{key}"}],
         ]
     }
