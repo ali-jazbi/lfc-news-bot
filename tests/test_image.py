@@ -83,5 +83,36 @@ def test_candidate_images_dedup():
             "image": "https://img/a.jpg",
             "images": ["https://img/a.jpg", "https://img/b.jpg"]}
     cands = candidate_images(item)
-    assert cands[0] == "https://img/a.jpg"
+    assert cands[0]["url"] == "https://img/a.jpg"
+    assert cands[0]["kind"] == "article"
     assert len(cands) == 2
+
+
+def test_auto_search_never_selected_without_ai(monkeypatch):
+    """fail-safe: عکس منبع نداریم + AI خاموش → هیچ عکسی (حتی auto) انتخاب نمی‌شود."""
+    monkeypatch.setattr("config.HERMES_ENABLED", False)
+    monkeypatch.setattr("config.ENABLE_AUTO_IMAGE", True)
+
+    def fake_find(*a, **k):
+        return "https://img/auto.jpg"
+
+    import sources.webimg as webimg
+    monkeypatch.setattr(webimg, "find_for_article", fake_find)
+    monkeypatch.setattr(webimg, "is_live_update", lambda item: False)
+    item = {"title": "Liverpool news", "body": "x", "url": "https://x/1"}
+    urls, sel = select_image(item, editor=None)
+    assert urls is None  # auto بدون validation هرگز انتخاب نمی‌شود
+
+
+def test_ai_pick_must_be_in_candidates(fake_hermes, monkeypatch):
+    """اگر AI عکسی خارج از کاندیداها بدهد، رد می‌شود (validation)."""
+    monkeypatch.setattr("config.HERMES_ENABLED", True)
+    monkeypatch.setattr("config.IMAGE_MIN_CONFIDENCE", 0.6)
+    fake_hermes.image = ImageSelection(
+        image_url="https://evil.com/x.jpg", confidence=0.99, reason="trust me")
+    from ai.editor import NewsEditor
+    editor = NewsEditor(client=fake_hermes)
+    item = {"title": "Liverpool news", "body": "x", "url": "https://x/1",
+            "image": "https://img/source.jpg"}
+    urls, _ = select_image(item, editor)
+    assert urls == "https://img/source.jpg"  # خارج از کاندیدا → عکس منبع می‌ماند

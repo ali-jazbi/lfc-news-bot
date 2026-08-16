@@ -111,3 +111,58 @@ def test_channel_examples_only_approved(tmp_db, sample_item):
     examples = tmp_db.channel_examples(limit=10)
     assert len(examples) == 1
     assert examples[0]["url"] == "https://x/good"
+
+
+def test_full_retry_cycle_ends_in_failed(patched_main, sample_item, monkeypatch):
+    """مرحله ۱۸: send fail → retry_pending → تلاش مجدد → سقف → failed با خطا.
+    هیچ آیتمی گم نمی‌شود."""
+    import config
+    import db
+    import main
+    old = config.HERMES_ENABLED
+    config.HERMES_ENABLED = False
+    try:
+        # ارسال اول شکست می‌خورد
+        main.tg.fail_send = True
+        assert main.process_item(sample_item) is False
+        key = db.make_key(sample_item)
+        row = db.get(key)
+        assert row["status"] == db.STATUS_RETRY_PENDING
+        assert row["retry_count"] == 1
+
+        # تلاش‌های مجدد هم شکست می‌خورند → بعد از MAX_SEND_RETRIES → failed
+        main.tg.fail_send = True
+        main.retry_pending_sends()
+        main.retry_pending_sends()
+        row = db.get(key)
+        # بعد از سقف retry، دیگر retryable نیست
+        retryable = db.retryable_items(limit=10)
+        assert all(r["key"] != key for r in retryable)
+        # خبر گم نشده: هنوز با خطا در DB است
+        assert row["status"] in (db.STATUS_RETRY_PENDING, db.STATUS_FAILED)
+        assert row["error"]
+    finally:
+        config.HERMES_ENABLED = old
+
+
+def test_retry_succeeds_and_sends(patched_main, sample_item, monkeypatch):
+    """ارسال اول شکست، تلاش مجدد موفق → pending_admin با پیام."""
+    import config
+    import db
+    import main
+    old = config.HERMES_ENABLED
+    config.HERMES_ENABLED = False
+    try:
+        main.tg.fail_send = True
+        assert main.process_item(sample_item) is False
+        key = db.make_key(sample_item)
+        assert db.get(key)["status"] == db.STATUS_RETRY_PENDING
+
+        # تلاش مجدد موفق
+        main.tg.fail_send = False
+        n = main.retry_pending_sends()
+        assert n == 1
+        row = db.get(key)
+        assert row["status"] == db.STATUS_PENDING_ADMIN or row["status"] == "sent_admin"
+    finally:
+        config.HERMES_ENABLED = old

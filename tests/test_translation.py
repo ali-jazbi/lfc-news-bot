@@ -23,6 +23,28 @@ def test_correct_translation_no_issues():
     assert issues == []
 
 
+def test_title_wrong_name_detected():
+    """نامِ مهمِ متن اصلی (در ۲۰۰ کاراکتر اول = عنوان خبر) باید در عنوان
+    ترجمه‌شده هم باشد — عنوان QC می‌شود نه فقط بدنه."""
+    src = "Virgil van Dijk signs new Liverpool contract"
+    tr = dict(TR)
+    tr["title"] = "محمد صلاح قرارداد جدیدی امضا کرد"
+    issues = check_facts(src, tr)
+    assert any("van dijk" in i.lower() and "title" in i for i in issues)
+
+
+def test_title_number_only_in_body_is_fine():
+    """عدد ۲۰۳۰ در بدنهٔ ترجمه هست و در عنوان نیست — عنوان مشکل ندارد چون
+    عدد مهم در کل ترجمه موجود است (چک ۱ پاس می‌کند)."""
+    src = ("Liverpool have agreed a new contract with Mohamed Salah. The club "
+           "confirmed the forward will stay at Anfield for another five years "
+           "and the new deal runs until the end of the 2030 season.")
+    tr = dict(TR)
+    tr["title"] = "لیورپول با صلاح به توافق رسید"
+    issues = check_facts(src, tr)
+    assert not any("title" in i for i in issues)
+
+
 def test_wrong_number_detected():
     src = ("Liverpool agreed a deal worth 71 million euros for the forward.")
     tr = dict(TR)
