@@ -18,6 +18,23 @@ Running in **test / semi-automatic mode**: bot drafts posts and sends them to an
 - Percentage formatting fix so similarity shows as a clean integer (e.g. "91%") instead of a long float.
 - Diagnosed and documented the Telegram "group upgraded to supergroup" failure mode and the fix (`get_chat_id.py` + updating `ADMIN_CHAT_ID`).
 
+## 2026-08 AI newsroom upgrade
+- **Hermes Agent integration** (v0.18.2): editorial layer with 3-tier analysis,
+  web-evidence verification, translation QC with channel style, image selection.
+  Gated behind `HERMES_ENABLED` (default off → zero behavior change).
+- **Source health + concurrent collection**: per-source healthy/degraded/failed
+  with backoff; one dead source no longer blocks the cycle.
+- **News state machine**: new statuses + error/retry_count/last_attempt_at;
+  Telegram send failures → retry_pending → retried each cycle → failed (with
+  error) after MAX_SEND_RETRIES. Nothing silently lost.
+- **Video pipeline** (`media.py`): download/validate/transcode/thumbnail on disk
+  with named failure states.
+- **Human feedback loop**: admin approve/retranslate actions stored vs AI decision.
+- **MCP server** (`lfc_mcp_server.py`, 10 tools) + 5 Hermes skills (editor,
+  verifier, translator, image-selector, quality-control) — installed & enabled.
+- **Tests**: 75 pytest tests (sources/dedup/AI/translation/image/video/telegram/
+  state/e2e). Evaluation on real DB: see `docs/EVALUATION_REPORT.md`.
+
 ## In progress / pending
 - **Watch** live for 429s on `nitter.net` under the new staggered polling — should be near-zero; if they persist, lower `TWITTER_WORKERS` or raise `TWITTER_INTER_ACCOUNT_DELAY`.
 - Decide on filtering low-value/fluff tweets (e.g. raise minimum word count, or add a phrase blocklist).

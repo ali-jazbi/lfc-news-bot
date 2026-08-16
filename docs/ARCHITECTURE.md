@@ -4,6 +4,14 @@
 LFC News Bot is a Python polling service that aggregates Liverpool FC news from multiple sources, translates it to Persian, scores it for relevance/duplication, and publishes it to a Telegram channel after admin approval (semi-automatic mode).
 
 ## High-level pipeline
+0. **Hermes AI Editor (optional, HERMES_ENABLED=true)** — after dedup, each item
+   passes through the editorial layer before translation: relevance/content-type/
+   importance/decision (`ai/editor.py`), verification with web evidence
+   (`ai/verifier.py` via `ai/editor.py`), translation QC with channel style
+   examples (`ai/quality_control.py`), and image selection (`ai/image_selector.py`).
+   All AI output is schema-validated (`ai/schemas.py`); if Hermes is unavailable
+   it falls back to the direct LLM chain, then to deterministic keyword/source
+   rules. Python remains the backend — Hermes only reasons.
 1. **Fetch** — pull raw items from sources:
    - `sources/lfc_official.py` — official LFC RSS/site feed.
    - `sources/twitter.py` — configured list of Twitter/X accounts via Nitter mirrors + RSS fallback, with per-account cooldown and rotating base URLs.
