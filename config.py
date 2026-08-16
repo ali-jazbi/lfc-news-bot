@@ -300,3 +300,40 @@ def display_name(handle):
     """نام فارسی/انسانی منبع؛ اگر نبود خود آیدی را برمی‌گرداند."""
     h = (handle or "").strip().lstrip("@")
     return TWITTER_NAMES.get(h.lower(), h)
+
+
+# ============================================================================
+# Hermes AI Editor
+# ============================================================================
+# وقتی HERMES_ENABLED=true باشد، خبر قبل از ترجمه از لایه تحلیل/راستی‌آزمایی/
+# QC عبور می‌کند. false (پیش‌فرض) یعنی رفتارِ قبلیِ بات دقیقاً حفظ می‌شود.
+# هرمس فقط مغز سردبیری است؛ Python همچنان backend است.
+HERMES_ENABLED = _get("HERMES_ENABLED", "false").lower() == "true"
+
+# مسیر باینری hermes (روی ویندوز: .../hermes-agent/venv/Scripts/hermes.exe).
+# خالی = خودکار: اول در PATH، بعد HERMES_HOME استاندارد (Linux: ~/.hermes،
+# Windows: %LOCALAPPDATA%/hermes). اگر پیدا نشد، از LLM مستقیم (translate) استفاده می‌شود.
+HERMES_BIN = _get("HERMES_BIN", "")
+HERMES_HOME_AUTO = _get("HERMES_HOME", "")
+HERMES_TIMEOUT = _int("HERMES_TIMEOUT", 150)       # سقف هر فراخوانی agent
+HERMES_RETRIES = _int("HERMES_RETRIES", 1)         # تلاش مجدد روی خطای provider
+HERMES_TOOLSETS = _get("HERMES_TOOLSETS", "web,vision,file,terminal")
+
+# سقف چرخه بازبینی ترجمه (بعد از آن → human_review)
+HERMES_MAX_REVISIONS = _int("HERMES_MAX_REVISIONS", 2)
+
+# درجه اهمیت (۱-۱۰) بالاتر از این = خبر مهم → مسیر پرهزینه (verification)
+AI_IMPORTANCE_HIGH = _int("AI_IMPORTANCE_HIGH", 7)
+
+# همیشه همه خبرها را تحلیل کن حتی وقتی tier پایین است (پیش‌فرض: خیر)
+AI_ALWAYS_ANALYZE = _get("AI_ALWAYS_ANALYZE", "false").lower() == "true"
+
+# پس از چند تلاش ناموفق ارسال، خبر به حالت failed می‌رود (نه گم‌شدن ساکت)
+MAX_SEND_RETRIES = _int("MAX_SEND_RETRIES", 3)
+
+# مسیر کاری رسانه‌ها (دانلود ویدیو، thumbnail و...)
+MEDIA_DIR = _get("MEDIA_DIR", str(BASE_DIR / "data" / "media"))
+
+# ممنوعیت انتخاب عکسِ تصادفی: اگر AI نتواند با اطمینان عکس مرتبط پیدا کند،
+# بدون عکس منتشر می‌شود. این حداقل اطمینان (۰-۱) برای پذیرش است.
+IMAGE_MIN_CONFIDENCE = _float("IMAGE_MIN_CONFIDENCE", 0.6)
