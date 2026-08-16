@@ -26,8 +26,12 @@ import config
 import db
 import formatter
 import health
+import media
 import sample_item
+import source_health
 import translate
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from ai.tracing import news_id_of, trace
 from sources import lfc_official, romano, twitter, outlet_rss, bluesky, webimg
 from telegram_api import Telegram
 
@@ -78,50 +82,147 @@ _check_running = False
 
 
 # ------------------------------------------------------------------ collect
-def _fetch_source(label, fn):
-    """یک منبع را می‌خواند و سلامتش را ثبت می‌کند."""
+def _sources():
+    """لیست (source_id, label, fn) — با احترام به ENABLE_* فعلی."""
+    out = []
+    if config.ENABLE_LFC:
+        out.append(("lfc_official", "سایت باشگاه", lfc_official.fetch))
+    if getattr(config, "ENABLE_OUTLET_RSS", True):
+        out.append(("outlet_rss", "خبرگزاری رسمی", outlet_rss.fetch))
+    if getattr(config, "ENABLE_BLUESKY", False):
+        out.append(("bluesky", "بلواسکای", bluesky.fetch))
+    if getattr(config, "ENABLE_TWITTER", True):
+        out.append(("twitter", "توییتر", twitter.fetch))
+    elif config.ENABLE_ROMANO:
+        out.append(("romano", "رومانو", romano.fetch))
+    return out
+
+
+def _fetch_source(source_id, label, fn):
+    """یک منبع را می‌خواند؛ سلامت و backoff (مرحله ۹) را اعمال می‌کند.
+    هیچ‌وقت exception به بیرون نمی‌دهد — یک منبع خراب کل چرخه را نمی‌شکند."""
+    if not source_health.is_due(source_id):
+        log.debug("source %s in backoff — skipped this cycle", source_id)
+        return []
     t0 = time.time()
     try:
         got = fn(limit=config.MAX_ITEMS_PER_CYCLE)
-        health.record_ok(label, ms=(time.time() - t0) * 1000, kind="source")
+        ms = (time.time() - t0) * 1000
+        health.record_ok(label, ms=ms, kind="source")
+        source_health.mark_ok(source_id, items=len(got or []), latency_ms=ms)
         return got or []
     except Exception as e:
         health.record_fail(label, e, kind="source")
+        source_health.mark_fail(source_id, error=str(e))
         log.error("source error %s: %s", label, e)
         return []
 
 
 def collect():
+    """همه منابع به‌صورت هم‌زمان خوانده می‌شوند (timeout isolation):
+    یک منبع کند دیگر منبع‌های سالم را block نمی‌کند (مرحله ۱۰)."""
+    sources = _sources()
+    if not sources:
+        return []
+    results = {}
+    with ThreadPoolExecutor(max_workers=min(len(sources), 5)) as pool:
+        futures = {
+            pool.submit(_fetch_source, sid, label, fn): sid
+            for sid, label, fn in sources
+        }
+        for fut in as_completed(futures):
+            sid = futures[fut]
+            try:
+                results[sid] = fut.result()
+            except Exception as e:
+                log.error("collect worker %s crashed: %s", sid, e)
+                results[sid] = []
     items = []
-    if config.ENABLE_LFC:
-        items += _fetch_source("سایت باشگاه", lfc_official.fetch)
-    if getattr(config, "ENABLE_OUTLET_RSS", True):
-        # منبع رسمی و پایدار — هیچ وابستگی به آینه/میرور ندارد
-        items += _fetch_source("خبرگزاری رسمی", outlet_rss.fetch)
-    if getattr(config, "ENABLE_BLUESKY", False):
-        # جایگزین رسمی نیتر برای خبرنگارانی که BLUESKY_HANDLES دارند
-        items += _fetch_source("بلواسکای", bluesky.fetch)
-    if getattr(config, "ENABLE_TWITTER", True):
-        # توییتر/نیتر حالا دیگر تنها منبع نیست — یک لایه کمکی بعد از RSS/بلواسکای
-        items += _fetch_source("توییتر", twitter.fetch)
-    elif config.ENABLE_ROMANO:
-        items += _fetch_source("رومانو", romano.fetch)
+    for sid, _, _ in sources:
+        items += results.get(sid) or []
     return items
 
 
+def _get_editor():
+    """سردبیر AI — هر بار ساخته می‌شود تا state سبک بماند."""
+    from ai import create_editor
+    return create_editor()
+
+
 def process_item(item, force=False):
-    """یک خبر را ترجمه و در گروه ادمین/تست می‌گذارد. force → فیلتر تکراری خاموش."""
+    """یک خبر را از مسیر کامل عبور می‌دهد و در گروه ادمین/تست می‌گذارد.
+
+    force → فیلتر تکراری خاموش.
+    وقتی HERMES_ENABLED=false رفتار قبلی دقیقاً حفظ می‌شود (فقط ترجمه + ارسال).
+    """
     if not force and db.is_duplicate(item):
         return False
+
+    key = db.make_key(item)
+    nid = news_id_of(item)
+    notes = []
+    editor = None
+
+    # --------------------------------------------------------- مرحله AI
+    if config.HERMES_ENABLED:
+        db.save(item, status=db.STATUS_ANALYZING)
+        try:
+            editor = _get_editor()
+            analysis = editor.analyze(item)
+            db.record_analysis(key, analysis.to_dict())
+            if analysis.decision == "reject":
+                db.mark_attempt(key, db.STATUS_REJECTED,
+                                error="AI: " + (analysis.reason or "rejected"))
+                health.record_counter("ai_rejected")
+                trace(nid, "DECISION", decision="reject",
+                      reason=(analysis.reason or "")[:90])
+                log.info("AI rejected (%s): %s", analysis.category,
+                         (item.get("title") or "")[:70])
+                return False
+            if editor.needs_verification(analysis, item):
+                db.mark_attempt(key, db.STATUS_VERIFICATION)
+                try:
+                    vr = editor.verify(item, analysis)
+                    if vr and vr.verified:
+                        notes.append(
+                            "\u2705 راستی‌آزمایی شد ({:.0%} با {} شواهد)".format(
+                                vr.confidence, len(vr.evidence)))
+                    elif vr:
+                        notes.append(
+                            "\U0001F50D شواهد مستقل کافی نیست — لطفاً بازبینی کن")
+                        health.record_counter("verification_human")
+                except Exception as e:
+                    log.warning("verification failed: %s", e)
+                    notes.append("\U0001F50D راستی‌آزمایی ناقص بود — بازبینی کن")
+                db.mark_attempt(key, db.STATUS_APPROVED_BY_AI)
+            else:
+                db.mark_attempt(key, db.STATUS_APPROVED_BY_AI)
+        except Exception as e:
+            log.exception("AI stage crashed for %s — continuing legacy path", nid)
+            db.mark_attempt(key, db.STATUS_APPROVED_BY_AI, error=str(e)[:200])
+            editor = None
+    else:
+        db.save(item, status="new")
 
     log.info("translating: %s", (item.get("title") or "")[:70])
     tr = translate.translate(item)
     if not tr:
-        db.save(item, status="skipped")
+        db.mark_attempt(key, "skipped", error="translation chain failed")
+        trace(nid, "TRANSLATION", success=False)
         return False
 
+    # QC ترجمه (مرحله ۶) — فقط وقتی HERMES روشن است
+    if config.HERMES_ENABLED and editor is not None:
+        from ai.quality_control import translate_with_qc
+        try:
+            tr, review, human_review = translate_with_qc(item, editor, tr=tr)
+            if human_review:
+                notes.append(
+                    "\U0001FA7A ترجمه کیفیت پایینی دارد — قبل از انتشار اصلاح کن")
+        except Exception as e:
+            log.warning("translation QC failed: %s", e)
+
     # نگهبان کانال: خبر را نمی‌بلاکد، فقط به ادمین هشدار می‌دهد
-    notes = []
     hit = channel_guard.check(tr, item)
     if hit:
         score, sample = hit
@@ -151,7 +252,10 @@ def process_item(item, force=False):
         log.info("shared with: %s", ", ".join(others[:4]))
 
     item["translated"] = tr
-    key = db.save(item, status="new")
+    if config.HERMES_ENABLED:
+        db.update_payload(key, item)
+    else:
+        db.save(item, status="new")
     caption = formatter.build_admin_caption(item, tr)
     if notes:
         caption += "\n" + "\n".join(notes)
@@ -175,9 +279,21 @@ def process_item(item, force=False):
     images = [u for u in (item.get("images") or []) if u]
     video = item.get("video_url")
     thumb = item.get("video_thumb")
+    video_local = None
+    thumb_local = None
 
-    # عکس خودکار برای خبرِ بدون عکس (به‌جز آپدیت لحظه‌ای مسابقه)
-    if not images and not item.get("image") and not video \
+    # عکس خودکار: HERMES روشن → انتخاب هوشمند (مرحله ۷)؛ خاموش → رفتار قدیمی
+    if config.HERMES_ENABLED and editor is not None:
+        if not images and not item.get("image") and not video:
+            from ai.image_selector import select_image
+            try:
+                chosen, _ = select_image(item, editor)
+                if chosen:
+                    item["image"] = chosen
+                    images = [chosen]
+            except Exception as e:
+                log.warning("image selection failed: %s", e)
+    elif not images and not item.get("image") and not video \
             and not webimg.is_live_update(item):
         auto = webimg.find_for_article(
             item.get("title") or "", item.get("body") or "", item.get("url") or "",
@@ -187,9 +303,47 @@ def process_item(item, force=False):
             item["image"] = auto
             images = [auto]
 
+    # خط لوله ویدیو (مرحله ۸) — دانلود/validate/تبدیل/thumbnail روی دیسک
+    if video and not DRY_RUN:
+        try:
+            mp = media.process(video, thumb)
+            if mp["ok"]:
+                video_local = mp["video_path"]
+                thumb_local = mp["thumb_path"]
+                trace(nid, "VIDEO", state="ready",
+                      duration=round(mp.get("duration") or 0, 1))
+            else:
+                trace(nid, "VIDEO", state=mp.get("state"),
+                      error=(mp.get("error") or "")[:90])
+                if mp.get("retry"):
+                    notes.append("\U0001F3AC ویدیو با URL مستقیم امتحان می‌شود: "
+                                 + (mp.get("error") or "")[:60])
+                    caption = formatter.build_admin_caption(item, tr)
+                    if notes:
+                        caption += "\n" + "\n".join(notes)
+                else:
+                    notes.append("\U0001F3AC ویدیو نامعتبر بود: "
+                                 + (mp.get("error") or "")[:60])
+                    video = None
+                    caption = formatter.build_admin_caption(item, tr)
+                    if notes:
+                        caption += "\n" + "\n".join(notes)
+        except Exception as e:
+            log.warning("video pipeline failed: %s", e)
+
     if video and not DRY_RUN:
         # ویدیو جدا از دکمه‌ها — اول ویدیو (بی‌صدا)، بعد کپشن + دکمه‌ها
-        tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high, thumb=thumb)
+        if video_local:
+            try:
+                with open(video_local, "rb") as fh:
+                    tg.upload_video(config.ADMIN_CHAT_ID, fh.read(),
+                                    silent=not high,
+                                    filename=os.path.basename(video_local))
+            except Exception as e:
+                log.error("local video upload failed: %s", e)
+        else:
+            tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high,
+                          thumb=thumb_local or thumb)
         msg = tg.send_message(
             config.ADMIN_CHAT_ID,
             caption,
@@ -211,13 +365,15 @@ def process_item(item, force=False):
             config.ADMIN_CHAT_ID,
             caption,
             image=item.get("image"),
-            video=video,
-            thumb=thumb,
+            video=video_local or video,
+            thumb=thumb_local or thumb,
             reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
             silent=not high,
         )
     if msg:
-        db.save(item, status="sent_admin", admin_msg=msg.get("message_id"))
+        status = db.STATUS_PENDING_ADMIN if config.HERMES_ENABLED else "sent_admin"
+        db.set_admin_msg(key, msg.get("message_id"), status=status)
+        trace(nid, "TELEGRAM", upload="success")
 
         # متن انگلیسی دست‌نخورده، بی‌صدا و در پاسخ به همان پیش‌نمایش
         original = formatter.build_original_message(item)
@@ -240,7 +396,13 @@ def process_item(item, force=False):
 
         log.info("\u2192 posted to group: %s", (item.get("title") or "")[:70])
         return True
-    log.error("sending to group failed (check ADMIN_CHAT_ID)")
+
+    # شکست ارسال → هیچ‌وقت گم‌شدن ساکت: retry_pending با خطا و شمارنده تلاش
+    err = getattr(tg, "last_error", "") or "send failed"
+    db.mark_attempt(key, db.STATUS_RETRY_PENDING, error=err, retry=True)
+    trace(nid, "TELEGRAM", upload="failed", retry_pending=True, error=err[:80])
+    health.record_counter("send_failed")
+    log.error("sending to group failed (check ADMIN_CHAT_ID): %s", err)
     return False
 
 
@@ -257,6 +419,18 @@ def approve(key, chat_id):
 
     text = formatter.build_caption(item, tr)
     images = item.get("images")
+
+    # حلقه بازخورد انسانی (مرحله ۱۲): تصمیم AI در برابر اقدام واقعی ادمین
+    try:
+        analysis = db.get_analysis(key)
+        db.record_feedback(
+            key,
+            ai_decision=(analysis or {}).get("decision") if analysis else None,
+            human_action="approve",
+            reason="",
+        )
+    except Exception as e:
+        log.debug("feedback record failed: %s", e)
 
     if config.PUBLISH_MODE == "auto" and config.CHANNEL_ID:
         res = tg.send_post(config.CHANNEL_ID, text, image=item.get("image"), images=images,
@@ -299,9 +473,52 @@ def maybe_prune():
         log.warning("db prune failed: %s", e)
 
 
+def retry_pending_sends(limit=5):
+    """خبرهایی که ارسال‌شان قبلاً شکست خورده دوباره امتحان می‌شوند — هیچ خبری
+    به‌خاطر یک خطای موقت تلگرام گم نمی‌شود (مرحله ۸/۱۱). بعد از سقف تلاش → failed
+    با خطای ذخیره‌شده (نه حذف)."""
+    retried = 0
+    for row in db.retryable_items(limit=limit):
+        key = row["key"]
+        item = row["payload"]
+        tr = item.get("translated")
+        if not tr:
+            db.mark_attempt(key, db.STATUS_FAILED, error="no translation payload")
+            continue
+        nid = news_id_of(item)
+        trace(nid, "TELEGRAM", step="retry", attempt=(row.get("retry_count") or 0) + 1)
+        caption = formatter.build_admin_caption(item, tr)
+        try:
+            msg = tg.send_post(
+                config.ADMIN_CHAT_ID, caption,
+                image=item.get("image"),
+                images=[u for u in (item.get("images") or []) if u],
+                video=item.get("video_url"),
+                thumb=item.get("video_thumb"),
+                reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+            )
+        except Exception as e:
+            msg = None
+            tg.last_error = str(e)
+        if msg:
+            db.set_admin_msg(key, msg.get("message_id"),
+                             status=db.STATUS_PENDING_ADMIN)
+            trace(nid, "TELEGRAM", retry="success")
+            retried += 1
+        else:
+            db.mark_attempt(key, db.STATUS_RETRY_PENDING,
+                            error=getattr(tg, "last_error", "retry failed"), retry=True)
+            trace(nid, "TELEGRAM", retry="failed")
+    if retried:
+        log.info("retried %d pending send(s)", retried)
+    return retried
+
+
 def run_cycle(force=False):
     health.record_counter("cycles")
     maybe_prune()
+    # اول تلاش‌های ناتمام قبلی، بعد خبرها
+    retry_pending_sends()
     items = collect()
     log.info("collected %d items", len(items))
     if not items:
@@ -459,9 +676,15 @@ def handle_message(m):
             f"بازه چک منابع: هر {config.POLL_INTERVAL} ثانیه",
         )
     elif cmd == "/health":
+        try:
+            src_report = source_health.report()
+        except Exception:
+            src_report = ""
         tg.send_message(
             chat_id,
-            health.report(translate.chain_names()) + "\n\n" + channel_guard.status(),
+            health.report(translate.chain_names()) + "\n\n"
+            + channel_guard.status()
+            + (("\n\n" + src_report) if src_report else ""),
         )
     elif cmd == "/errors":
         tg.send_message(chat_id, _tail_errors())
