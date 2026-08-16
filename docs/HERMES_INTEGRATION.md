@@ -77,12 +77,55 @@ Skills installed      : lfc-news-editor, lfc-news-verifier, lfc-news-translator,
 | `hermes_skills/*` | ۵ skill editorial |
 | `install_hermes.py` | نصب skills + ثبت MCP (idempotent) |
 
+## قواعد editorial که Hermes نمی‌تواند override کند
+
+Hermes/LLM سلیقهٔ خبری را تعیین می‌کند، ولی **قواعد قطعی کانال همیشه اول
+اجرا می‌شوند** (`ai/editor.py`):
+
+- **Hard rules** (`_hard_rules_analysis`): SKIP_KEYWORDS، INCLUDE_WOMEN، خبر
+  قدیمی (سال گذشته در عنوان)، opinion/clickbait → reject قطعی. این‌ها قبل از
+  فراخوانی AI اعمال می‌شوند و بعد از آن هم دوباره (safety net) — Hermes
+  نمی‌تواند خبر women's team یا گالری را publish کند حتی اگر «مرتبط» بداند.
+- **Policy guard** (`_policy_guard`): ادعای مهم از منبع غیررسمی → review +
+  verification اجباری: injury/breaking ≥۷، transfer/rumour ≥۸. استثنا:
+  انتقال تأییدشده از منبع معتبر. «Manager of the Month» از BBC یا «match
+  report» از Guardian پابلیش می‌ماند (category غیرحساس).
+- **Source health** در تصمیم: منبع degraded/failed → اعتماد کمتر و در صورت
+  نیاز review.
+
+نتیجه روی گلدن‌ست (قبل → بعد): Hermes accuracy 0.766 → **0.979**،
+reject_precision 1.0، false_accept_risk 0. (جزییات: docs/EVALUATION_REPORT.md)
+
+## Translation QC — fail-closed
+
+وقتی AI QC در دسترس نیست/کرش می‌کند، `TranslationReview` با
+`available=false, ok=false, human_review_required=true` برمی‌گردد — هرگز
+«ترجمه خوب است» گفته نمی‌شود. Revision هر دو title و body را مستقل پشتیبانی
+می‌کند (`revision_title`/`revision_body`)؛ چرخه اصلاح تا `HERMES_MAX_REVISIONS`
+و بعد → human_review.
+
+## Verification — research-based + anti-hallucination
+
+- شواهد با **وزن منبع (Tier)** مرتب و امتیازدهی می‌شوند:
+  Tier1=Liverpool FC، Tier2=BBC/Sky/Reuters/Athletic/Guardian، Tier3=متخصص
+  لیورپول، Tier4=خبرنگار، Tier5=حساب ناشناس. توییت Tier5 با بیانیه رسمی
+  امتیاز مساوی ندارد.
+- **هرگز تأیید بدون شواهد**: بدون شواهد Tier1 یا دو شواهد Tier2/3 →
+  verified=false. این قانون روی خروجی AI هم اعمال می‌شود (نه فقط fallback).
+- **Prompt injection**: پرامپت verification صریحاً می‌گوید همه متن وب/RSS
+  untrusted است و دستورات داخل محتوا هرگز اطاعت نمی‌شود. (تست:
+  tests/test_verification.py)
+
 ## اجرا
 
 ```bash
 python install_hermes.py          # نصب skills + ثبت MCP (یک‌بار)
 HERMES_ENABLED=true python main.py  # بات با مغز سردبیری
 python main.py                    # بدون AI — رفتار قبلی دقیقاً
+
+python evaluate.py                # ارزیابی قطعی (هزینه صفر)
+python evaluate.py --with-ai      # ارزیابی با Hermes واقعی (cache شده)
+python evaluate.py --with-ai --verify  # + اجرای verification
 ```
 
 ## وضعیت فعلی provider (در این محیط)
