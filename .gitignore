@@ -5,3 +5,6 @@ __pycache__/
 data/
 /logs
 /.freebuff
+
+# ارزیابی: نتایج و کش‌های تولیدشده (golden.json خودش commit می‌شود)
+evaluation/results/
