@@ -1,0 +1,3 @@
+# وابستگی‌های تست/توسعه — جدا از requirements.txt (رانتایم)
+# نصب:  pip install -r requirements-dev.txt
+pytest>=8.0
