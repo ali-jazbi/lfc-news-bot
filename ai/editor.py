@@ -42,6 +42,31 @@ _HIGH_SIGNALS = (
     "exclusive", "breaking", "lineup", "team news", "contract extension",
 )
 
+# نشانه‌های opinion — هرگز به‌عنوان خبر منتشر نمی‌شود.
+# نکته: «i think/in my view» در بدنهٔ خبرنگاران نقل‌وانتقال رایج است و خودش
+# opinion نیست؛ فقط ساختارهای صریح opinion (عنوان/شروع‌کنندهٔ بحث) رد می‌شوند.
+_OPINION_TITLE_SIGNALS = (
+    "why liverpool should", "why i think", "should liverpool sell",
+    "should sell salah", "should the club", "my honest opinion",
+    "an opinion:", "opinion:", "column:",
+)
+_OPINION_BODY_SIGNALS = (
+    "in my opinion,", "this is my opinion", "my controversial take",
+    "in this opinion piece", "this article is my opinion",
+    "i'm going to argue", "i will argue",
+)
+
+# نشانه‌های clickbait — نویز
+_CLICKBAIT_SIGNALS = (
+    "you won't believe", "you wont believe", "incredible transformation",
+    "shocking", "mind blowing", "mind-blowing", "click here", "gallery inside",
+    "what happened next", "you need to see", "will shock",
+)
+
+# سال‌های گذشته در متن = خبر قدیمی
+import datetime as _dt
+_CURRENT_YEAR = _dt.date.today().year
+
 
 def _source_key(item: dict) -> str:
     return (item.get("source_tag") or item.get("source") or "").strip().lower()
@@ -94,6 +119,56 @@ def tier_of(item: dict) -> str:
     return "medium"
 
 
+# نهادهای لیورپولی از glossary — فقط این‌ها relevance می‌سازند (نه حریف‌ها)
+_LFC_GLOSSARY_KEYS = (
+    "liverpool", "anfield", "kirkby", "axa training centre", "arne slot",
+    "mohamed salah", "virgil van dijk", "alisson", "ryan gravenberch",
+    "dominik szoboszlai", "alexis mac allister", "curtis jones",
+    "conor bradley", "ibrahima konate", "kop end", "kop", "reds",
+    "merseyside derby", "andoni iraola", "iraola", "slot", "axa",
+    "premier league", "champions league", "carabao cup", "fa cup",
+)
+
+
+def _is_liverpool_relevant(blob: str, item: dict) -> bool:
+    """آیا متن درباره لیورپول است؟ کلمات کلیدی + نهادهای لیورپولی."""
+    kws = getattr(config, "ROMANO_KEYWORDS", []) or []
+    if any(k.lower() in blob for k in kws):
+        return True
+    # فقط نهادهای لیورپولی از glossary (بازیکن/مربی/باشگاه) — حریف‌ها نه
+    try:
+        for en in getattr(config, "GLOSSARY", {}) or {}:
+            if en.lower() not in _LFC_GLOSSARY_KEYS:
+                continue
+            if en.lower() in blob:
+                return True
+    except Exception:
+        pass
+    # نام‌های شناخته‌شده تک‌کلمه‌ای که در glossary نیستند
+    for name in ("alexander-arnold", "trent", "nunez", "gakpo", "diaz",
+                 "jota", "kelleher", "quansah", "endo", "chiesa", "klopp",
+                 "zubimendi", "huijsen", "kerkez"):
+        if name in blob:
+            return True
+    return False
+
+
+def _is_outdated(item: dict) -> bool:
+    """سال گذشته در «عنوان» = خبر قدیمی.
+
+    عمداً فقط عنوان بررسی می‌شود: سال در بدنه معمولاً پیشینه/مقایسه است
+    (مثل «joined in 2021» یا «2025-26 season») و قدیمی بودن خبر را نشان
+    نمی‌دهد. الگوی فصل «2025-26» هم حذف می‌شود.
+    """
+    blob = (item.get("title") or "").lower()
+    clean = re.sub(r"20\d{2}\s*[-/]\s*\d{2}", " ", blob)
+    for m in re.findall(r"\b(19\d{2}|20\d{2})\b", clean):
+        y = int(m)
+        if y > 1900 and _CURRENT_YEAR - y >= 1:
+            return True
+    return False
+
+
 def deterministic_analysis(item: dict, tier: str = "medium") -> NewsAnalysis:
     """Fallback قطعی — همان منطق کلمه‌ای فعلی بات، اما در قالب NewsAnalysis.
 
@@ -103,30 +178,18 @@ def deterministic_analysis(item: dict, tier: str = "medium") -> NewsAnalysis:
     blob = _blob(item)
     title = (item.get("title") or "").lower()
 
-    # نویزهای قطعی (فیلتر فعلی SKIP_KEYWORDS + is_noise)
-    for kw in getattr(config, "SKIP_KEYWORDS", []):
-        if kw and kw.lower() in title:
-            return NewsAnalysis(
-                decision="reject", confidence=0.95, importance=1,
-                category="irrelevant", relevance=False, quality="clickbait",
-                reason=f"skip keyword: {kw}", tier=tier,
-            )
-    if not config.INCLUDE_WOMEN and re.search(r"women|wsl", blob):
-        return NewsAnalysis(
-            decision="reject", confidence=0.9, importance=1,
-            category="irrelevant", relevance=False, quality="outdated",
-            reason="women's team not covered", tier=tier,
-        )
+    # قواعد قطعی کانال — همان hard rules (reject بدون ابهام)
+    hard = _hard_rules_analysis(item, tier=tier)
+    if hard is not None:
+        return hard
 
-    # relevance کلمه‌ای (مثل ROMANO_KEYWORDS فعلی)
-    if not _is_official(item) and not _is_trusted_outlet(item):
-        kws = getattr(config, "ROMANO_KEYWORDS", []) or []
-        if kws and not any(k.lower() in blob for k in kws):
-            return NewsAnalysis(
-                decision="reject", confidence=0.8, importance=1,
-                category="irrelevant", relevance=False, quality="misleading",
-                reason="no Liverpool keyword", tier=tier,
-            )
+    # relevance — برای همه منابع (حتی معتبر: BBC/Sky هم خبر غیر-لیورپول می‌دهند)
+    if not _is_official(item) and not _is_liverpool_relevant(blob, item):
+        return NewsAnalysis(
+            decision="reject", confidence=0.8, importance=1,
+            category="irrelevant", relevance=False, quality="misleading",
+            reason="no Liverpool relevance", tier=tier,
+        )
 
     # اهمیت
     importance = 5
@@ -139,7 +202,10 @@ def deterministic_analysis(item: dict, tier: str = "medium") -> NewsAnalysis:
 
     # نوع محتوا
     category = "player_news"
-    if any(s in blob for s in ("transfer", "here we go", "medical", "loan")):
+    _TRANSFER_WORDS = ("transfer", "here we go", "medical", "loan", "asking price",
+                       "personal terms", "buy-out", "release clause", "fee",
+                       "move to", "interest in", "wants to join", "keen on")
+    if any(s in blob for s in _TRANSFER_WORDS):
         category = "transfer_rumour" if any(s in blob for s in SUSPICIOUS_SIGNALS) \
             else "transfer"
     elif "injury" in blob or "ruled out" in blob:
@@ -151,13 +217,41 @@ def deterministic_analysis(item: dict, tier: str = "medium") -> NewsAnalysis:
     elif any(s in blob for s in ("breaking", "exclusive", "confirmed")):
         category = "breaking"
 
-    # تصمیم محافظه‌کارانه
+    # «reports/according to reports/claims» داخل محتوا = محتوای rumour،
+    # حتی اگر منبع رسمی باشگاه باشد (باشگاه هم گاهی بازتاب گزارش رسانه‌هاست)
+    if any(s in blob for s in ("according to reports", "according to multiple reports",
+                               "reports claim", "reports suggest", "per reports",
+                               "sources say", "sources claim", "reportedly")):
+        category = "transfer_rumour" if any(s in blob for s in _TRANSFER_WORDS) \
+            else category
+
+    # تصمیم محافظه‌کارانه — سیاست دقیق (مرحله ۱۳):
+    #   reject فقط وقتی قطعاً بی‌ربط/ممنوع/نویز است
+    #   review وقتی ابهام/rumour/اعتماد کم/ادعای مهم است
+    #   publish فقط وقتی مرتبط + کیفیت قابل قبول + اعتماد مناسب است
     decision = "publish"
     needs_verify = False
     if category == "transfer_rumour" or any(s in blob for s in SUSPICIOUS_SIGNALS):
         decision = "review"
         needs_verify = True
+    # انتقال تأییدشده (complete/here we go/confirmed/signed) از منبع معتبر
+    # → publish حتی با اهمیت بالا (تأییدشده است، نه rumour)
+    _CONFIRMED = ("here we go", "complete", "completed", "confirmed", "has signed",
+                  "has completed", "signs", "signed a")
+    confirmed_transfer = category in ("transfer", "breaking") and any(
+        s in blob for s in _CONFIRMED)
+
+    # ادعای مهم از هر منبع غیررسمی (حتی BBC/Sky) → verification اجباری (مرحله ۱۴)
+    # استثنا: انتقال تأییدشده از منبع معتبر
+    if importance >= config.AI_IMPORTANCE_HIGH and not _is_official(item) \
+            and not (confirmed_transfer and _is_trusted_outlet(item)):
+        needs_verify = True
+        decision = "review"
     if importance >= config.AI_IMPORTANCE_HIGH and tier == "high":
+        needs_verify = True
+        decision = "review"
+    # محتوای rumour از منبع رسمی هم (بازتاب گزارش رسانه) → review
+    if category == "transfer_rumour" and _is_official(item):
         needs_verify = True
         decision = "review"
 
@@ -180,7 +274,21 @@ class NewsEditor:
     def analyze(self, item: dict) -> NewsAnalysis:
         nid = news_id_of(item)
         tier = tier_of(item)
-        trace(nid, "AI_TIER", tier=tier, source=item.get("source_tag"))
+        src_health = _source_health_of(item)
+        trace(nid, "AI_TIER", tier=tier, source=item.get("source_tag"),
+              source_health=src_health)
+
+        # قواعد قطعی کانال همیشه اول اجرا می‌شوند — Hermes هرگز نمی‌تواند
+        # خبر women's team، SKIP_KEYWORDS یا خبر قدیمی را publish کند، حتی اگر
+        # LLM آن را «مرتبط و جالب» بداند (Hermes قواعد کانال را نمی‌داند).
+        hard = _hard_rules_analysis(item, tier=tier)
+        if hard is not None:
+            trace(nid, "AI_ANALYSIS", decision=hard.decision,
+                  confidence=round(hard.confidence, 2), importance=hard.importance,
+                  category=hard.category, quality=hard.quality,
+                  needs_verification=hard.needs_verification,
+                  source="hard-rule")
+            return hard
 
         # tier پایین + AI_ALWAYS_ANALYZE خاموش → سریع، ارزان، قطعی
         try:
@@ -193,6 +301,24 @@ class NewsEditor:
             log.warning("AI analysis raised (%s) — deterministic fallback", e)
             a = deterministic_analysis(item, tier=tier)
 
+        # safety net: قواعد قطعی باز هم روی خروجی AI اعمال می‌شود
+        # (اگر LLM به‌هرحال چیزی publish کرد که قطعاً ممنوع است)
+        hard = _hard_rules_analysis(item, tier=tier)
+        if hard is not None and hard.decision == "reject":
+            a = hard
+        else:
+            a = _policy_guard(item, a)
+
+        # سلامت منبع (مرحله ۱۵): منبع degraded/failed → اعتماد کمتر، review
+        if src_health in ("degraded", "failed"):
+            a.confidence = max(0.0, a.confidence - 0.2)
+            if a.decision == "publish" and a.confidence < 0.6:
+                a.decision = "review"
+                a.needs_verification = True
+                a.reason = ((a.reason or "") + f" | source health={src_health}")
+            trace(nid, "AI_SOURCE_HEALTH", status=src_health,
+                  confidence=round(a.confidence, 2))
+
         trace(nid, "AI_ANALYSIS", decision=a.decision,
               confidence=round(a.confidence, 2), importance=a.importance,
               category=a.category, quality=a.quality,
@@ -204,11 +330,28 @@ class NewsEditor:
             return True
         if analysis.decision == "review":
             return True
-        # ادعاهای مهم از منابع غیررسمی همیشه بررسی می‌شوند
+        # ادعاهای مهم از منابع غیررسمی همیشه بررسی می‌شوند (مرحله ۱۴)
         if analysis.importance >= config.AI_IMPORTANCE_HIGH \
                 and not (_is_official(item) or _is_trusted_outlet(item)):
             return True
+        # منبع degraded + خبر مهم → بررسی
+        if _source_health_of(item) in ("degraded", "failed") \
+                and analysis.importance >= 6:
+            return True
         return False
+
+    def analyze_many(self, items: list, skip_verify=True):
+        """تحلیل دسته‌ای (برای evaluation) — بدون verification مگر لازم باشد."""
+        out = []
+        for item in items:
+            try:
+                a = self.analyze(item)
+                out.append(a)
+            except Exception as e:
+                log.warning("batch analyze failed for %s: %s",
+                            (item.get("title") or "")[:40], e)
+                out.append(deterministic_analysis(item, tier=tier_of(item)))
+        return out
 
     def verify(self, item: dict, analysis: NewsAnalysis) -> VerificationResult:
         """جمع‌آوری شواهد مستقل + ارزیابی AI + ذخیره در DB (مرحله ۵)."""
@@ -283,12 +426,118 @@ def collect_evidence(item: dict, claim: str, max_items: int = 6) -> list:
     except Exception as e:
         log.debug("google news evidence failed: %s", e)
 
-    # ۲) خبرهای مشابه در DB (منبع دیگر همان خبر را داده؟)
+    # ۲) خبرهای مشابه در DB (منبع دیگر همان خبر را داده؟) — با tier منبع
     try:
         for tag in db.similar_sources(item, hours=72):
-            _add("DB: " + tag, f"same story reported by {tag}",
+            from .hermes_client import _tier_of_source
+            tier = _tier_of_source("", tag)
+            _add(f"DB: {tag} (Tier {tier})", f"same story reported by {tag}",
                  item.get("url") or "")
     except Exception as e:
         log.debug("db evidence failed: %s", e)
 
+    # ۳) شواهد را با tier غنی کن (URL → tier) برای وزن‌دهی در verification
+    from .hermes_client import _tier_of_source
+    for e in evidence:
+        e["tier"] = _tier_of_source(e.get("url", ""), e.get("source", ""))
+    evidence.sort(key=lambda e: e.get("tier", 5))
     return evidence[:max_items]
+
+
+def _source_health_of(item: dict) -> str:
+    """وضعیت سلامت منبع برای دخالت در تصمیم editorial (مرحله ۱۵)."""
+    try:
+        src = (item.get("source_tag") or item.get("source") or "").strip()
+        if not src:
+            return "healthy"
+        info = db.source_health_status(src)
+        return info.get("status") or "healthy"
+    except Exception:
+        return "healthy"
+
+
+def _policy_guard(item: dict, a: "NewsAnalysis") -> "NewsAnalysis":
+    """قواعد سیاست editorial روی خروجی AI (مرحله ۱۳/۱۴).
+
+    وقتی LLM چیزی publish کرد که سیاست کانال اجازه نمی‌دهد، downgrade می‌شود:
+      • ادعای مهم (importance>=7) از منبع غیررسمی → review + verification
+        (مگر انتقال تأییدشده از منبع معتبر)
+      • source health ضعیف → اعتماد کمتر
+    این‌ها قواعد قطعی‌اند، نه سلیقه LLM.
+    """
+    blob = _blob(item)
+    if a.decision != "publish":
+        return a
+    confirmed = any(s in blob for s in
+                    ("here we go", "complete", "completed", "confirmed",
+                     "has signed", "has completed", "signs", "signed a"))
+    # فقط categoryهای حساس guard می‌شوند — «Manager of the Month» از BBC یا
+    # «match report» از Guardian خبرهای قطعی‌اند و نباید review شوند.
+    sensitive = a.category in ("transfer", "transfer_rumour", "injury", "breaking")
+    non_official = not _is_official(item)
+    # injury/breaking حتی با importance 7 از منبع غیررسمی → verification
+    if a.category in ("injury", "breaking") and a.importance >= 7 \
+            and non_official and not confirmed:
+        a.decision = "review"
+        a.needs_verification = True
+        a.reason = ((a.reason or "") + " | policy: injury/breaking from "
+                    "non-official source requires verification")
+    # transfer/transfer_rumour فقط وقتی مهم است (>=8)
+    elif a.category in ("transfer", "transfer_rumour") and a.importance >= 8 \
+            and non_official and not (confirmed and _is_trusted_outlet(item)):
+        a.decision = "review"
+        a.needs_verification = True
+        a.reason = ((a.reason or "") + " | policy: major transfer from "
+                    "non-official source requires verification")
+    src_health = _source_health_of(item)
+    if src_health in ("degraded", "failed") and a.decision == "publish":
+        a.confidence = max(0.0, a.confidence - 0.2)
+        if a.confidence < 0.6:
+            a.decision = "review"
+            a.needs_verification = True
+    return a
+
+
+def _hard_rules_analysis(item: dict, tier: str = "medium") -> "NewsAnalysis | None":
+    """قواعد قطعی کانال — همیشه اعمال می‌شوند (حتی وقتی Hermes روشن است).
+
+    Hermes قواعد کانال را نمی‌داند (SKIP_KEYWORDS، INCLUDE_WOMEN، خبر قدیمی،
+    opinion/clickbait). این‌ها ruleهای editorial قطعی‌اند و هیچ LLM نباید
+    بتواند آن‌ها را override کند. خروجی None یعنی قانونی رد نشد.
+    """
+    blob = _blob(item)
+    title = (item.get("title") or "").lower()
+
+    for kw in getattr(config, "SKIP_KEYWORDS", []):
+        if kw and kw.lower() in title:
+            return NewsAnalysis(
+                decision="reject", confidence=0.97, importance=1,
+                category="irrelevant", relevance=False, quality="clickbait",
+                reason=f"skip keyword: {kw} (hard rule)", tier=tier,
+            )
+    if not config.INCLUDE_WOMEN and re.search(r"women|wsl", blob):
+        return NewsAnalysis(
+            decision="reject", confidence=0.95, importance=1,
+            category="irrelevant", relevance=False, quality="outdated",
+            reason="women's team not covered (hard rule)", tier=tier,
+        )
+    if _is_outdated(item):
+        return NewsAnalysis(
+            decision="reject", confidence=0.9, importance=1,
+            category="irrelevant", relevance=False, quality="outdated",
+            reason="old news (past year in title, hard rule)", tier=tier,
+        )
+    if any(s in title for s in _OPINION_TITLE_SIGNALS) \
+            or any(s in blob for s in _OPINION_BODY_SIGNALS):
+        return NewsAnalysis(
+            decision="reject", confidence=0.85, importance=1,
+            category="opinion", relevance=True, quality="opinion",
+            reason="opinion piece (hard rule)", tier=tier,
+        )
+    if any(s in blob for s in _CLICKBAIT_SIGNALS):
+        return NewsAnalysis(
+            decision="reject", confidence=0.9, importance=1,
+            category="irrelevant", relevance=False, quality="clickbait",
+            reason="clickbait (hard rule)", tier=tier,
+        )
+    return None

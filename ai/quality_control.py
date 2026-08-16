@@ -61,10 +61,13 @@ def check_facts(source_text: str, tr: dict, glossary=None) -> list:
     glossary = glossary or getattr(config, "GLOSSARY", {})
     issues = []
     src = source_text or ""
+    tr_title = tr.get("title") or ""
+    tr_body = tr.get("body") or ""
+    tr_blob = tr_title + " " + tr_body
 
     # ۱) اعداد بزرگ (≥۲ رقم) که در متن اصلی هست ولی در ترجمه نیست
     src_nums = _numbers(src)
-    tr_nums = _numbers((tr.get("title") or "") + " " + (tr.get("body") or ""))
+    tr_nums = _numbers(tr_blob)
     missing = sorted(n for n in src_nums if n not in tr_nums and n not in
                      ("20", "21", "22", "23", "24", "25", "26", "27", "28",
                       "29", "30", "10", "11", "12", "13", "14", "15", "16",
@@ -76,20 +79,47 @@ def check_facts(source_text: str, tr: dict, glossary=None) -> list:
         issues.append(f"missing numbers: {', '.join(missing[:5])}")
 
     # ۲) نام‌های دوکلمه‌ای (بازیکن/مربی/تیم) که معادل فارسی‌شان در ترجمه نیست
-    missed = _missing_names(
-        src,
-        (tr.get("title") or "") + " " + (tr.get("body") or ""),
-        glossary,
-    )
+    missed = _missing_names(src, tr_blob, glossary)
     if missed:
         issues.append("missing names: " + ", ".join(missed[:5]))
 
+    # ۲-ب) نام‌های دوکلمه‌ایِ مهمِ متن اصلی باید در عنوان ترجمه هم باشند
+    #     وقتی خبر درباره همان شخص است (نه فقط بدنه).
+    #     ملایم: اگر تکهٔ آخر نام (نام خانوادگی) در عنوان هست، قبول است
+    #     (عنوان خبری می‌تواند فقط «صلاح» داشته باشد نه «محمد صلاح»).
+    #     (اعدادِ عنوان جدا چک نمی‌شوند چون source_text می‌تواند فقط body
+    #      باشد؛ اعداد مهم در چک ۱ همه‌جا بررسی می‌شوند.)
+    src_first = (src or "")[:200]
+    if len(tr_title.strip()) >= 8:
+        missing_in_title = []
+        for en in glossary:
+            if len(en.split()) >= 2 and en.lower() in src_first.lower():
+                fa = glossary.get(en) or ""
+                surname = (en.split()[-1] if en.split() else "")
+                if not fa:
+                    continue
+                # معادل فارسی در عنوان هست؟ یا نام خانوادگیِ فارسی در عنوان؟
+                if fa in tr_title:
+                    continue
+                fa_surname = (fa.split()[-1] if fa.split() else "")
+                if len(fa_surname) >= 3 and fa_surname in tr_title:
+                    continue
+                missing_in_title.append(en)
+        if missing_in_title:
+            issues.append("title missing names: " + ", ".join(missing_in_title[:3]))
+
     # ۳) طول متن — کمتر از ۳۰۰ کاراکتر یعنی ناقص
-    if len((tr.get("body") or "").strip()) < 300:
+    if len(tr_body.strip()) < 300:
         issues.append("body too short (likely incomplete)")
 
+    # ۳-ب) عنوان خیلی بلند/خالی
+    if not tr_title.strip():
+        issues.append("title empty")
+    elif len(tr_title) > 200:
+        issues.append("title too long")
+
     # ۴) متن لاتینِ باقی‌مانده (به‌جز نام‌های خاص مجاز)
-    latin = re.findall(r"[A-Za-z]{4,}", (tr.get("body") or ""))
+    latin = re.findall(r"[A-Za-z]{4,}", tr_body)
     allowed = {"https", "www", "telegram", "feb", "jan", "mar", "apr", "jun",
                "jul", "aug", "sep", "oct", "nov", "dec"}
     leftover = [w for w in latin if w.lower() not in allowed]
@@ -137,20 +167,31 @@ def translate_with_qc(item: dict, editor=None, tr=None):
 
     # بازبینی AI با نمونه‌های کانال
     examples = style_examples()
-    review = editor.client.review_translation(item, tr, examples)
+    try:
+        review = editor.client.review_translation(item, tr, examples)
+    except Exception as e:
+        log.warning("AI translation QC crashed (%s) — fail-closed", e)
+        review = TranslationReview.unavailable(f"AI QC crashed: {e}")
     trace(nid, "TRANSLATION_QC", ok=review.ok, score=round(review.score, 2),
-          issues=len(review.issues))
+          available=review.available, issues=len(review.issues))
+
+    # fail-closed: اگر AI QC اصلاً اجرا نشد → بدون تغییر وضعیت، human review
+    if not review.available:
+        return tr, review, True
 
     # اصلاح تا سقف (MAX_REVISIONS) — جلوگیری از loop بی‌نهایت
     revised = tr
-    attempts = 0
     for attempt in range(config.HERMES_MAX_REVISIONS):
-        attempts = attempt + 1
-        if review.ok or not review.revision:
+        if review.ok or not (review.revision_title or review.revision_body):
             break
         trace(nid, "TRANSLATION_REVISE", attempt=attempt + 1)
         revised = _apply_revision(revised, review)
-        review = editor.client.review_translation(item, revised, examples)
+        try:
+            review = editor.client.review_translation(item, revised, examples)
+        except Exception as e:
+            log.warning("AI translation QC crashed on revise (%s) — fail-closed", e)
+            review = TranslationReview.unavailable(f"AI QC crashed: {e}")
+            return revised, review, True
         trace(nid, "TRANSLATION_REVIEW", ok=review.ok,
               score=round(review.score, 2), attempt=attempt + 1)
 
@@ -159,17 +200,25 @@ def translate_with_qc(item: dict, editor=None, tr=None):
     if issues and review.ok:
         review.ok = False
         review.issues = list(review.issues) + issues
+        review.human_review_required = True
         trace(nid, "TRANSLATION_QC", ok=False, deterministic=issues[:3])
 
     # بعد از سقف اصلاح (یا بدون متن اصلاح) و هنوز بد → human_review
-    human_review = not review.ok
+    human_review = review.human_review_required or not review.ok
     return revised, review, human_review
 
 
 def _apply_revision(tr: dict, review: TranslationReview) -> dict:
-    """نسخه اصلاح‌شده — فقط body (title دست نمی‌خورد مگر صریح باشد)."""
+    """نسخه اصلاح‌شده — عنوان و بدنه را مستقل اصلاح می‌کند: اگر AI فقط
+    یکی را داده باشد، دیگری دست نمی‌خورد."""
     out = dict(tr)
-    if review.revision and review.revision.strip():
-        out["body"] = review.revision.strip()
+    changed = False
+    if review.revision_title and review.revision_title.strip():
+        out["title"] = review.revision_title.strip()[:120]
+        changed = True
+    if review.revision_body and review.revision_body.strip():
+        out["body"] = review.revision_body.strip()
+        changed = True
+    if changed:
         out["revised"] = True
     return out

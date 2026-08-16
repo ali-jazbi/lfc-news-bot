@@ -28,7 +28,7 @@ TIERS = ("low", "medium", "high")
 SUSPICIOUS_SIGNALS = (
     "rumour", "rumor", "reportedly", "according to reports", "could be",
     "expected to", "in talks", "close to", "set to", "linked with", "interested in",
-    "bidding", "offer", "sources say", "source says", "claims", "believes",
+    "bidding", "sources say", "source says", "claims", "believes",
 )
 
 # منابع رسمی/قابل‌اعتماد → tier پایین (تحلیل ارزان‌تر)
@@ -198,28 +198,68 @@ class VerificationResult:
 
 @dataclass
 class TranslationReview:
-    """نتیجه QC ترجمه — مرحله ۶."""
+    """نتیجه QC ترجمه — مرحله ۶.
 
-    ok: bool = True
-    score: float = 0.9                  # 0..1 کیفیت
+    fail-closed: وقتی AI QC در دسترس نیست، available=False و ok=False و
+    human_review_required=True می‌شود — هرگز «ترجمه خوب است» گفته نمی‌شود.
+    revision_title / revision_body: اصلاح مستقل عنوان و بدنه (اگر فقط یکی
+    مشکل داشته باشد، دیگری دست نمی‌خورد).
+    """
+
+    ok: bool = False
+    score: float = 0.0                  # 0..1 کیفیت
     issues: List[str] = field(default_factory=list)
-    revision: str = ""                  # متن اصلاح‌شده (در صورت نیاز)
+    revision: str = ""                  # متن اصلاح‌شده (سازگاری عقب‌رو با body)
+    revision_title: str = ""            # عنوان اصلاح‌شده (خالی = دست نزن)
+    revision_body: str = ""             # بدنه اصلاح‌شده (خالی = دست نزن)
+    available: bool = True              # آیا AI QC واقعاً اجرا شد؟
+    human_review_required: bool = False  # آیا باید به انسان برود؟
+
+    def __post_init__(self):
+        # fail-closed: هر وضعیتی که «QC در دسترس نیست» → ok=False + human review
+        if not self.available:
+            self.ok = False
+            self.human_review_required = True
+        # سازگاری عقب‌رو: اگر فقط revision قدیمی پر شده، بدنه را هم ست کن
+        if self.revision and not self.revision_body:
+            self.revision_body = self.revision
+        if not self.ok and not self.human_review_required:
+            self.human_review_required = True
 
     def to_dict(self) -> dict:
-        return {"ok": self.ok, "score": self.score, "issues": self.issues[:8]}
+        return {
+            "ok": self.ok, "score": self.score, "issues": self.issues[:8],
+            "revision_title": self.revision_title[:300],
+            "revision_body": self.revision_body[:4000],
+            "available": self.available,
+            "human_review_required": self.human_review_required,
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "TranslationReview":
         if not isinstance(data, dict):
             raise SchemaError("translation review is not an object")
-        ok = bool(data.get("ok", True))
-        score = _to_float(data.get("score"), 0.9)
+        ok = bool(data.get("ok", False))
+        score = _to_float(data.get("score"), 0.0)
         issues = data.get("issues") or []
         if not isinstance(issues, list):
             issues = []
         issues = [_clean_str(i)[:200] for i in issues if _clean_str(i)][:8]
-        return cls(ok=ok, score=score, issues=issues,
-                   revision=_clean_str(data.get("revision"))[:4000])
+        revision = _clean_str(data.get("revision"))[:4000]
+        rv = cls(
+            ok=ok, score=score, issues=issues, revision=revision,
+            revision_title=_clean_str(data.get("revision_title"))[:300],
+            revision_body=_clean_str(data.get("revision_body"))[:4000],
+            available=bool(data.get("available", True)),
+            human_review_required=bool(data.get("human_review_required", False)),
+        )
+        return rv
+
+    @classmethod
+    def unavailable(cls, reason: str = "AI QC unavailable") -> "TranslationReview":
+        """نمایندهٔ fail-closed وقتی AI QC اجرا نشد/کرش کرد."""
+        return cls(ok=False, score=0.0, issues=[reason], available=False,
+                   human_review_required=True)
 
 
 @dataclass
