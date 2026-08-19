@@ -61,18 +61,14 @@ def build_original_message(item, expandable=True):
 
 
 def keyboard(key, mode="manual"):
-    """mode=manual  → ربات فقط نسخه تمیز را می‌دهد، ادمین خودش کپی/فوروارد می‌کند
-    mode=auto    → ربات مستقیم روی کانال می‌فرستد"""
-    first = (
-        "\U0001F4E4 نسخه آماده انتشار"
-        if mode == "manual"
-        else "\u2705 انتشار در کانال"
-    )
-    # دکمه «رد» حذف شد — بنا به خواسته کاربر: اگه ادمین خبر را چند ساعت
-    # منتشر نکند یعنی نخواسته؛ خبر همان sent_admin می‌ماند و هرگز دوباره نمی‌آید.
+    """۳ دکمه — رفتار ثابت در هر دو حالت manual/auto:
+    1. ترجمه مجدد  → rtr
+    2. نسخه آماده انتشار → pub (نسخه تمیز در گروه ادمین)
+    3. انتشار در کانال   → s2c (مستقیم روی کانال)"""
     return {
         "inline_keyboard": [
-            [{"text": first, "callback_data": f"pub:{key}"}],
             [{"text": "\U0001F504 ترجمه مجدد", "callback_data": f"rtr:{key}"}],
+            [{"text": "\U0001F4E4 نسخه آماده انتشار", "callback_data": f"pub:{key}"}],
+            [{"text": "\U0001F4E2 انتشار در کانال", "callback_data": f"s2c:{key}"}],
         ]
     }

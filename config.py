@@ -38,9 +38,14 @@ def _list(key, default=""):
 # --- Telegram ---
 BOT_TOKEN = _get("BOT_TOKEN")
 ADMIN_CHAT_ID = _get("ADMIN_CHAT_ID")          # گروه ادمین‌ها (پیش‌نمایش)
-CHANNEL_ID = _get("CHANNEL_ID")                # فقط در حالت auto لازم است
+CHANNEL_ID = _get("CHANNEL_ID")
 CHANNEL_USERNAME = _get("CHANNEL_USERNAME", "@LiverpooliRani")
 PROXY = _get("PROXY")                          # مثال: socks5h://127.0.0.1:1080
+
+
+def channel_target():
+    """آیدی عددی کانال یا @username آن — اولویت با عددی."""
+    return CHANNEL_ID or CHANNEL_USERNAME or ""
 
 # آیدی عددی کاربرانی که اجازه دارند دستور/دکمه بزنند (با کاما جدا کن).
 # خالی = همه‌ی اعضای گروه ادمین اجازه دارند (رفتار قدیم، برای سازگاری).

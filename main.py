@@ -3,8 +3,8 @@
 حالت پیش‌فرض = manual:
   ربات فقط در گروه تست/ادمین پیش‌نمایش می‌گذارد. با دکمه
   "\U0001F4E4 نسخه آماده انتشار" یک پیام تمیز (بدون دکمه و لینک منبع) در همان
-  گروه می‌فرستد تا ادمین خودش فوروارد/کپی کند. هیچ چیزی خودکار
-  روی کانال نمی‌رود.
+  گروه می‌فرستد تا ادمین خودش فوروارد/کپی کند.
+  با دکمه "\U0001F4E5 ارسال به کانال" مستقیم روی کانال عمومی منتشر می‌شود.
 
 دستورات:
   python main.py --sample        → ۲ خبر نمونه (حتی اگر هیچ خبر تازه‌ای نباشد)
@@ -406,9 +406,47 @@ def process_item(item, force=False):
     return False
 
 
+def send_to_channel(key):
+    """نسخه آماده انتشار را مستقیم روی کانال عمومی می‌فرستد.
+    ادمین با این دکمه تصمیم می‌گیرد خبر مستقیم منتشر شود."""
+    row = db.get(key)
+    if not row:
+        return False, "این خبر در دیتابیس نیست"
+    item = row["payload"]
+    tr = item.get("translated")
+    if not tr:
+        return False, "ترجمه ذخیره نشده"
+
+    target = config.channel_target()
+    if not target:
+        return False, "CHANNEL_ID یا CHANNEL_USERNAME در .env تنظیم نیست"
+
+    text = formatter.build_caption(item, tr)
+    images = item.get("images")
+
+    # حلقه بازخورد انسانی: تصمیم AI در برابر اقدام واقعی ادمین
+    try:
+        analysis = db.get_analysis(key)
+        db.record_feedback(
+            key,
+            ai_decision=(analysis or {}).get("decision") if analysis else None,
+            human_action="send_to_channel",
+            reason="",
+        )
+    except Exception as e:
+        log.debug("feedback record failed: %s", e)
+
+    res = tg.send_post(target, text, image=item.get("image"), images=images,
+                       video=item.get("video_url"), thumb=item.get("video_thumb"))
+    if res:
+        db.set_status(key, "published")
+        return True, "\u2705 روی کانال منتشر شد"
+    return False, "خطا در انتشار روی کانال"
+
+
 def approve(key, chat_id):
-    """حالت manual: نسخه تمیز را در همان گروه می‌فرستد (بدون دکمه و لینک)
-    حالت auto  : مستقیم روی کانال می‌فرستد."""
+    """نسخه تمیز را در همان گروه ادمین می‌فرستد (بدون دکمه و لینک منبع).
+    ادمین خودش فوروارد/کپی می‌کند. انتشار مستقیم روی کانال با s2c انجام می‌شود."""
     row = db.get(key)
     if not row:
         return False, "این خبر در دیتابیس نیست"
@@ -432,15 +470,6 @@ def approve(key, chat_id):
     except Exception as e:
         log.debug("feedback record failed: %s", e)
 
-    if config.PUBLISH_MODE == "auto" and config.CHANNEL_ID:
-        res = tg.send_post(config.CHANNEL_ID, text, image=item.get("image"), images=images,
-                           video=item.get("video_url"), thumb=item.get("video_thumb"))
-        if res:
-            db.set_status(key, "published")
-            return True, "\u2705 روی کانال منتشر شد"
-        return False, "خطا در انتشار روی کانال"
-
-    # حالت دستی
     tg.send_message(chat_id, "\U0001F447 نسخه نهایی — فوروارد/کپی کن در کانال", silent=True)
     res = tg.send_post(chat_id, text, image=item.get("image"), images=images,
                        video=item.get("video_url"), thumb=item.get("video_thumb"))
@@ -621,11 +650,15 @@ def handle_callback(cq):
         ok, message = approve(key, chat_id)
         tg.answer_callback(cid, message, alert=not ok)
         if ok:
-            label = (
-                f"\u2705 تایید شد توسط {user}"
-                if config.PUBLISH_MODE == "manual"
-                else f"\u2705 منتشر شد توسط {user}"
+            label = f"\u2705 نسخه آماده توسط {user} ارسال شد"
+            tg.edit_markup(
+                chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
+    elif action == "s2c":
+        ok, message = send_to_channel(key)
+        tg.answer_callback(cid, message, alert=not ok)
+        if ok:
+            label = f"\u2705 ارسال شد به کانال توسط {user}"
             tg.edit_markup(
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
@@ -718,7 +751,11 @@ def handle_message(m):
             "/sample — ارسال یک خبر نمونه برای تست\n"
             "/check — چک فوری منابع واقعی\n"
             "/health — وضعیت سرویس‌های ترجمه و منابع\n"
-            "/errors — آخرین خطاهای ثبت‌شده",
+            "/errors — آخرین خطاهای ثبت‌شده\n\n"
+            "دکمه‌های خبر:\n"
+            "\U0001F4E4 نسخه آماده انتشار — نسخه تمیز در همین گروه\n"
+            "\U0001F4E5 ارسال به کانال — مستقیم روی کانال عمومی\n"
+            "\U0001F504 ترجمه مجدد — بازبینی ترجمه",
         )
 
 
