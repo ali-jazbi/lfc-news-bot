@@ -307,6 +307,72 @@ def tweet_is_noise(text):
     return False
 
 
+# --------------------------------------------------- تشخیص منبع اصلی
+# الگوی @mention در انتهای متن توییت — مثل «[@FabrizioRomano]» یا «@FabrizioRomano»
+_MENTION_AT_END = re.compile(
+    r"(?:\s*\[?@([\w]+)\]?\s*)$"
+)
+# لینک @mention در HTML نیتر — مثل «<a href="/FabrizioRomano">@FabrizioRomano</a>»
+_MENTION_LINK = re.compile(
+    r'<a[^>]+href="/(\w+)"[^>]*>@?\w+</a>\s*$', re.I
+)
+# نقل‌قول در HTML نیتر — blockquote حاوی توییت اصلی
+_QUOTE_BLOCK = re.compile(r"<blockquote>\s*(.*?)\s*</blockquote>", re.I | re.S)
+_QUOTE_AUTHOR = re.compile(
+    r'<a[^>]+href="/([\w]+)"[^>]*>\s*([\w\s.]+?)\s*</a>', re.I
+)
+
+
+def detect_original_source(entry, text, user):
+    """تشخیص منبع اصلی خبر وقتی توییت نقل‌قول یا ریتوییت باشد.
+
+    دو حالت:
+    ۱) توییت متنی که تهش @handle زده (مثل [@FabrizioRomano])
+    ۲) ریتوییت/نقل‌قول که <blockquote> در HTML دارد (مثل ریتوییت Sky Sport Austria)
+
+    خروجی: (handle, display_name) یا (None, None)
+    """
+    summary = entry.get("summary") or ""
+    raw_body = entry.get("summary") or ""
+
+    # حالت ۱: بررسی blockquote (نقل‌قول/ریتوییت)
+    quote_match = _QUOTE_BLOCK.search(summary)
+    if quote_match:
+        quote_html = quote_match.group(1)
+        author_match = _QUOTE_AUTHOR.search(quote_html)
+        if author_match:
+            handle = author_match.group(1)
+            # فقط اگر نویسنده نقل‌قول خودِ حساب نباشد
+            if handle.lower() != user.lower():
+                display = config.display_name(handle)
+                log.info("detected quote tweet source: @%s (from @%s)",
+                         handle, user)
+                return handle, display
+
+    # حالت ۲: بررسی @mention در انتهای متن تمیز
+    # اول از HTML خام شروع کنیم (لینک‌ها هنوز هستند)
+    link_match = _MENTION_LINK.search(raw_body)
+    if link_match:
+        handle = link_match.group(1)
+        if handle.lower() != user.lower():
+            display = config.display_name(handle)
+            log.info("detected @mention source: @%s (from @%s)",
+                     handle, user)
+            return handle, display
+
+    # حالت ۳: @mention ساده در انتهای متن تمیز
+    mention_match = _MENTION_AT_END.search(text or "")
+    if mention_match:
+        handle = mention_match.group(1)
+        if handle.lower() != user.lower():
+            display = config.display_name(handle)
+            log.info("detected @mention in text: @%s (from @%s)",
+                     handle, user)
+            return handle, display
+
+    return None, None
+
+
 def read_feed(base, user, timeout=FEED_TIMEOUT):
     """خواندن فید یک حساب از یک آینه — خروجی: لیست توییت‌های واقعی."""
     try:
@@ -820,6 +886,17 @@ def fetch(limit=6):
                 "priority": True,
             }
             _attach_media(item, e, user)   # عکس‌ها/آلبوم/ویدیو اینجا
+
+            # تشخیص منبع اصلی (نقل‌قول یا @mention)
+            orig_handle, orig_name = detect_original_source(e, text, user)
+            if orig_handle:
+                item["original_source"] = "@" + orig_handle
+                item["original_source_tag"] = orig_name
+                item["source_tag"] = orig_name  # منبع اصلی جایگزین source_tag شود
+                # تشخیص نوع: اگر blockquote بوده یعنی ریتوییت/نقل‌قول
+                summary = e.get("summary") or ""
+                item["_is_quote"] = bool(_QUOTE_BLOCK.search(summary))
+
             out.append(item)
             if len(out) >= limit:
                 break

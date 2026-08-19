@@ -18,6 +18,26 @@ def build_caption(item, tr):
     return "\n".join(parts)
 
 
+def build_original_source_note(item):
+    """یادداشت منبع اصلی وقتی توییت نقل‌قول یا ریتوییت باشد.
+
+    مثال‌ها:
+      • «نقل‌قول از: @FabrizioRomano»
+      • «بازنشر از: Sky Sport Austria»
+    این متن فقط در پیش‌نمایش ادمین نشان داده می‌شود، روی کانال نمی‌رود.
+    """
+    orig = item.get("original_source")
+    if not orig:
+        return None
+    orig_tag = item.get("original_source_tag") or orig
+    # تشخیص نوع: اگر blockquote بوده باشد یعنی ریتوییت
+    summary = ""
+    if item.get("_is_quote"):
+        return f"\U0001F4AC نقل‌قول از: {esc(orig_tag)} ({esc(orig)})"
+    else:
+        return f"\U0001F517 منبع اصلی: {esc(orig_tag)} ({esc(orig)})"
+
+
 def build_admin_caption(item, tr):
     """نسخه پیش‌نمایش در گروه ادمین‌ها (با لینک منبع و اطلاعات فنی)."""
     caption = build_caption(item, tr)
@@ -27,6 +47,10 @@ def build_admin_caption(item, tr):
         tail += f" | ترجمه: {esc(str(tr['provider']))}"
     if tr.get("machine"):
         tail += "\n\u26A0\uFE0F ترجمه ماشینی — قبل از انتشار متن را بازبینی کن"
+    # یادداشت منبع اصلی (نقل‌قول/ریتوییت)
+    orig_note = build_original_source_note(item)
+    if orig_note:
+        tail += "\n\n" + orig_note
     return caption + tail
 
 
@@ -35,6 +59,7 @@ def build_original_message(item, expandable=True):
 
     در بلاک‌کووت تاشو گذاشته می‌شود تا گروه را شلوغ نکند؛
     ادمین رویش بزند باز می‌شود.
+    اگر منبع اصلی متفاوت باشد (نقل‌قول/ریتوییت)، اضافه می‌شود.
     """
     title = (item.get("title") or "").strip()
     body = (item.get("body") or "").strip()
@@ -53,6 +78,11 @@ def build_original_message(item, expandable=True):
     # سقف پیام تلگرام ۴۰۹۶ کاراکتر است؛ با حاشیه امن می‌بریم
     if len(raw) > 3200:
         raw = raw[:3200].rsplit(" ", 1)[0] + " …"
+
+    # یادداشت منبع اصلی (اگر نقل‌قول/ریتوییت باشد)
+    orig_note = build_original_source_note(item)
+    if orig_note:
+        raw += "\n\n" + orig_note.replace("<", "&lt;").replace(">", "&gt;")
 
     head = "\U0001F4C4 <b>متن اصلی (انگلیسی)</b>\n"
     if expandable:
