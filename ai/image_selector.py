@@ -45,21 +45,6 @@ def candidate_images(item: dict, limit=8) -> list:
     if item.get("video_thumb"):
         _add(item["video_thumb"], "article", "video thumbnail")
 
-    # جستجوی خودکار فقط وقتی روشن باشد و خبر عکس نداشته باشد
-    has_article = any(c["kind"] == "article" for c in out)
-    if not has_article and getattr(config, "ENABLE_AUTO_IMAGE", False):
-        try:
-            from sources.webimg import find_for_article, is_live_update
-            if not is_live_update(item):
-                auto = find_for_article(
-                    item.get("title") or "", item.get("body") or "",
-                    item.get("url") or "",
-                    timeout=getattr(config, "WEBIMG_TIMEOUT", 8),
-                )
-                if auto:
-                    _add(auto, "search", "auto web search")
-        except Exception as e:
-            log.debug("auto image search failed: %s", e)
     return out[:limit]
 
 

@@ -6,8 +6,7 @@ from ai.image_selector import select_image, candidate_images
 from ai.schemas import ImageSelection
 
 
-def test_no_image_no_candidates(monkeypatch):
-    monkeypatch.setattr("config.ENABLE_AUTO_IMAGE", False)
+def test_no_image_no_candidates():
     item = {"title": "News", "body": "x", "url": "https://x/1"}
     urls, sel = select_image(item, editor=None)
     assert urls is None
@@ -87,21 +86,6 @@ def test_candidate_images_dedup():
     assert cands[0]["kind"] == "article"
     assert len(cands) == 2
 
-
-def test_auto_search_never_selected_without_ai(monkeypatch):
-    """fail-safe: عکس منبع نداریم + AI خاموش → هیچ عکسی (حتی auto) انتخاب نمی‌شود."""
-    monkeypatch.setattr("config.HERMES_ENABLED", False)
-    monkeypatch.setattr("config.ENABLE_AUTO_IMAGE", True)
-
-    def fake_find(*a, **k):
-        return "https://img/auto.jpg"
-
-    import sources.webimg as webimg
-    monkeypatch.setattr(webimg, "find_for_article", fake_find)
-    monkeypatch.setattr(webimg, "is_live_update", lambda item: False)
-    item = {"title": "Liverpool news", "body": "x", "url": "https://x/1"}
-    urls, sel = select_image(item, editor=None)
-    assert urls is None  # auto بدون validation هرگز انتخاب نمی‌شود
 
 
 def test_ai_pick_must_be_in_candidates(fake_hermes, monkeypatch):

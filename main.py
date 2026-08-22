@@ -32,7 +32,7 @@ import source_health
 import translate
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ai.tracing import news_id_of, trace
-from sources import lfc_official, romano, twitter, outlet_rss, bluesky, webimg
+from sources import lfc_official, romano, twitter, outlet_rss, bluesky
 from telegram_api import Telegram
 
 
@@ -293,15 +293,7 @@ def process_item(item, force=False):
                     images = [chosen]
             except Exception as e:
                 log.warning("image selection failed: %s", e)
-    elif not images and not item.get("image") and not video \
-            and not webimg.is_live_update(item):
-        auto = webimg.find_for_article(
-            item.get("title") or "", item.get("body") or "", item.get("url") or "",
-            timeout=getattr(config, "WEBIMG_TIMEOUT", 8),
-        )
-        if auto:
-            item["image"] = auto
-            images = [auto]
+
 
     # خط لوله ویدیو (مرحله ۸) — دانلود/validate/تبدیل/thumbnail روی دیسک
     if video and not DRY_RUN:
