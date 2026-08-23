@@ -123,9 +123,9 @@ python install_hermes.py          # نصب skills + ثبت MCP (یک‌بار)
 HERMES_ENABLED=true python main.py  # بات با مغز سردبیری
 python main.py                    # بدون AI — رفتار قبلی دقیقاً
 
-python evaluate.py                # ارزیابی قطعی (هزینه صفر)
-python evaluate.py --with-ai      # ارزیابی با Hermes واقعی (cache شده)
-python evaluate.py --with-ai --verify  # + اجرای verification
+python scripts/maintenance/evaluate.py                # ارزیابی قطعی (هزینه صفر)
+python scripts/maintenance/evaluate.py --with-ai      # ارزیابی با Hermes واقعی (cache شده)
+python scripts/maintenance/evaluate.py --with-ai --verify  # + اجرای verification
 ```
 
 ## وضعیت فعلی provider (در این محیط)

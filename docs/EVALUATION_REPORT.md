@@ -1,6 +1,6 @@
 # Real-Data Evaluation Report
 
-اجرا: `python evaluate.py` (بدون هزینه AI) و `python evaluate.py --with-ai --verify`
+اجرا: `python scripts/maintenance/evaluate.py` (بدون هزینه AI) و `python scripts/maintenance/evaluate.py --with-ai --verify`
 (با Hermes واقعی). Dataset: ۷ آیتم واقعی DB + ۴۲ golden-only = **۴۹ آیتم**،
 گلدن‌ست ساختاریافته در `evaluation/golden.json` (۵۰ ورودی، ۱۶ دسته).
 
@@ -93,7 +93,7 @@ AI مطمئن باشد. شواهد با وزن منبع (tier) مرتب و ام�
 
 ## هزینه AI (مرحله ۲۶)
 
-- `evaluate.py` بدون `--with-ai`: **۰ هزینه**.
+- `scripts/maintenance/evaluate.py` بدون `--with-ai`: **۰ هزینه**.
 - `--with-ai`: ۴۸ LLM call برای ۴۹ آیتم (≈۱ call/خبر) + verification فقط
   برای موارد نیازمند (در این اجرا ۱). با cache، اجرای مجدد ≈ ۰ call.
 - طراحی tiering: منبع رسمی → مسیر ارزان/قطعی؛ ادعای مهم → verification.

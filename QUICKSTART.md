@@ -68,7 +68,7 @@ python main.py
 یک راه ساده‌تر: در گروه تستی پیام `/id` بفرست و هم‌زمان این را بزن:
 
 ```bash
-python get_chat_id.py
+python scripts/diagnostics/get_chat_id.py
 ```
 
 عددی مثل `-1002345678901` می‌دهد. آن را در `.env` بگذار:
@@ -156,7 +156,7 @@ python main.py --test
 | `python main.py --test` | خبر واقعی، بدون فیلتر تکراری |
 | `python main.py --once` | یک سیکل عادی |
 | `python main.py` | سرویس دائمی + دکمه‌ها فعال |
-| `python get_chat_id.py` | گرفتن آیدی گروه |
+| `python scripts/diagnostics/get_chat_id.py` | گرفتن آیدی گروه |
 
 ---
 

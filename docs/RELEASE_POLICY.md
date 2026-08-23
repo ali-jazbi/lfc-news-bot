@@ -10,7 +10,7 @@ Manual/local execution during development: run with `python main.py`, optionally
 - Environment variables / secrets manager for `.env` values (never commit `.env`).
 
 ## Disk / memory control (important on shared hosts)
-- The SQLite DB (`data/news.db`) grew unbounded before 2026-08. **`db_prune.py`** now bounds it: it deletes rows older than `DB_KEEP_DAYS` (default 7) and strips the heavy fields (`body`, `translated`, `images`, `video_url`) from rows older than `DB_TRIM_AFTER_HOURS` (default 24) — keeping only `title`/`url` which is all the duplicate filter needs. It runs automatically from `main.run_cycle()` every `DB_PRUNE_INTERVAL_SECONDS` (default 3600), or manually via `python db_prune.py`.
+- The SQLite DB (`data/news.db`) grew unbounded before 2026-08. **`db_prune.py`** now bounds it: it deletes rows older than `DB_KEEP_DAYS` (default 7) and strips the heavy fields (`body`, `translated`, `images`, `video_url`) from rows older than `DB_TRIM_AFTER_HOURS` (default 24) — keeping only `title`/`url` which is all the duplicate filter needs. It runs automatically from `main.run_cycle()` every `DB_PRUNE_INTERVAL_SECONDS` (default 3600), or manually via `python scripts/maintenance/db_prune.py`.
   - Result: with ~40 items/day and 7-day retention, the DB stays **bounded at ~400 KB** instead of growing forever.
   - Safety: rows in `new`/`sent_admin`/`approved` status that are under 48h old are NOT trimmed, so admin buttons keep working.
 - Logs are already size-capped by `RotatingFileHandler` (~13 MB max). On very tight hosts, lower `maxBytes` in `main._setup_logging()`.
