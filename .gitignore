@@ -27,3 +27,8 @@ node_modules/
 # os / editor noise
 .DS_Store
 *.log
+
+# samemind runtime state — local only
+/.samemind/
+/ledger/events.jsonl
+/mcp.json.bak
