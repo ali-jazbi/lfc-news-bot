@@ -487,7 +487,10 @@ def maybe_prune():
         return
     _last_prune[0] = now
     try:
-        import db_prune
+        try:
+            import db_prune
+        except ImportError:
+            from scripts.maintenance import db_prune
         s = db_prune.prune(dry=False)
         log.info("db prune: %d deleted, %d trimmed", s["deleted"], s["trimmed"])
     except Exception as e:
