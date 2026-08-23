@@ -1,6 +1,10 @@
 """ابزار تشخیص: برای هر خبر نشان می‌دهد کدام عکس پذیرفته شده و کدام رد شده (و چرا).
 با این خروجی دقیقاً معلوم می‌شود عکس سفید/تکراری از کدام مسیر آمده است.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import sys
 sys.path.insert(0, ".")
 

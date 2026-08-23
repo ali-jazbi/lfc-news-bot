@@ -3,6 +3,10 @@
 اجرا:  python get_chat_id.py
 سپس در گروه یک پیام بفرست (مثلاً /id). عدد گروه اینجا چاپ می‌شود.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import time
 
 import config

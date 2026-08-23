@@ -4,6 +4,10 @@
 خروجی نشان می‌دهد برای هر حساب کدام لایه (سندیکیشن یا کدام آینه‌ی نیتر) جواب داد.
 خروجی این اسکریپت را برایم کپی/پیست کن تا بر اساس نتیجه واقعی ادامه بدیم.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import config
 from sources import twitter
 

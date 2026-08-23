@@ -5,6 +5,10 @@
 ۳) توکن ربات
 ۴) تک‌تک سرویس‌های زنجیره ترجمه را به ترتیب اولویت واقعاً صدا می‌زند
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import socket
 import sys
 import time

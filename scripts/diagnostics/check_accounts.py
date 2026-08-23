@@ -6,6 +6,10 @@
 حسابی که روی آینه اول جواب ندهد، روی آینه‌های بعدی هم امتحان می‌شود.
 پس برخلاف قبل، نتیجه هر بار عوض نمی‌شود و خیلی سریع‌تر است.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import logging
 import sys
 import time

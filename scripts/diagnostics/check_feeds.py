@@ -5,6 +5,10 @@
 هر آدرس را می‌گیرد، تعداد آیتم و تازه‌ترین تیتر را نشان می‌دهد.
 خط سبزی که دیدی را در .env در ROMANO_FEEDS اول بگذار.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import logging
 import sys
 import time

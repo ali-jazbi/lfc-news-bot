@@ -2,6 +2,10 @@
 
     python test_send.py
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import logging
 import os
 import sys
@@ -83,7 +87,8 @@ def main():
                    tg.upload_photo(chat, blob, "\U0001f9ea تست ۵ — آپلود مستقیم"), tg)
 
     # ۶) عکس محلی — بدون هیچ وابستگی به اینترنت بیرونی
-    local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "sample.png")
+    local = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "..", "assets", "sample.png")
     if os.path.isfile(local):
         result("۶) عکس محلی assets/sample.png",
                tg.send_photo(chat, local, "\U0001f9ea تست ۶ — عکس از روی دیسک"), tg)

@@ -16,6 +16,10 @@
 """
 from __future__ import annotations
 
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import argparse
 import json
 import os
@@ -32,7 +36,7 @@ REPORT_HEADER = """
 """
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         "evaluation", "results")
+                         "..", "..", "evaluation", "results")
 
 
 # ------------------------------------------------------------------ data
@@ -64,7 +68,7 @@ def load_items(limit=None):
 
 def load_golden():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "evaluation", "golden.json")
+                        "..", "..", "evaluation", "golden.json")
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)

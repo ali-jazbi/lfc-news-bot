@@ -1,6 +1,10 @@
 """بررسی اینکه سایت باشگاه واقعاً برای هر خبر چند عکس می‌دهد یا نه.
 اجرا: python check_images.py
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 from sources import lfc_official
 
 items = lfc_official.fetch(limit=6)

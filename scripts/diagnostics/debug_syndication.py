@@ -3,6 +3,10 @@
 وضعیت HTTP، هدرها، و اول چند خط پاسخ را خام چاپ می‌کند تا بفهمیم واقعاً
 چرا جواب نداد (مسدود، خطای احراز هویت، قطعی شدن اتصال، یا چیز دیگر).
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import requests
 import config
 

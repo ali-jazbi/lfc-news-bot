@@ -5,6 +5,10 @@
 
 مدل مورد تست را با تغییر SLOT عوض کن (مثلاً "llm6" برای qwen).
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import config
 
 SLOT = "llm6"  # اسم اسلاتی که می‌خوای تست کنی: llm1 ... llm10

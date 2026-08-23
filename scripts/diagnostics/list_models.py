@@ -4,6 +4,10 @@
 تا مجبور نشوی حدس بزنی و خطای 404 بگیری.
 خروجیش را مستقیم در LLMx_MODEL کپی کن.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import sys
 
 import requests

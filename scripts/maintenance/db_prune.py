@@ -22,6 +22,10 @@ rejected/skipped فشرده می‌شوند.
 استفاده: خودکار در main.run_cycle هر N سیکل صدا زده می‌شود؛ دستی هم می‌توانی
 بزنی:  python db_prune.py
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import json
 import os
 import sqlite3

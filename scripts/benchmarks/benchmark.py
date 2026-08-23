@@ -8,6 +8,10 @@
     python benchmark.py            هر دو متن، همه سرویس‌ها
     python benchmark.py 1          فقط متن شماره ۱
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import re
 import sys
 import time

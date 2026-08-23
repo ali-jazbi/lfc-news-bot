@@ -3,6 +3,10 @@
     python check_channel.py                 → چند پست اخیر کانال خوانده می‌شود
     python check_channel.py "متن تست"      → شباهت این متن با پست‌های کانال
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import logging
 import sys
 

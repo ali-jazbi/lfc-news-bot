@@ -4,6 +4,10 @@
 فقط بررسی می‌کند که send_media_group در telegram_api.py درست کار می‌کند؛
 سه عکس نمونه (بی‌ربط به لیورپول) می‌فرستد به ADMIN_CHAT_ID.
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import config
 from telegram_api import Telegram
 

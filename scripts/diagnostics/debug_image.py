@@ -1,6 +1,10 @@
 """بررسی دقیق متاتگ‌های عکس یک خبر واقعی — مستقل از آلبوم، فقط تشخیص.
 اجرا: python debug_image.py "https://www.liverpoolfc.com/news/..."
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import sys
 from sources.base import http_get, soup_of, meta
 

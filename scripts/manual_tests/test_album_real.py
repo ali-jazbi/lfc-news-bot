@@ -4,6 +4,10 @@
 python test_album_real.py            → اولین خبر لیست را تست می‌کند
 python test_album_real.py <url>      → همان خبر مشخص را تست می‌کند
 """
+# --- path bootstrap: allow running from scripts/ subdir ---
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[2]))
 import sys
 sys.path.insert(0, ".")
 
