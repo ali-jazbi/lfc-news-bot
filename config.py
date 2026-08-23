@@ -74,6 +74,24 @@ ENABLE_TWITTER_SYNDICATION = (
     _get("ENABLE_TWITTER_SYNDICATION", "false").lower() == "true"
 )
 
+# حالت جمع‌آوری توییت:
+#   classic  = آینه‌های نیتر (رفتار قدیمی — پیش‌فرض، دست نخورده)
+#   xscrape  = اسکرپ مستقیم x.com (بدون هیچ تماس با نیتر؛ پورت از Liverpool-bot)
+TWITTER_MODE = _get("TWITTER_MODE", "classic").lower()
+if TWITTER_MODE not in ("classic", "xscrape"):
+    TWITTER_MODE = "classic"
+
+XSCRAPE_TIMEOUT = _int("XSCRAPE_TIMEOUT", 20)
+XSCRAPE_TWEETS_PER_ACCOUNT = _int("XSCRAPE_TWEETS_PER_ACCOUNT", 8)
+# اگر x.com چند سیکل پشت‌هم جواب نداد (بلاک IP دیتاسنتر و...) برگرد به نیتر
+# تا خبر از دست نرود.
+XSCRAPE_FALLBACK_CLASSIC = (
+    _get("XSCRAPE_FALLBACK_CLASSIC", "true").lower() == "true"
+)
+XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES = _int(
+    "XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES", 3
+)
+
 # فیدهای RSS رسمی خبرگزاری‌ها — رسمی و پایدار، هیچ وابستگی به آینه/میرور ندارد.
 # برای افزودن فید جدید کافی است آدرسش را اینجا اضافه کنی (با کاما جدا کن).
 ENABLE_OUTLET_RSS = _get("ENABLE_OUTLET_RSS", "true").lower() == "true"

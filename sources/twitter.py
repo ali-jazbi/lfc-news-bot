@@ -798,7 +798,32 @@ def _attach_media(item, entry, user):
     عکس‌ها مستقیم از RSS نیتر می‌آیند (سبک و بدون API اضافه). فقط توییت‌هایی
     که پوستر ویدیو دارند به fxtwitter/vxtwitter می‌روند تا لینک mp4 بگیرند —
     توییت عکسی را بیهوده اذیت نمی‌کنیم.
+
+    در حالت xscrape مدیا از خود داده‌ی relay صفحه می‌آید
+    (entry["_xscrape_media"]) — مسیرهای نیتر-خاص اصلاً اجرا نمی‌شوند.
     """
+    scraped = entry.get("_xscrape_media")
+    if scraped is not None:
+        tid = extract_tweet_id_from_link(entry.get("link")
+                                         or item.get("url"))
+        photos = [m["url"] for m in scraped if m.get("type") == "image"]
+        videos = [m["url"] for m in scraped if m.get("type") == "video"]
+        if getattr(config, "ENABLE_TWITTER_MEDIA", True):
+            item["images"] = photos[:getattr(config, "TWITTER_ALBUM_MAX", 10)]
+            if not item.get("image"):
+                item["image"] = item["images"][0] if item["images"] else None
+        if getattr(config, "ENABLE_TWITTER_VIDEO", True) and videos and tid:
+            got = resolve_video(user, tid, scraped_mp4=videos[0])
+            if got:
+                if got.get("video_url"):
+                    item["video_url"] = got["video_url"]
+                    item["video_thumb"] = (got.get("thumbnail_url")
+                                           or item.get("image"))
+                if got.get("media_urls") and not item.get("images"):
+                    item["images"] = got["media_urls"][
+                        :getattr(config, "TWITTER_ALBUM_MAX", 10)]
+        return
+
     if getattr(config, "ENABLE_TWITTER_MEDIA", True):
         item["images"] = _own_media_urls(entry)
         if not item.get("image"):
@@ -818,7 +843,114 @@ def _attach_media(item, entry, user):
 
 
 # ------------------------------------------------------------------ fetch
+def resolve_video(handle, tweet_id, scraped_mp4=None, timeout=12):
+    """قیف ویدیو: ۱) mp4 اسکرپ‌شده از x.com  ۲) fxtwitter/vxtwitter.
+
+    (آینده: ۳) @twittervid_bot با سشن Telethon — فقط همین تابع تغییر می‌کند.)
+    """
+    if scraped_mp4:
+        return {"video_url": scraped_mp4, "thumbnail_url": None,
+                "media_urls": [], "source": "xscrape"}
+    return _enrich_tweet(handle, tweet_id, timeout)
+
+
+def _fetch_xscrape(limit=6):
+    """حالت TWITTER_MODE=xscrape — بدون هیچ تماسی با نیتر.
+
+    همان حساب‌ها/فیلترهای classic، فقط منبع داده اسکرپ x.com است. اگر چند
+    سیکل پشت‌هم هیچ حسابی چیزی نداد (بلاک IP / تغییر فرمت)، طبق فلگ به
+    نیتر برمی‌گردیم تا خبر از دست نرود.
+    """
+    from sources import xscrape
+
+    users = _due_accounts()
+    if not users:
+        return []
+    t0 = time.time()
+
+    feeds = {}
+    with ThreadPoolExecutor(max_workers=min(len(users), WORKERS)) as pool:
+        futures = {pool.submit(xscrape.scrape_user, u): u for u in users}
+        for fut in as_completed(futures):
+            u = futures[fut]
+            entries = fut.result()
+            if entries:
+                feeds[u] = entries
+            time.sleep(INTER_ACCOUNT_DELAY)
+
+    dead = len(users) - len(feeds)
+    log.info("xscrape: %d/%d accounts in %ss",
+             len(feeds), len(users), round(time.time() - t0, 1))
+
+    if not feeds:
+        health.record_counter("xscrape_dead_cycle", 1)
+        cycles = _state.get("xscrape_dead_cycles", 0) + 1
+        _state["xscrape_dead_cycles"] = cycles
+        _save()
+        max_dead = getattr(config, "XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES", 3)
+        if cycles >= max_dead and getattr(config, "XSCRAPE_FALLBACK_CLASSIC", True):
+            log.error("xscrape dead for %d cycles — falling back to nitter", cycles)
+            _state["xscrape_dead_cycles"] = 0
+            _save()
+            return _fetch_classic(limit)
+        return []
+
+    _state["xscrape_dead_cycles"] = 0
+    _save()
+
+    out = []
+    for user in users:
+        if len(out) >= limit:
+            break
+        for e in (feeds.get(user) or [])[:3]:
+            max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
+            age = tweet_age_hours(e)
+            if max_age and age is not None and age > max_age:
+                log.debug("skipped (%.0fh old): @%s", age, user)
+                continue
+            text = tweet_text(e)
+            if not text or text.startswith("RT "):
+                continue
+            if tweet_is_noise(text):
+                log.info("skipped (short tweet): @%s — %s",
+                         user, text[:50].replace("\n", " "))
+                continue
+            if not _is_relevant(text, user):
+                continue
+            item = {
+                "source": "Twitter",
+                "source_tag": config.display_name(user),
+                "handle": "@" + user,
+                "url": canonical(e.get("link"), user),
+                "title": text[:200],
+                "body": text,
+                "image": tweet_image(e),
+                "priority": True,
+            }
+            _attach_media(item, e, user)
+
+            # نقل‌قول: از داده‌ی relay مستقیم داریم — مسیر blockquote نیتر اینجا معنا ندارد
+            quoted = e.get("_xscrape_quoted")
+            q_handle = ((quoted or {}).get("author_screen_name") or "").lstrip("@")
+            if quoted and q_handle and q_handle.lower() != user.lower():
+                item["original_source"] = "@" + q_handle
+                item["original_source_tag"] = (
+                    quoted.get("author_name") or config.display_name(q_handle))
+                item["source_tag"] = item["original_source_tag"]
+
+            out.append(item)
+            if len(out) >= limit:
+                break
+    return out
+
+
 def fetch(limit=6):
+    if getattr(config, "TWITTER_MODE", "classic") == "xscrape":
+        return _fetch_xscrape(limit)
+    return _fetch_classic(limit)
+
+
+def _fetch_classic(limit=6):
     users = _due_accounts()
     if not users:
         return []
