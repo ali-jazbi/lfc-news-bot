@@ -8,3 +8,22 @@ data/
 
 # ارزیابی: نتایج و کش‌های تولیدشده (golden.json خودش commit می‌شود)
 evaluation/results/
+
+# samemind bundle — added by samemind init
+# local-only tiers — never commit real content
+# keep folder templates so the bundle is usable out of the box
+/secret/**
+!/secret/
+!/secret/_template.md
+/mirror/**
+
+# generated artifacts
+tools/.index/
+inbox/_consolidation-report.md
+
+# node
+node_modules/
+
+# os / editor noise
+.DS_Store
+*.log
