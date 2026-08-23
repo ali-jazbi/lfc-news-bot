@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "samemind": {
+      "command": "npx",
+      "args": [
+        "samemind",
+        "serve"
+      ],
+      "env": {
+        "OKF_ROOT": "D:\\Github\\lfc-news-bot"
+      }
+    }
+  }
+}

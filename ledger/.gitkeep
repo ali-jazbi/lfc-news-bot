@@ -1,0 +1,3 @@
+# ledger/ — append-only event log (events.jsonl), written by `samemind ledger append`
+# and `samemind fleet assign`, read by `samemind ledger status|read` and the board's
+# 🔥 Open failures section. See docs/event-ledger.md.

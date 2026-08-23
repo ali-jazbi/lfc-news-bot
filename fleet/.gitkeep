@@ -1,0 +1,3 @@
+# fleet/ — registry of the agent engines working on this bundle (registry.json), written by
+# `samemind fleet init`, read by `samemind fleet status|assign` and the board's
+# 🔥 Overdue engines section. See docs/fleet.md.
