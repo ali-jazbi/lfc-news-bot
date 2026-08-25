@@ -685,9 +685,10 @@ def handle_callback(cq):
         tg.answer_callback(cid)
 
 
-# فقط لینک توییت (با یا بدون https / www / mobile) — برای پیامِ «خالی» ادمین
+# فقط لینک توییت (با یا بدون https / www / mobile / query مثل ?s=46 از اپ موبایل)
 _TWEET_LINK_ONLY = re.compile(
-    r"^https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/\w{1,15}/status(?:es)?/\d+/?$",
+    r"^https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/\w{1,15}/status(?:es)?/\d+/?"
+    r"(?:\?\S*)?$",
     re.I,
 )
 
