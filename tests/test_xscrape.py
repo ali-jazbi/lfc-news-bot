@@ -271,3 +271,163 @@ def test_dead_cycle_falls_back_to_classic(monkeypatch):
     items = twitter._fetch_xscrape(limit=6)
     assert classic_called["n"] == 1
     assert items == [{"fallback": True}]
+
+
+# ------------------------------------------------------- fetch_tweet (لینک ادمین)
+@pytest.fixture
+def no_sleep(monkeypatch):
+    """retry های _fetch_script نباید تست را کند کنند."""
+    monkeypatch.setattr("sources.xscrape.time.sleep", lambda s: None)
+
+
+def _patch_requests_get(monkeypatch, responses):
+    """requests.get پشت‌سرهم از لیست responses مصرف می‌کند."""
+    calls = {"n": 0}
+
+    def fake_get(url, **k):
+        i = min(calls["n"], len(responses) - 1)
+        calls["n"] += 1
+        return responses[i]
+
+    monkeypatch.setattr("sources.xscrape.requests.get", fake_get)
+    return calls
+
+
+def test_fetch_tweet_success(monkeypatch, no_sleep):
+    """لینک status → (handle, entry) با همان قرارداد entry نیتر."""
+    from sources.xscrape import fetch_tweet
+
+    tid = TID1
+    b1 = _b64(tid)
+    script = (
+        '"client:%s:details":$R[7]={"__typename":"Tweet","created_at_ms":%d,full_text:"%s"}' % (b1, MS1, TXT1)
+        + '"client:%s:media_entities2:0":{"__typename":"ApiMediaEntity",type:"photo",media_url_https:"https://pbs.twimg.com/media/abc.jpg"}' % b1
+    )
+    _patch_requests_get(monkeypatch, [_Resp(_html(script))])
+
+    handle, entry = fetch_tweet("https://x.com/FabrizioRomano/status/%s" % tid)
+    assert handle == "FabrizioRomano"
+    assert entry["link"].endswith("/status/%s" % tid)
+    assert entry["summary"] == TXT1
+    assert entry["_xscrape_media"][0]["type"] == "image"
+    assert entry["published"].endswith("GMT")
+
+
+def test_fetch_tweet_retries_on_403(monkeypatch, no_sleep):
+    """x.com بی‌الگو 403 می‌دهد → retry باید جبرانش کند."""
+    from sources.xscrape import fetch_tweet
+
+    tid = TID1
+    b1 = _b64(tid)
+    script = ('"client:%s:details":$R[7]={"__typename":"Tweet","created_at_ms":%d,full_text:"%s"}'
+              % (b1, MS1, TXT1))
+    calls = _patch_requests_get(monkeypatch, [
+        _Resp("", 403), _Resp("", 403), _Resp(_html(script)),
+    ])
+
+    handle, entry = fetch_tweet("https://x.com/testuser/status/%s" % tid)
+    assert entry is not None
+    assert calls["n"] == 3
+
+
+def test_fetch_tweet_all_403(monkeypatch, no_sleep):
+    from sources.xscrape import fetch_tweet
+    _patch_requests_get(monkeypatch, [_Resp("", 403)])
+    assert fetch_tweet("https://x.com/a/status/123") == (None, None)
+
+
+def test_fetch_tweet_deleted_or_missing(monkeypatch, no_sleep):
+    """صفحه آمد ولی توییت هدف در relay نیست (حذف‌شده)."""
+    from sources.xscrape import fetch_tweet
+    # فقط توییت دیگری در صفحه هست
+    other = ('"client:%s:details":$R[7]={"__typename":"Tweet","created_at_ms":%d,full_text:"%s"}'
+             % (_b64(TID2), MS2, TXT2))
+    _patch_requests_get(monkeypatch, [_Resp(_html(other))])
+    assert fetch_tweet("https://x.com/a/status/%s" % TID1) == (None, None)
+
+
+def test_fetch_tweet_bad_urls():
+    from sources.xscrape import fetch_tweet
+    for bad in ("", "https://t.co/xyz", "not a link",
+                "https://x.com/user/following"):
+        assert fetch_tweet(bad) == (None, None)
+
+
+def test_fetch_tweet_accepts_twitter_and_mobile(monkeypatch, no_sleep):
+    """twitter.com و mobile. هم باید قبول شوند."""
+    from sources.xscrape import fetch_tweet
+
+    tid = TID1
+    b1 = _b64(tid)
+    script = ('"client:%s:details":$R[7]={"__typename":"Tweet","created_at_ms":%d,full_text:"%s"}'
+              % (b1, MS1, TXT1))
+    seen = {}
+
+    def fake_get(url, **k):
+        seen["url"] = url
+        return _Resp(_html(script))
+
+    monkeypatch.setattr("sources.xscrape.requests.get", fake_get)
+
+    _, e1 = fetch_tweet("https://twitter.com/testuser/status/%s?s=20" % tid)
+    assert e1 is not None
+    _, e2 = fetch_tweet("https://mobile.x.com/testuser/status/%s/" % tid)
+    assert e2 is not None
+
+
+# ------------------------------------------- item_from_url در sources.twitter
+def test_item_from_url_builds_full_item(monkeypatch, no_sleep):
+    """لینک خام → item استاندارد، بدون فیلتر سن/طول — مثل بقیه خبرها."""
+    import sources.twitter as twitter
+
+    tid = TID1
+    b1 = _b64(tid)
+    script = (
+        '"client:%s:details":$R[7]={"__typename":"Tweet","created_at_ms":%d,full_text:"%s"}' % (b1, MS1, TXT1)
+        + '"client:%s:media_entities2:0":{"__typename":"ApiMediaEntity",type:"photo",media_url_https:"https://pbs.twimg.com/media/abc.jpg"}' % b1
+    )
+    monkeypatch.setattr(
+        "sources.xscrape.requests.get",
+        lambda url, **k: _Resp(_html(script)))
+
+    item = twitter.item_from_url("https://x.com/testuser/status/%s" % tid)
+    assert item is not None
+    assert item["source"] == "Twitter"
+    assert item["handle"] == "@testuser"
+    assert item["url"].endswith("/status/%s" % tid)
+    assert item["body"] == TXT1
+    assert item["image"]   # عکس از مدیا
+    assert item["priority"] is True
+
+
+def test_item_from_url_failure_returns_none(monkeypatch, no_sleep):
+    import sources.twitter as twitter
+    monkeypatch.setattr(
+        "sources.xscrape.requests.get",
+        lambda url, **k: _Resp("", 403))
+    assert twitter.item_from_url("https://x.com/a/status/123") is None
+
+
+# ------------------------------------------------- تشخیص لینک خالی در main.py
+def test_main_regex_matches_bare_link_only():
+    """فقط پیامی که «فقط» لینک توییت است باید استخراج شود."""
+    import re
+    from main import _TWEET_LINK_ONLY as rx
+
+    ok = [
+        "https://x.com/FabrizioRomano/status/1796000000000000000",
+        "http://x.com/FabrizioRomano/status/1796000000000000000/",
+        "https://www.twitter.com/FabrizioRomano/statuses/1796000000000000000",
+        "https://mobile.x.com/FabrizioRomano/status/1796000000000000000",
+    ]
+    bad = [
+        "",
+        "نگاه کن https://x.com/FabrizioRomano/status/1796000000000000000",
+        "https://x.com/FabrizioRomano/status/1796000000000000000 عالی است",
+        "https://x.com/FabrizioRomano/following",
+        "https://t.co/xyz",
+    ]
+    for t in ok:
+        assert rx.match(t.strip()), "باید قبول شود: " + t
+    for t in bad:
+        assert not rx.match(t.strip()), "نباید قبول شود: " + t

@@ -16,6 +16,7 @@
 import argparse
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -149,10 +150,12 @@ def _get_editor():
     return create_editor()
 
 
-def process_item(item, force=False):
+def process_item(item, force=False, reply_to=None):
     """یک خبر را از مسیر کامل عبور می‌دهد و در گروه ادمین/تست می‌گذارد.
 
     force → فیلتر تکراری خاموش.
+    reply_to → اگر ست شود، پیام پیش‌نمایش به آن message_id ریپلای می‌شود
+    (برای وقتی ادمین خودش لینک توییت را فرستاده).
     وقتی HERMES_ENABLED=false رفتار قبلی دقیقاً حفظ می‌شود (فقط ترجمه + ارسال).
     """
     if not force and db.is_duplicate(item):
@@ -330,17 +333,19 @@ def process_item(item, force=False):
                 with open(video_local, "rb") as fh:
                     tg.upload_video(config.ADMIN_CHAT_ID, fh.read(),
                                     silent=not high,
-                                    filename=os.path.basename(video_local))
+                                    filename=os.path.basename(video_local),
+                                    reply_to=reply_to)
             except Exception as e:
                 log.error("local video upload failed: %s", e)
         else:
             tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high,
-                          thumb=thumb_local or thumb)
+                          thumb=thumb_local or thumb, reply_to=reply_to)
         msg = tg.send_message(
             config.ADMIN_CHAT_ID,
             caption,
             reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
             silent=not high,
+            reply_to=reply_to,
         )
     elif len(images) >= 2:
         # دکمه روی آلبوم کار نمی‌کند — اول آلبوم را جدا می‌فرستیم،
@@ -351,6 +356,7 @@ def process_item(item, force=False):
             caption,
             reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
             silent=not high,
+            reply_to=reply_to,
         )
     else:
         msg = tg.send_post(
@@ -361,6 +367,7 @@ def process_item(item, force=False):
             thumb=thumb_local or thumb,
             reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
             silent=not high,
+            reply_to=reply_to,
         )
     if msg:
         status = db.STATUS_PENDING_ADMIN if config.HERMES_ENABLED else "sent_admin"
@@ -584,6 +591,8 @@ def drain_pending_updates(timeout=5):
         except Exception as e:
             log.warning("failed to fetch pending updates: %s", e)
             break
+        if updates is None:
+            break  # خطای تلگرام — همان‌جا رها کن؛ سیکل بعدی دوباره امتحان می‌شود
 
 
 def poller_loop():
@@ -676,10 +685,55 @@ def handle_callback(cq):
         tg.answer_callback(cid)
 
 
+# فقط لینک توییت (با یا بدون https / www / mobile) — برای پیامِ «خالی» ادمین
+_TWEET_LINK_ONLY = re.compile(
+    r"^https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/\w{1,15}/status(?:es)?/\d+/?$",
+    re.I,
+)
+
+
+def _handle_tweet_link(url, chat_id, reply_to=None):
+    """لینک خام توییت را مثل یک خبر عادی پردازش می‌کند — همان پیش‌نمایش و ۳ دکمه.
+    reply_to → پیش‌نمایش به همان پیامِ لینک ریپلای می‌شود."""
+    from sources import twitter as twitter_src
+
+    item = twitter_src.item_from_url(url)
+    if not item:
+        tg.send_message(chat_id, "⚠️ استخراج توییت ناموفق بود — حذف شده یا x.com بلاک کرد. دوباره امتحان کن.")
+        return
+
+    # فیلتر تکراری: اگر همین توییت قبلاً ثبت شده، پیامش در گروه را فوروارد کن
+    if db.is_duplicate(item):
+        row = db.get(db.make_key(item))
+        admin_msg = (row or {}).get("admin_msg")
+        if not tg.forward_message(chat_id, config.ADMIN_CHAT_ID, admin_msg):
+            tg.send_message(
+                chat_id,
+                "⚠️ این توییت قبلاً ثبت شده است ولی پیامش در گروه پیدا نشد.",
+                silent=True, reply_to=reply_to,
+            )
+        return
+
+    if process_item(item, force=True, reply_to=reply_to):
+        log.info("tweet link processed: %s", url)
+    else:
+        tg.send_message(chat_id, "⚠️ پردازش توییت ناتمام ماند — لاگ را ببین.")
+
+
 def handle_message(m):
     text = (m.get("text") or "").strip()
     chat_id = m.get("chat", {}).get("id")
     from_user = m.get("from", {})
+
+    # لینک خام توییت → استخراج کامل مثل بقیه خبرها (ادمین خودش انتخابش کرده،
+    # پس فیلترهای سن/طول/کلیدواژه اینجا معنا ندارند)
+    if _TWEET_LINK_ONLY.match(text) and _is_admin(from_user.get("id")):
+        tg.send_message(chat_id, "\U0001F50E در حال استخراج توییت...", silent=True,
+                        reply_to=m.get("message_id"))
+        threading.Thread(target=_handle_tweet_link, args=(text, chat_id, m.get("message_id")),
+                         daemon=True).start()
+        return
+
     if not text.startswith("/"):
         return
     cmd = text.split()[0].split("@")[0]
@@ -774,15 +828,21 @@ def bot_loop():
     offset = None
     while not _stop.is_set():
         try:
-            for u in tg.get_updates(offset=offset, timeout=30):
-                offset = u["update_id"] + 1
-                if "callback_query" in u:
-                    handle_callback(u["callback_query"])
-                elif "message" in u:
-                    handle_message(u["message"])
+            updates = tg.get_updates(offset=offset, timeout=30)
         except Exception as e:
             log.exception("bot loop error: %s", e)
-            time.sleep(5)
+            updates = None
+        if updates is None:
+            # get_updates شکست خورد (قطعی تلگرام/شبکه) — بلافاصله دوباره نزنیم؛
+            # وگرنه حلقه‌ی پرتعداد ۵۰۲ می‌سازد (دیشب ۱۱ درخواست در ۰.۱۳ ثانیه!)
+            time.sleep(10)
+            continue
+        for u in updates:
+            offset = u["update_id"] + 1
+            if "callback_query" in u:
+                handle_callback(u["callback_query"])
+            elif "message" in u:
+                handle_message(u["message"])
 
 
 # ------------------------------------------------------------------ entry

@@ -35,6 +35,15 @@ class Telegram:
                     log.warning("rate limited, sleeping %ss", wait)
                     time.sleep(wait + 1)
                     continue
+                code = data.get("error_code") or 0
+                if code >= 500:
+                    # خطای موقت سرور/گیت‌وی — فشار نیاوریم، کمی صبر و دوباره
+                    wait = 3 * (attempt + 1)
+                    log.warning("telegram %s server error %s (%d/3) — sleeping %ss",
+                                method, code, attempt + 1, wait)
+                    self.last_error = data.get("description") or ("HTTP " + str(code))
+                    time.sleep(wait)
+                    continue
                 log.error("telegram %s failed: %s — %s", method,
                           data.get("error_code"), data.get("description"))
                 self.last_error = data.get("description") or str(data)
@@ -59,7 +68,7 @@ class Telegram:
         )
 
     def upload_photo(self, chat_id, image_bytes, caption, reply_markup=None,
-                     silent=False, filename="photo.jpg"):
+                     silent=False, filename="photo.jpg", reply_to=None):
         """آپلود مستقیم فایل — وقتی خود تلگرام نتواند URL را بگیرد."""
         url = API_BASE + self.token + "/sendPhoto"
         data = {"chat_id": str(chat_id), "parse_mode": "HTML",
@@ -68,6 +77,8 @@ class Telegram:
             data["caption"] = caption
         if reply_markup:
             data["reply_markup"] = json.dumps(reply_markup)
+        if reply_to:
+            data["reply_to_message_id"] = str(reply_to)
         try:
             r = self.s.post(url, data=data,
                             files={"photo": (filename, image_bytes)}, timeout=90)
@@ -105,7 +116,8 @@ class Telegram:
             self.last_error = str(e)
         return None
 
-    def send_photo(self, chat_id, photo, caption, reply_markup=None, silent=False):
+    def send_photo(self, chat_id, photo, caption, reply_markup=None, silent=False,
+                   reply_to=None):
         """اول URL را به تلگرام می‌دهیم؛ اگر نتوانست بگیرد، خودمان آپلود می‌کنیم.
 
         اگر photo مسیر یک فایل روی دیسک باشد، مستقیم آپلود می‌شود.
@@ -113,7 +125,7 @@ class Telegram:
         if isinstance(photo, str) and not photo.startswith("http") and os.path.isfile(photo):
             with open(photo, "rb") as fh:
                 return self.upload_photo(chat_id, fh.read(), caption, reply_markup,
-                                         silent, os.path.basename(photo))
+                                         silent, os.path.basename(photo), reply_to=reply_to)
         res = self.call(
             "sendPhoto",
             chat_id=chat_id,
@@ -122,6 +134,7 @@ class Telegram:
             parse_mode="HTML",
             disable_notification=silent,
             reply_markup=reply_markup,
+            reply_to_message_id=reply_to,
         )
         if res:
             return res
@@ -129,7 +142,8 @@ class Telegram:
             log.info("Telegram could not fetch the image itself — manual download and upload...")
             blob = self.fetch_image(photo)
             if blob:
-                return self.upload_photo(chat_id, blob, caption, reply_markup, silent)
+                return self.upload_photo(chat_id, blob, caption, reply_markup, silent,
+                                         reply_to=reply_to)
         return None
 
     def fetch_video(self, video_url):
@@ -151,7 +165,7 @@ class Telegram:
         return None
 
     def upload_video(self, chat_id, video_bytes, caption=None, reply_markup=None,
-                     silent=False, filename="video.mp4"):
+                     silent=False, filename="video.mp4", reply_to=None):
         """آپلود مستقیم ویدیو — وقتی خود تلگرام نتواند URL را بگیرد."""
         url = API_BASE + self.token + "/sendVideo"
         data = {"chat_id": str(chat_id), "parse_mode": "HTML",
@@ -160,6 +174,8 @@ class Telegram:
             data["caption"] = caption
         if reply_markup:
             data["reply_markup"] = json.dumps(reply_markup)
+        if reply_to:
+            data["reply_to_message_id"] = str(reply_to)
         try:
             r = self.s.post(url, data=data,
                             files={"video": (filename, video_bytes)}, timeout=300)
@@ -174,7 +190,7 @@ class Telegram:
         return None
 
     def send_video(self, chat_id, video_url, caption=None, reply_markup=None,
-                   silent=False, thumb=None):
+                   silent=False, thumb=None, reply_to=None):
         """اول URL را به تلگرام می‌دهیم (خودش دانلود می‌کند)؛ اگر نشد
         خودمان دانلود و آپلود می‌کنیم. thumb فقط وقتی خودمان آپلود می‌کنیم."""
         res = self.call(
@@ -185,6 +201,7 @@ class Telegram:
             parse_mode="HTML",
             disable_notification=silent,
             reply_markup=reply_markup,
+            reply_to_message_id=reply_to,
         )
         if res:
             return res
@@ -192,7 +209,8 @@ class Telegram:
             log.info("Telegram could not fetch the video itself — manual download and upload...")
             blob = self.fetch_video(video_url)
             if blob:
-                return self.upload_video(chat_id, blob, caption, reply_markup, silent)
+                return self.upload_video(chat_id, blob, caption, reply_markup, silent,
+                                         reply_to=reply_to)
         return None
 
     def send_media_group(self, chat_id, image_urls, caption=None, silent=False):
@@ -255,13 +273,14 @@ class Telegram:
         return None
 
     def send_post(self, chat_id, text, image=None, images=None, video=None, thumb=None,
-                  reply_markup=None, silent=False):
+                  reply_markup=None, silent=False, reply_to=None):
         """اگر ویدیو بود sendVideo می‌فرستد؛ اگر ≤۲ عکس داشت و دکمه‌ای در کار
         نبود آلبوم؛ ورنه طبق رفتار قدیمی: یک عکس + متن (یا فقط متن)."""
         imgs = [u for u in (images or []) if u]
 
         if video and len(text) <= 1024:
-            res = self.send_video(chat_id, video, text, reply_markup, silent, thumb)
+            res = self.send_video(chat_id, video, text, reply_markup, silent, thumb,
+                                  reply_to=reply_to)
             if res:
                 return res
             log.warning("video send failed (%s) — continuing with poster/photo", self.last_error)
@@ -283,14 +302,16 @@ class Telegram:
             image = imgs[0]
 
         if image and len(text) <= 1024:
-            res = self.send_photo(chat_id, image, text, reply_markup, silent)
+            res = self.send_photo(chat_id, image, text, reply_markup, silent,
+                                  reply_to=reply_to)
             if res:
                 return res
             log.warning("send with photo failed (%s) — text only will be sent", self.last_error)
         elif image:
             if not self.send_photo(chat_id, image, "", None, silent):
                 log.warning("separate photo send failed (%s)", self.last_error)
-        return self.send_message(chat_id, text, reply_markup, silent=silent)
+        return self.send_message(chat_id, text, reply_markup, silent=silent,
+                                 reply_to=reply_to)
 
     def edit_caption(self, chat_id, message_id, caption, reply_markup=None):
         return self.call(
@@ -326,14 +347,23 @@ class Telegram:
             "answerCallbackQuery", callback_query_id=callback_id, text=text, show_alert=alert
         )
 
+    def forward_message(self, chat_id, from_chat_id, message_id):
+        return self.call(
+            "forwardMessage",
+            chat_id=chat_id,
+            from_chat_id=from_chat_id,
+            message_id=message_id,
+        )
+
     def get_updates(self, offset=None, timeout=30):
+        """لیست آپدیت‌ها؛ در صورت خطا None (تا caller بتواند backoff کند)."""
         return self.call(
             "getUpdates",
             offset=offset,
             timeout=timeout,
             allowed_updates=["callback_query", "message"],
             _timeout=timeout + 15,
-        ) or []
+        )
 
     def get_me(self):
         return self.call("getMe")

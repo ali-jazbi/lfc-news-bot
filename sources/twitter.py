@@ -944,6 +944,48 @@ def _fetch_xscrape(limit=6):
     return out
 
 
+def build_tweet_item(entry, user):
+    """item استاندارد از یک entry توییت — مشترک بین فید و لینک ادمین.
+
+    همان ساختار حلقه‌ی _fetch_xscrape؛ بدون فیلتر سن/طول/کلیدواژه (آن‌ها
+    مسئول فراخواننده‌اند). نقل‌قول هم مثل xscrape از relay درمی‌آید.
+    """
+    text = tweet_text(entry)
+    item = {
+        "source": "Twitter",
+        "source_tag": config.display_name(user),
+        "handle": "@" + user,
+        "url": canonical(entry.get("link"), user),
+        "title": text[:200],
+        "body": text,
+        "image": tweet_image(entry),
+        "priority": True,
+    }
+    _attach_media(item, entry, user)
+
+    quoted = entry.get("_xscrape_quoted")
+    q_handle = ((quoted or {}).get("author_screen_name") or "").lstrip("@")
+    if quoted and q_handle and q_handle.lower() != user.lower():
+        item["original_source"] = "@" + q_handle
+        item["original_source_tag"] = (
+            quoted.get("author_name") or config.display_name(q_handle))
+        item["source_tag"] = item["original_source_tag"]
+    return item
+
+
+def item_from_url(url):
+    """لینک خام توییت → item کامل (بدون فیلترها — ادمین خودش انتخاب کرده).
+
+    خروجی: item یا None. هرگز raise نمی‌کند.
+    """
+    from sources import xscrape
+
+    handle, entry = xscrape.fetch_tweet(url)
+    if not entry:
+        return None
+    return build_tweet_item(entry, handle)
+
+
 def fetch(limit=6):
     if getattr(config, "TWITTER_MODE", "classic") == "xscrape":
         return _fetch_xscrape(limit)

@@ -286,6 +286,69 @@ def _ms_to_rfc822(ms):
     return email.utils.formatdate(ms / 1000.0, usegmt=True)
 
 
+def _fetch_script(url, tries=None):
+    """اسکریپت relay یک صفحه‌ی x.com — با retry، چون x.com بی‌الگوی 403 می‌دهد.
+
+    تست زنده: درخواست تکی ~۵۰٪ 403 می‌گیرد ولی با ۳ تلاش عملاً همیشه جواب
+    می‌آید. عمداً بدون کوکی (Session تازه) — session کوکی‌گرفته مدام 403 داد.
+    """
+    if tries is None:
+        tries = getattr(config, "XSCRAPE_FETCH_TRIES", 3)
+    delay = getattr(config, "XSCRAPE_RETRY_DELAY", 1.2)
+    for i in range(tries):
+        try:
+            r = requests.get(url, headers={"User-Agent": _UA}, timeout=20)
+            if r.status_code == 200 and r.text:
+                script = extract_relay_script(r.text)
+                if script:
+                    return script
+            log.debug("x.com %s -> HTTP %s (try %d)", url, r.status_code, i + 1)
+        except Exception as e:
+            log.debug("x.com %s failed (try %d): %s", url, i + 1, e)
+        time.sleep(delay * (i + 1))
+    return None
+
+
+def fetch_tweet(url):
+    """یک توییت از لینکش — برای وقتی ادمین لینک خام می‌فرستد.
+
+    صفحه‌ی status همان ساختار relay پروفایل را دارد، پس همان پارسر کار می‌کند.
+    خروجی: (handle, entry نیتر-سازگار) یا (None, None). هرگز raise نمی‌کند.
+    """
+    m = re.match(
+        r"https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/(\w{1,15})"
+        r"/status(?:es)?/(\d+)", (url or "").strip())
+    if not m:
+        return None, None
+    handle, tid = m.group(1), m.group(2)
+    try:
+        script = _fetch_script("https://x.com/%s/status/%s" % (handle, tid))
+        if not script:
+            return None, None
+        target = next((t for t in parse_relay_tweets(script, 30)
+                       if t["id"] == tid), None)
+        if not target:
+            # توییت حذف شده یا محدود است
+            log.info("tweet %s not found in relay data", tid)
+            return None, None
+        media = target.get("media") or []
+        image = next((mm["url"] for mm in media if mm["type"] == "image"), None)
+        entry = {
+            "title": (target["text"] or "")[:200],
+            "link": "https://x.com/%s/status/%s" % (handle, tid),
+            "summary": target["text"] or "",
+            "image": image,
+            "published": _ms_to_rfc822(target.get("created_at_ms")
+                                       or int(time.time() * 1000)),
+            "_xscrape_media": media,
+            "_xscrape_quoted": target.get("quoted"),
+        }
+        return handle, entry
+    except Exception as e:
+        log.warning("fetch_tweet %s failed: %s", url, e)
+        return None, None
+
+
 def scrape_user(screen_name, count=None):
     """entry های نیتر-سازگار برای یک حساب؛ [] روی هر خطا (هرگز raise نمی‌کند)."""
     if count is None:
