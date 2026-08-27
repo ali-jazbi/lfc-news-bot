@@ -52,6 +52,13 @@ def channel_target():
 # آیدی عددی خودت را با /id در همان گروه می‌گیری.
 ADMIN_USER_IDS = [int(x) for x in _list("ADMIN_USER_IDS") if x.lstrip("-").isdigit()]
 
+# --- UserBot Downloader Settings ---
+USERBOT_API_ID = _get("USERBOT_API_ID")
+USERBOT_API_HASH = _get("USERBOT_API_HASH")
+USERBOT_SESSION = _get("USERBOT_SESSION", "lfc_userbot")
+USERBOT_BOT_TARGET = _get("USERBOT_BOT_TARGET", "@twittervid_bot")
+ENABLE_USERBOT_VIDEOS = _get("ENABLE_USERBOT_VIDEOS", "false").lower() in ("true", "1", "yes")
+
 # manual = ربات فقط نسخه آماده را در همان گروه می‌دهد (انتشار دستی توسط ادمین)
 # auto   = ربات خودش روی CHANNEL_ID می‌فرستد
 PUBLISH_MODE = _get("PUBLISH_MODE", "manual").lower()
@@ -145,9 +152,19 @@ TWITTER_LFC_ONLY = _list(
 # در هر سیکل چند حساب غیردرجه‌یک خوانده شود (بقیه سیکل بعد)
 ACCOUNTS_PER_CYCLE = _int("ACCOUNTS_PER_CYCLE", 6)
 
-# توییت کوتاه مثل «Mighty Red making an appearance» خبر نیست
-TWEET_MIN_CHARS = _int("TWEET_MIN_CHARS", 60)
-TWEET_MIN_WORDS = _int("TWEET_MIN_WORDS", 8)
+# حداقل طول توییت (برای پشتیبانی از خبرهای تک‌خطی و کوتاه)
+TWEET_MIN_CHARS = _int("TWEET_MIN_CHARS", 20)
+TWEET_MIN_WORDS = _int("TWEET_MIN_WORDS", 3)
+
+# کلمات کلیدی برای تشخیص و فیلتر تبلیغات، پخش زنده، بلیت و شرط‌بندی
+PROMO_KEYWORDS = _list(
+    "PROMO_KEYWORDS",
+    "live now,watch live,streaming live,stream now,going live,youtube.com/live,"
+    "twitch.tv,join space,x space,podcast episode,listen now,apple.co,spotify.link,"
+    "sponsored by,promo code,discount code,use code,#ad,giveaway,enter to win,"
+    "buy tickets,tickets on sale,shop now,merch,fpl captain,fpl gameweek,"
+    "fantasy premier league,betting odds,gamble responsibly,18+ gamble",
+)
 
 # توییت قدیمی‌تر از این (ساعت) خبر حساب نمی‌شود — ۰ یعنی بی‌خیال تاریخ
 TWEET_MAX_AGE_HOURS = _int("TWEET_MAX_AGE_HOURS", 24)

@@ -160,6 +160,10 @@ def fix_image(url):
     """
     if not url:
         return None
+    if isinstance(url, dict):
+        url = url.get("url") or url.get("href") or url.get("src") or ""
+    if not isinstance(url, str) or not url:
+        return None
     if "/pic/" not in url:
         return url
     try:
@@ -196,28 +200,38 @@ _IMG_CARD = re.compile(r"(?:card_img|profile_images|profile_banners)", re.I)
 
 
 def tweet_image(entry):
-    """عکس توییت — اگر ویدیو باشد از پوستر ویدیو استفاده می‌کند."""
+    """عکس توییت — اگر ویدیو باشد از پوستر ویدیو استفاده می‌کند و اگر کووت باشد از عکس کووت."""
     img = entry.get("image")
+    if isinstance(img, dict):
+        img = img.get("url") or img.get("href") or img.get("src") or ""
+    elif isinstance(img, list) and img:
+        first = img[0]
+        img = first.get("url") or first.get("href") if isinstance(first, dict) else str(first)
     if not img:
         html = entry.get("summary") or ""
         m = _POSTER.search(html) or _ANY_IMG.search(html)
         if m:
             img = m.group(1)
-    if img and img.startswith("/"):
+    if not img:
+        quoted = entry.get("_xscrape_quoted") or {}
+        q_img = quoted.get("image")
+        if isinstance(q_img, dict):
+            img = q_img.get("url") or q_img.get("href") or q_img.get("src") or ""
+        elif isinstance(q_img, str):
+            img = q_img
+        elif quoted.get("media"):
+            first_m = (quoted.get("media") or [None])[0]
+            if isinstance(first_m, dict):
+                img = first_m.get("url") or first_m.get("href") or first_m.get("src") or ""
+            elif isinstance(first_m, str):
+                img = first_m
+    if isinstance(img, str) and img.startswith("/"):
         img = (_state.get("base") or "").rstrip("/") + img
-    return fix_image(img)
+    return fix_image(img) if isinstance(img, (str, dict)) else None
 
 
 def _own_media_urls(entry, max_imgs=ALBUM_MAX):
-    """عکس‌های خودِ توییت از خلاصه نیتر.
-
-    قانون: همه <img> های قبل از اولین <blockquote> که الگوی media دارند.
-    عکس توییتِ نقل‌قولی داخل <blockquote> است و هرگز در آلبوم نمی‌آید.
-    کارت لینک (card_img) و آواتار/بک‌گراند (profile_*) حذف می‌شوند.
-
-    نکته: دسته‌بندی روی URL خام نیتر انجام می‌شود (هنوز media%2F دارد) چون
-    fix_image() آن را به pbs.twimg.com/media/… تبدیل می‌کند و %2F از بین می‌رود.
-    """
+    """عکس‌های خودِ توییت یا توییت نقل‌قول‌شده."""
     html = entry.get("summary") or ""
     if not html:
         return []
@@ -226,7 +240,7 @@ def _own_media_urls(entry, max_imgs=ALBUM_MAX):
     for u in images_in_html(own_part, max_imgs=max_imgs * 3):
         if _IMG_CARD.search(u):
             continue
-        if "media%2F" not in u and "media/" not in u:
+        if "media%2F" not in u and "media/" not in u and "pbs.twimg.com" not in u:
             continue
         fixed = fix_image(u)
         if not fixed or fixed in seen:
@@ -235,6 +249,20 @@ def _own_media_urls(entry, max_imgs=ALBUM_MAX):
         out.append(fixed)
         if len(out) >= max_imgs:
             break
+    # اگر خود توییت عکسی نداشت ولی در کل خلاصه (مثلاً کووت) عکس بود، آن را هم می‌آوریم
+    if not out:
+        for u in images_in_html(html, max_imgs=max_imgs * 3):
+            if _IMG_CARD.search(u):
+                continue
+            if "media%2F" not in u and "media/" not in u and "pbs.twimg.com" not in u:
+                continue
+            fixed = fix_image(u)
+            if not fixed or fixed in seen:
+                continue
+            seen.add(fixed)
+            out.append(fixed)
+            if len(out) >= max_imgs:
+                break
     return out
 
 
@@ -296,13 +324,40 @@ def tweet_age_hours(entry):
         return None
 
 
-def tweet_is_noise(text):
-    """توییت‌های یک‌خطی/عکسی/ویدیویی که خبر نیستند."""
-    t = (text or "").strip()
-    core = re.sub(r"^\W+|\W+$", "", re.sub(r"\b(video|photo|gallery|link)\b", " ", t, flags=re.I))
-    if len(core) < getattr(config, "TWEET_MIN_CHARS", 60):
+def is_promo_or_livestream(text):
+    """تشخیص توییت‌های تبلیغاتی، استریم زنده، اسپانسر و بلیت."""
+    if not text:
+        return False
+    low = text.lower()
+    promo_words = getattr(config, "PROMO_KEYWORDS", [])
+    if any(pw.lower() in low for pw in promo_words if pw.strip()):
         return True
-    if len([w for w in re.split(r"\s+", core) if w]) < getattr(config, "TWEET_MIN_WORDS", 8):
+    return False
+
+
+def tweet_is_noise(text, entry=None):
+    """توییت‌های نویز یا تبلیغاتی؛ توییت‌های کوتاه معتبر و کووت‌ها حفظ می‌شوند."""
+    t = (text or "").strip()
+    if is_promo_or_livestream(t):
+        return True
+
+    # اگر توییت نقل‌قول دارد، نویز نیست
+    if entry and (_QUOTE_BLOCK.search(entry.get("summary") or "") or entry.get("_xscrape_quoted")):
+        return False
+
+    # اگر کلیدواژه‌های مهم ورزشی دارد، نویز نیست
+    high_signals = (
+        "here we go", "official", "confirmed", "deal", "agreement",
+        "transfer", "bid", "medical", "injury", "lfc", "liverpool"
+    )
+    low = t.lower()
+    if any(s in low for s in high_signals):
+        return False
+
+    core = re.sub(r"^\W+|\W+$", "", re.sub(r"\b(video|photo|gallery|link)\b", " ", t, flags=re.I))
+    if len(core) < getattr(config, "TWEET_MIN_CHARS", 20):
+        return True
+    if len([w for w in re.split(r"\s+", core) if w]) < getattr(config, "TWEET_MIN_WORDS", 3):
         return True
     return False
 
@@ -911,27 +966,37 @@ def _fetch_xscrape(limit=6):
             text = tweet_text(e)
             if not text or text.startswith("RT "):
                 continue
-            if tweet_is_noise(text):
-                log.info("skipped (short tweet): @%s — %s",
+            if tweet_is_noise(text, e):
+                log.info("skipped (noise / promo tweet): @%s — %s",
                          user, text[:50].replace("\n", " "))
                 continue
             if not _is_relevant(text, user):
                 continue
+            quoted = e.get("_xscrape_quoted") or {}
+            q_text = (quoted.get("text") or "").strip()
+            q_handle = (quoted.get("author_screen_name") or "").lstrip("@")
+            q_name = quoted.get("author_name") or ""
+
+            if q_text:
+                q_label = f"@{q_handle}" if q_handle else (q_name if q_name else f"@{user}")
+                full_body = f"{text}\n\n[نقل‌قول از {q_label}]:\n{q_text}" if text else f"[نقل‌قول از {q_label}]:\n{q_text}"
+                title = (text + " — " + q_text) if (text and len(text) < 40) else (text or q_text)
+            else:
+                full_body = text
+                title = text
+
             item = {
                 "source": "Twitter",
                 "source_tag": config.display_name(user),
                 "handle": "@" + user,
                 "url": canonical(e.get("link"), user),
-                "title": text[:200],
-                "body": text,
+                "title": title[:200],
+                "body": full_body,
                 "image": tweet_image(e),
                 "priority": True,
             }
             _attach_media(item, e, user)
 
-            # نقل‌قول: از داده‌ی relay مستقیم داریم — مسیر blockquote نیتر اینجا معنا ندارد
-            quoted = e.get("_xscrape_quoted")
-            q_handle = ((quoted or {}).get("author_screen_name") or "").lstrip("@")
             if quoted and q_handle and q_handle.lower() != user.lower():
                 item["original_source"] = "@" + q_handle
                 item["original_source_tag"] = (
@@ -951,20 +1016,31 @@ def build_tweet_item(entry, user):
     مسئول فراخواننده‌اند). نقل‌قول هم مثل xscrape از relay درمی‌آید.
     """
     text = tweet_text(entry)
+    quoted = entry.get("_xscrape_quoted") or {}
+    q_text = (quoted.get("text") or "").strip()
+    q_handle = (quoted.get("author_screen_name") or "").lstrip("@")
+    q_name = quoted.get("author_name") or ""
+
+    if q_text:
+        q_label = f"@{q_handle}" if q_handle else (q_name if q_name else f"@{user}")
+        full_body = f"{text}\n\n[نقل‌قول از {q_label}]:\n{q_text}" if text else f"[نقل‌قول از {q_label}]:\n{q_text}"
+        title = (text + " — " + q_text) if (text and len(text) < 40) else (text or q_text)
+    else:
+        full_body = text
+        title = text
+
     item = {
         "source": "Twitter",
         "source_tag": config.display_name(user),
         "handle": "@" + user,
         "url": canonical(entry.get("link"), user),
-        "title": text[:200],
-        "body": text,
+        "title": title[:200],
+        "body": full_body,
         "image": tweet_image(entry),
         "priority": True,
     }
     _attach_media(item, entry, user)
 
-    quoted = entry.get("_xscrape_quoted")
-    q_handle = ((quoted or {}).get("author_screen_name") or "").lstrip("@")
     if quoted and q_handle and q_handle.lower() != user.lower():
         item["original_source"] = "@" + q_handle
         item["original_source_tag"] = (
@@ -1043,8 +1119,8 @@ def _fetch_classic(limit=6):
             text = tweet_text(e)
             if not text or text.startswith("RT "):
                 continue
-            if tweet_is_noise(text):
-                log.info("skipped (short tweet): @%s — %s",
+            if tweet_is_noise(text, e):
+                log.info("skipped (noise / promo tweet): @%s — %s",
                          user, text[:50].replace("\n", " "))
                 continue
             if not _is_relevant(text, user):

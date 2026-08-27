@@ -6,3 +6,5 @@ python-dotenv==1.0.1
 rapidfuzz==3.10.1
 PySocks==1.7.1
 deep-translator==1.11.4
+telethon>=1.36.0
+litellm>=1.40.0

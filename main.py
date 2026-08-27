@@ -22,6 +22,17 @@ import threading
 import time
 from logging.handlers import RotatingFileHandler
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import channel_guard
 import config
 import db
@@ -150,6 +161,10 @@ def _get_editor():
     return create_editor()
 
 
+_processing_keys = set()
+_processing_lock = threading.Lock()
+
+
 def process_item(item, force=False, reply_to=None):
     """یک خبر را از مسیر کامل عبور می‌دهد و در گروه ادمین/تست می‌گذارد.
 
@@ -158,10 +173,29 @@ def process_item(item, force=False, reply_to=None):
     (برای وقتی ادمین خودش لینک توییت را فرستاده).
     وقتی HERMES_ENABLED=false رفتار قبلی دقیقاً حفظ می‌شود (فقط ترجمه + ارسال).
     """
-    if not force and db.is_duplicate(item):
+    if not item:
         return False
 
     key = db.make_key(item)
+    with _processing_lock:
+        if key in _processing_keys:
+            log.info("Already processing %s — skipping concurrent run", key)
+            return False
+        if not force and db.is_duplicate(item):
+            return False
+        _processing_keys.add(key)
+        # ثبت فوری با وضعیت processing تا سیکل‌های موازی متوجه شوند
+        if not config.HERMES_ENABLED:
+            db.save(item, status="processing")
+
+    try:
+        return _process_item_internal(item, key, force=force, reply_to=reply_to)
+    finally:
+        with _processing_lock:
+            _processing_keys.discard(key)
+
+
+def _process_item_internal(item, key, force=False, reply_to=None):
     nid = news_id_of(item)
     notes = []
     editor = None
@@ -298,8 +332,38 @@ def process_item(item, force=False, reply_to=None):
                 log.warning("image selection failed: %s", e)
 
 
-    # خط لوله ویدیو (مرحله ۸) — دانلود/validate/تبدیل/thumbnail روی دیسک
-    if video and not DRY_RUN:
+    # خط لوله ویدیو ابری یا لوکال
+    video_sent_by_userbot = False
+    if video and config.ENABLE_USERBOT_VIDEOS and not DRY_RUN:
+        try:
+            import userbot_downloader
+            ub = userbot_downloader.get_downloader()
+            if ub.is_configured():
+                tweet_url = item.get("url") or video
+                log.info("Requesting cloud video from @twittervid_bot for: %s", tweet_url)
+                video_sent_by_userbot = ub.download_and_forward_sync(
+                    tweet_url=tweet_url,
+                    target_chat_id=config.ADMIN_CHAT_ID,
+                    caption="",
+                )
+                if video_sent_by_userbot:
+                    log.info("Cloud video delivered via UserBot successfully!")
+                    msg = tg.send_message(
+                        config.ADMIN_CHAT_ID,
+                        caption,
+                        reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+                        silent=not high,
+                        reply_to=reply_to,
+                    )
+                    if msg:
+                        status = db.STATUS_PENDING_ADMIN if config.HERMES_ENABLED else "sent_admin"
+                        db.set_admin_msg(key, msg.get("message_id"), status=status)
+                    return True
+        except Exception as e:
+            log.warning("UserBot cloud download failed, falling back to local: %s", e)
+
+    # خط لوله ویدیو محلی (در صورت عدم استفاده از یوزربات)
+    if video and not video_sent_by_userbot and not DRY_RUN:
         try:
             mp = media.process(video, thumb)
             if mp["ok"]:
@@ -326,8 +390,9 @@ def process_item(item, force=False, reply_to=None):
         except Exception as e:
             log.warning("video pipeline failed: %s", e)
 
-    if video and not DRY_RUN:
+    if video and not video_sent_by_userbot and not DRY_RUN:
         # ویدیو جدا از دکمه‌ها — اول ویدیو (بی‌صدا)، بعد کپشن + دکمه‌ها
+        # (اگر یوزربات ویدیو را داده، اینجا دیگر نباید تکرار شود)
         if video_local:
             try:
                 with open(video_local, "rb") as fh:
@@ -444,8 +509,8 @@ def send_to_channel(key):
 
 
 def approve(key, chat_id):
-    """نسخه تمیز را در همان گروه ادمین می‌فرستد (بدون دکمه و لینک منبع).
-    ادمین خودش فوروارد/کپی می‌کند. انتشار مستقیم روی کانال با s2c انجام می‌شود."""
+    """اگر PUBLISH_MODE == auto باشد مستقیم روی کانال منتشر می‌کند؛
+    اگر manual باشد نسخه تمیز را در گروه ادمین می‌گذارد."""
     row = db.get(key)
     if not row:
         return False, "این خبر در دیتابیس نیست"
@@ -701,18 +766,6 @@ def _handle_tweet_link(url, chat_id, reply_to=None):
     item = twitter_src.item_from_url(url)
     if not item:
         tg.send_message(chat_id, "⚠️ استخراج توییت ناموفق بود — حذف شده یا x.com بلاک کرد. دوباره امتحان کن.")
-        return
-
-    # فیلتر تکراری: اگر همین توییت قبلاً ثبت شده، پیامش در گروه را فوروارد کن
-    if db.is_duplicate(item):
-        row = db.get(db.make_key(item))
-        admin_msg = (row or {}).get("admin_msg")
-        if not tg.forward_message(chat_id, config.ADMIN_CHAT_ID, admin_msg):
-            tg.send_message(
-                chat_id,
-                "⚠️ این توییت قبلاً ثبت شده است ولی پیامش در گروه پیدا نشد.",
-                silent=True, reply_to=reply_to,
-            )
         return
 
     if process_item(item, force=True, reply_to=reply_to):

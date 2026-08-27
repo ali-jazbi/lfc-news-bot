@@ -80,6 +80,11 @@ SYSTEM_PROMPT = """تو مترجم و خبرنگار حرفه‌ای فوتبا�
 1-ب. اگر در خود متن اصلی جمله‌ای از شخص دیگری نقل شده (مثلاً حرف مربی در گزارش سایت باشگاه)،
    فقط آن را داخل « » بگذار و گوینده‌اش را ذکر کن — چون در متن اصلی هم همین طور بوده.
    یعنی ساختار متن اصلی را عیناً نگه دار؛ نه چیزی اضافه کن، نه حذف.
+1-ج. اگر متن ورودی یک توییت نقل‌قول‌شده (کووت / [نقل‌قول از ...]) است:
+   - حتماً و بدون استثنا هر دو بخش را با هم ترجمه کن: هم واکنش/نظر توییت‌کننده و هم جزئیات توییت نقل‌قول‌شده (مبالغ، نام بازیکن، ادعای اصلی).
+   - هرگز متن توییت کوت‌شده را نادیده نگیر یا حذف نکن؛ زیرا اصل خبر و ارقام در آن قرار دارد.
+   - مثال: اگر متن باشد «Looking very likely... 🎯 \n\n [نقل‌قول از @AnfieldSector]: Sweet spot: €130m-€140m... 🧘‍♂️🇫🇷»،
+     ترجمه بدنه باید بشود: «به نظر می‌رسد احتمال وقوع این انتقال بسیار زیاد است. مبلغ ایده‌آل: بین ۱۳۰ تا ۱۴۰ میلیون یورو برآورد شده است. 🎯🇫🇷»
 2. اسامی خاص (بازیکن، باشگاه، ورزشگاه) را ترجمه نکن؛ فقط به فارسی آوانگاری کن و از فهرست واژگان زیر پیروی کن.
 
 2-الف. افراد مهمِ لیورپول را اشتباه نگیر:
@@ -89,7 +94,7 @@ SYSTEM_PROMPT = """تو مترجم و خبرنگار حرفه‌ای فوتبا�
 
 3. لحن: رسمی ولی صمیمی، مثل کانال‌های خبری فوتبال. از اغراق و نظر شخصی پرهیز کن.
 4. اعداد، مبالغ، تاریخ‌ها و نقل‌قول‌ها را دقیق نگه دار. چیزی از خودت اضافه نکن.
-5. متن را در ۲ تا ۴ پاراگراف کوتاه بنویس؛ بین ۴۰۰ تا ۸۰۰ کاراکتر. کمتر از ۴۰۰ یعنی خبر را ناقص گفته‌ای.
+5. برای توییت‌های کوتاه و نقل‌قول‌ها، ترجمه را دقیق، مستقیم و بدون کش‌دادن یا جملات ساختگی بنویس. برای مقاله‌ها و گزارش‌های طولانی، متن را در ۲ تا ۴ پاراگراف کوتاه (بین ۳۰۰ تا ۸۰۰ کاراکتر) بنویس.
 6. هیچ اسم بازیکن، مربی، عدد یا نقل‌قولی را حذف نکن. خلاصه‌کردن یعنی حذف توضیح اضافه، نه حذف خبر.
 7. اصطلاحات فوتبالی را معنایی برگردان، نه کلمه‌به‌کلمه. نمونه خطاهای ممنوع:
    - in the driving seat ← «در موقعیت برتر» (نه «صندلی رانندگی»)
@@ -150,11 +155,57 @@ def _repair_json(s):
     return s
 
 
+# الگوهای خطای سرور و پاسخ‌های نامعتبر وب
+ERROR_SIGNATURES = (
+    "error 500",
+    "500.that’s an error",
+    "500.that's an error",
+    "that’s all we know",
+    "that's all we know",
+    "there was an error",
+    "please try again later",
+    "server error",
+    "rate limit",
+    "too many requests",
+    "429 too many",
+    "unusual traffic",
+    "enable javascript",
+    "just a moment",
+    "cloudflare",
+    "response id:",
+    "request id:",
+    "<!doctype",
+    "<html",
+    "<body",
+)
+
+
+def contains_error_signature(text):
+    """آیا متن حاوی امضاهای خطای وب، سرور یا پاسخ‌های نامعتبر است؟"""
+    if not text:
+        return False
+    low = text.lower()
+    return any(sig in low for sig in ERROR_SIGNATURES)
+
+
+def is_valid_persian_translation(text, min_persian_chars=2):
+    """آیا متن ورودی یک ترجمه فارسی معتبر است (نه پیام خطای انگلیسی/HTML)؟"""
+    if not text or not isinstance(text, str):
+        return False
+    if contains_error_signature(text):
+        return False
+    persian_chars = len(re.findall(r"[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]", text))
+    if persian_chars < min_persian_chars:
+        return False
+    return True
+
+
 def _extract_json(text):
     text = (text or "").strip()
     # مدل‌های reasoning گاهی اول بلندبلند فکر می‌کنند
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S | re.I)
     text = re.sub(r"<think>.*$", "", text, flags=re.S | re.I)
+    text = re.sub(r"<details>.*?</details>", "", text, flags=re.S | re.I)
     text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
 
     start = text.find("{")
@@ -248,18 +299,32 @@ def _deep_translate(item):
     body = (item.get("body") or "").strip()
     body = re.sub(r"https?://\S+", "", body).strip()
 
-    fa_title = _apply_glossary(tr.translate(title[:900])) if title else ""
+    fa_title = ""
+    if title:
+        raw_fa_title = tr.translate(title[:900])
+        if raw_fa_title and is_valid_persian_translation(raw_fa_title, min_persian_chars=1):
+            fa_title = _apply_glossary(raw_fa_title)
+        elif raw_fa_title and contains_error_signature(raw_fa_title):
+            raise RuntimeError(f"خطای وب سرور در ترجمه عنوان: {raw_fa_title[:60]}")
+
     fa_body = ""
     if body:
         chunks = [body[i:i + 4500] for i in range(0, min(len(body), 9000), 4500)]
-        fa_body = _apply_glossary(" ".join(tr.translate(c) for c in chunks))
+        translated_chunks = []
+        for c in chunks:
+            raw_c = tr.translate(c)
+            if not raw_c or contains_error_signature(raw_c):
+                raise RuntimeError(f"خطای مترجم گوگل در ترجمه متن: {raw_c[:60] if raw_c else 'خالی'}")
+            translated_chunks.append(raw_c)
+        fa_body = _apply_glossary(" ".join(translated_chunks))
 
-    if not fa_body and not fa_title:
-        raise RuntimeError("خروجی خالی")
+    final_body = _trim(fa_body or fa_title)
+    if not is_valid_persian_translation(final_body, min_persian_chars=2):
+        raise RuntimeError(f"خروجی ترجمه نامعتبر است (فاقد حروف فارسی یا حاوی خطا): {final_body[:80]}")
 
     return {
         "title": fa_title,
-        "body": _trim(fa_body or fa_title),
+        "body": final_body,
         "importance": "high" if item.get("priority") else "normal",
         "tags": [],
         "machine": True,
@@ -477,7 +542,7 @@ def translate(item):
             provider = _provider_of(resp, names[0])
             data = _extract_json(text)
 
-            if data and data.get("body"):
+            if data and data.get("body") and is_valid_persian_translation(str(data.get("body"))):
                 health.record_ok(provider, ms=(time.time() - t0) * 1000)
                 health.record_counter("translated")
                 if provider != names[0]:
@@ -492,7 +557,7 @@ def translate(item):
                 data["provider"] = provider
                 return data
 
-            health.record_fail(provider, "خروجی نامعتبر (JSON خراب یا خالی)")
+            health.record_fail(provider, "خروجی نامعتبر (JSON خراب، خالی، یا فاقد متن معتبر فارسی)")
             errors.append(f"{provider}: خروجی نامعتبر")
             log.warning("%s: invalid output | raw: %s", provider,
                         (text or "(خالی)")[:400].replace("\n", " "))

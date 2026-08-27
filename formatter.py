@@ -11,9 +11,23 @@ def esc(t):
 def build_caption(item, tr):
     """نسخه نهایی و تمیز پست — دقیقاً همانی که روی کانال می‌رود."""
     bullet = "\U0001F534" if tr.get("importance") == "high" else "\u26AA\uFE0F"
-    body = esc(tr["body"]).strip()
-    parts = [f"{bullet} <b>{esc(tr.get('title',''))}</b>", "", body, ""]
-    parts.append(f"[{esc(item.get('source_tag','Liverpool FC'))}]")
+    body = esc(tr.get("body", "")).strip()
+    title = esc(tr.get("title", "")).strip()
+
+    # تشخیص پست‌های کوتاه/تک‌خطی: اگر عنوان و بدنه یکسان باشند یا متن خیلی کوتاه باشد،
+    # عنوان بولد تکراری بالای متن گذاشته نمی‌شود تا فرمت تک‌متن تمیز باشد.
+    is_short = (
+        not title
+        or title == body
+        or (len(body) <= 220 and (title in body or body.startswith(title[:40])))
+    )
+
+    if is_short:
+        parts = [f"{bullet} {body}", ""]
+    else:
+        parts = [f"{bullet} <b>{title}</b>", "", body, ""]
+
+    parts.append(f"[{esc(item.get('source_tag', 'Liverpool FC'))}]")
     parts.append(config.CHANNEL_USERNAME)
     return "\n".join(parts)
 

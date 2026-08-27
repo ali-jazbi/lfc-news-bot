@@ -125,8 +125,8 @@ def test_admin_approval_still_required_when_ai_confident(patched_main,
         # بدون کلیک ادمین، چیزی روی کانال نرفته
         assert not any(c[0] == "send_post" and c[1] == "@test_channel"
                        for c in fake_tg.calls)
-        # approve → حالا می‌رود
-        ok, msg = main.approve(key, config.ADMIN_CHAT_ID)
+        # send_to_channel → حالا می‌رود
+        ok, msg = main.send_to_channel(key)
         assert ok
         assert any(c[0] == "send_post" and c[1] == "@test_channel"
                    for c in fake_tg.calls)

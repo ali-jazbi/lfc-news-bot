@@ -39,8 +39,12 @@ class Telegram:
                 if code >= 500:
                     # خطای موقت سرور/گیت‌وی — فشار نیاوریم، کمی صبر و دوباره
                     wait = 3 * (attempt + 1)
-                    log.warning("telegram %s server error %s (%d/3) — sleeping %ss",
-                                method, code, attempt + 1, wait)
+                    if method == "getUpdates":
+                        log.debug("telegram getUpdates server error %s (%d/3) — sleeping %ss",
+                                  code, attempt + 1, wait)
+                    else:
+                        log.warning("telegram %s server error %s (%d/3) — sleeping %ss",
+                                    method, code, attempt + 1, wait)
                     self.last_error = data.get("description") or ("HTTP " + str(code))
                     time.sleep(wait)
                     continue
@@ -49,8 +53,12 @@ class Telegram:
                 self.last_error = data.get("description") or str(data)
                 return None
             except Exception as e:
-                log.warning("telegram %s error (%s/3): %s", method, attempt + 1, e)
-                time.sleep(2 * (attempt + 1))
+                wait = 2 * (attempt + 1)
+                if method == "getUpdates" and "Read timed out" in str(e):
+                    log.debug("telegram getUpdates timeout (%s/3) — sleeping %ss", attempt + 1, wait)
+                else:
+                    log.warning("telegram %s error (%s/3): %s", method, attempt + 1, e)
+                time.sleep(wait)
         return None
 
     # --- helpers ---
@@ -155,10 +163,28 @@ class Telegram:
                 timeout=120, stream=True,
             )
             ctype = r.headers.get("Content-Type", "")
-            if r.status_code == 200 and "video" in ctype:
-                return r.content
-            log.warning("fetch_video %s → HTTP %s (%s)", video_url[:70], r.status_code, ctype)
-            self.last_error = "دانلود ویدیو: HTTP " + str(r.status_code)
+            if r.status_code != 200:
+                log.warning("fetch_video %s → HTTP %s (%s)", video_url[:70], r.status_code, ctype)
+                self.last_error = "دانلود ویدیو: HTTP " + str(r.status_code)
+                return None
+
+            # بررسی حجم قبل از دانلود کامل
+            clen = r.headers.get("Content-Length")
+            if clen and int(clen) > 48 * 1024 * 1024:
+                log.warning("fetch_video: size too large according to Content-Length (%s bytes)", clen)
+                self.last_error = "حجم ویدیو بیشتر از سقف مجاز بات تلگرام است"
+                return None
+
+            chunks = []
+            total = 0
+            for chunk in r.iter_content(chunk_size=1024 * 256):
+                chunks.append(chunk)
+                total += len(chunk)
+                if total > 48 * 1024 * 1024:
+                    log.warning("fetch_video: video exceeded 48MB while streaming — aborting")
+                    self.last_error = "حجم ویدیو بیش از ۴۸ مگابایت است"
+                    return None
+            return b"".join(chunks)
         except Exception as e:
             log.warning("fetch_video error: %s", e)
             self.last_error = str(e)
@@ -167,6 +193,14 @@ class Telegram:
     def upload_video(self, chat_id, video_bytes, caption=None, reply_markup=None,
                      silent=False, filename="video.mp4", reply_to=None):
         """آپلود مستقیم ویدیو — وقتی خود تلگرام نتواند URL را بگیرد."""
+        if not video_bytes:
+            return None
+        max_bytes = 48 * 1024 * 1024  # سقف امن تلگرام برای بات‌ها: ۴۸ مگابایت
+        if len(video_bytes) > max_bytes:
+            log.warning("upload_video skipped: file size too large (%d MB > 48 MB)",
+                        len(video_bytes) // (1024 * 1024))
+            self.last_error = f"حجم ویدیو بیش از سقف تلگرام است ({len(video_bytes) // (1024 * 1024)}MB)"
+            return None
         url = API_BASE + self.token + "/sendVideo"
         data = {"chat_id": str(chat_id), "parse_mode": "HTML",
                 "disable_notification": "true" if silent else "false"}

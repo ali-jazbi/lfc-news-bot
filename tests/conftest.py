@@ -105,7 +105,7 @@ class FakeTelegram:
         return r
 
     def send_post(self, chat_id, text, image=None, images=None, video=None,
-                  thumb=None, reply_markup=None, silent=False):
+                  thumb=None, reply_markup=None, silent=False, reply_to=None):
         self.calls.append(("send_post", chat_id, text, video))
         self.sent_messages.append(text)
         r = self._maybe_fail()

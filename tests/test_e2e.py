@@ -95,10 +95,10 @@ def test_e2e_happy_path(monkeypatch, tmp_db, fake_tg, fake_source_item):
         ok, _ = main.approve(key, -100)
         assert ok
         assert dbmod.get(key)["status"] == "approved"
-        # 5) (در حالت auto → published)
+        # 5) (در حالت انتشار در کانال → published)
         config.PUBLISH_MODE = "auto"
         config.CHANNEL_ID = "-100123"
-        ok, _ = main.approve(key, -100)
+        ok, _ = main.send_to_channel(key)
         assert ok
         assert dbmod.get(key)["status"] == "published"
     finally:

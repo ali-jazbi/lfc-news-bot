@@ -28,6 +28,10 @@ node_modules/
 .DS_Store
 *.log
 
+# telethon userbot session — credentials, never commit
+*.session
+*.session-journal
+
 # samemind runtime state — local only
 /.samemind/
 /ledger/events.jsonl
