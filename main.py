@@ -470,6 +470,36 @@ def _process_item_internal(item, key, force=False, reply_to=None):
     return False
 
 
+def _send_final_post(target, text, item):
+    """ارسال نسخه نهایی (کانال یا نسخه آماده گروه).
+
+    برای توییت ویدیویی که URL مستقیمش را بات نمی‌تواند بفرستد (video.twimg.com
+    برای تلگرام قابل fetch نیست و حجمش بالای سقف است)، ویدیو با همان کپشن
+    از طریق یوزربات ارسال می‌شود — ویدیو با کپشن زیرش، نه کپشن خالی.
+    """
+    video = item.get("video_url")
+    if video and getattr(config, "ENABLE_USERBOT_VIDEOS", False):
+        try:
+            import userbot_downloader
+            ub = userbot_downloader.get_downloader()
+            if ub.is_configured():
+                tweet_url = item.get("url") or video
+                log.info("Final video via UserBot for: %s", tweet_url)
+                if ub.download_and_forward_sync(
+                    tweet_url=tweet_url,
+                    target_chat_id=target,
+                    caption=text,
+                ):
+                    return True
+        except Exception as e:
+            log.warning("UserBot final video failed, falling back to bot: %s", e)
+    return tg.send_post(target, text,
+                        image=item.get("image"),
+                        images=item.get("images"),
+                        video=video,
+                        thumb=item.get("video_thumb"))
+
+
 def send_to_channel(key):
     """نسخه آماده انتشار را مستقیم روی کانال عمومی می‌فرستد.
     ادمین با این دکمه تصمیم می‌گیرد خبر مستقیم منتشر شود."""
@@ -500,8 +530,7 @@ def send_to_channel(key):
     except Exception as e:
         log.debug("feedback record failed: %s", e)
 
-    res = tg.send_post(target, text, image=item.get("image"), images=images,
-                       video=item.get("video_url"), thumb=item.get("video_thumb"))
+    res = _send_final_post(target, text, item)
     if res:
         db.set_status(key, "published")
         return True, "\u2705 روی کانال منتشر شد"
@@ -535,8 +564,7 @@ def approve(key, chat_id):
         log.debug("feedback record failed: %s", e)
 
     tg.send_message(chat_id, "\U0001F447 نسخه نهایی — فوروارد/کپی کن در کانال", silent=True)
-    res = tg.send_post(chat_id, text, image=item.get("image"), images=images,
-                       video=item.get("video_url"), thumb=item.get("video_thumb"))
+    res = _send_final_post(chat_id, text, item)
     if res:
         db.set_status(key, "approved")
         return True, "\U0001F4E4 نسخه آماده ارسال شد"
