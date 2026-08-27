@@ -22,6 +22,7 @@ log = logging.getLogger("userbot")
 
 try:
     from telethon import TelegramClient, events
+    from telethon.errors import AuthKeyDuplicatedError
     _HAS_TELETHON = True
 except ImportError:
     _HAS_TELETHON = False
@@ -93,6 +94,7 @@ class TwitterVidDownloader:
         self.session_name = getattr(config, "USERBOT_SESSION", "lfc_userbot")
         self.bot_target = getattr(config, "USERBOT_BOT_TARGET", "@twittervid_bot")
         self.client: Optional[TelegramClient] = None
+        self._dead = False   # سشن باطل شده (AuthKeyDuplicated) — دیگر تلاش نکن
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
         self._ready = threading.Event()
@@ -122,6 +124,10 @@ class TwitterVidDownloader:
         timeout_seconds: int = 40,
     ) -> bool:
         """اجرای سنکرون و ایمن در هر ترد پایتون بدون خطای Event Loop."""
+        if self._dead:
+            log.debug("UserBot session is dead (AuthKeyDuplicated) — skipping. "
+                      "Re-login with userbot_login.py after deleting the session file.")
+            return False
         if not self.is_configured():
             return False
         self._ensure_loop()
@@ -246,6 +252,22 @@ class TwitterVidDownloader:
                 log.warning("Timeout waiting for %s reply (%ds)", self.bot_target, timeout_seconds)
                 return False
 
+        except AuthKeyDuplicatedError:
+            log.critical(
+                "UserBot session is DEAD (AuthKeyDuplicatedError): the session file was "
+                "used from two different IPs at the same time. Fix: 1) stop any other "
+                "bot/instance using this session, 2) delete the session file "
+                "(%s.session), 3) re-login: python userbot_login.py",
+                self.session_name,
+            )
+            self._dead = True
+            try:
+                if self.client:
+                    await self.client.disconnect()
+            except Exception:
+                pass
+            self.client = None
+            return False
         except Exception as e:
             log.error("UserBot download failed: %s", e)
             return False
