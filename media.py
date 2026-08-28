@@ -154,10 +154,12 @@ def process(video_url: str, thumb_url=None, out_dir=None) -> dict:
         info = _probe(raw)
         dur = info.get("duration") or 0
         if dur < MIN_DURATION:
+            cleanup(raw)
             result.update(error="video too short / corrupt",
                           state="invalid")
             return result
         if dur > MAX_DURATION:
+            cleanup(raw)
             result.update(error="video too long", state="invalid")
             return result
 
@@ -171,8 +173,11 @@ def process(video_url: str, thumb_url=None, out_dir=None) -> dict:
                 _transcode(raw, final)
             else:
                 os.replace(raw, final)
+            # فایل خام دیگر لازم نیست — بلافاصله پاک شود (فضای دیسک)
+            cleanup(raw)
         except MediaError as e:
             # اگر تب‌دیل نشد، ویدیوی خام را امتحان می‌کنیم (با پرچم)
+            cleanup(raw)
             result.update(error=str(e), retry=True,
                           state="video_upload_failed")
             if os.path.isfile(final):
@@ -199,6 +204,8 @@ def process(video_url: str, thumb_url=None, out_dir=None) -> dict:
 
         size_mb = os.path.getsize(final) / (1024 * 1024)
         if size_mb > MAX_VIDEO_MB:
+            cleanup(final)
+            cleanup(thumb_path)
             result.update(error=f"too large after processing ({size_mb:.0f}MB)",
                           state="too_large", retry=False)
             return result
@@ -222,3 +229,26 @@ def cleanup(path):
             os.remove(path)
     except Exception:
         pass
+
+
+def sweep_old(max_age_hours=24, out_dir=None) -> int:
+    """شبکه ایمنی دیسک: هر فایل عجیب‌مانده در پوشه media که از max_age_hours
+    قدیمی‌تر است پاک می‌شود (مثلاً اگر پروسه وسط کار crash کرده باشد).
+    خروجی: تعداد فایل‌های حذف‌شده."""
+    out_dir = out_dir or config.MEDIA_DIR
+    removed = 0
+    try:
+        cutoff = time.time() - max_age_hours * 3600
+        for name in os.listdir(out_dir):
+            p = os.path.join(out_dir, name)
+            try:
+                if os.path.isfile(p) and os.path.getmtime(p) < cutoff:
+                    os.remove(p)
+                    removed += 1
+            except Exception:
+                pass
+    except Exception:
+        pass
+    if removed:
+        log.info("media sweep: removed %d old file(s) from %s", removed, out_dir)
+    return removed

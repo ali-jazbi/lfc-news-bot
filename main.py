@@ -402,6 +402,12 @@ def _process_item_internal(item, key, force=False, reply_to=None):
                                     reply_to=reply_to)
             except Exception as e:
                 log.error("local video upload failed: %s", e)
+            finally:
+                # فایل‌های موقت بعد از آپلود پاک شوند — دیسک سرور پر نشود
+                media.cleanup(video_local)
+                media.cleanup(thumb_local)
+                video_local = None
+                thumb_local = None
         else:
             tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high,
                           thumb=thumb_local or thumb, reply_to=reply_to)
@@ -595,6 +601,13 @@ def maybe_prune():
         log.info("db prune: %d deleted, %d trimmed", s["deleted"], s["trimmed"])
     except Exception as e:
         log.warning("db prune failed: %s", e)
+
+    # سوئپ رسانه: هر فایل ویدیویی عجیب‌مانده (crash وسط کار) پاک می‌شود
+    try:
+        media.sweep_old(max_age_hours=int(
+            os.environ.get("MEDIA_MAX_AGE_HOURS", "24")))
+    except Exception as e:
+        log.warning("media sweep failed: %s", e)
 
 
 def retry_pending_sends(limit=5):
