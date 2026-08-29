@@ -147,6 +147,50 @@ def extract_media(script, tid):
     return deduped
 
 
+def extract_card_image(script, tid):
+    b64 = base64.b64encode(f'Tweet:{tid}'.encode()).decode()
+    rec_m = re.search(re.escape(b64) + r'":\$R\[\d+\]=\{', script)
+    if not rec_m:
+        return None
+    block = _read_balanced(script, rec_m.end() - 1)
+    card_m = re.search(r'card:\$R\[\d+\]=\{__ref:"([^"]+)"', block)
+    if not card_m:
+        return None
+    card_b64 = card_m.group(1)
+    best, best_rank = None, len(_CARD_IMAGE_KEYS)
+    for m in re.finditer(
+            re.escape(card_b64) + r':legacy:binding_values:(\d+)"', script):
+        idx = int(m.group(1))
+        seg = script[m.start():m.start() + 500]
+        km = re.search(r'key:"([^"]+)"', seg)
+        if not km or km.group(1) not in _CARD_IMAGE_KEYS:
+            continue
+        val_pos = script.find('%s:legacy:binding_values:%d:value:image_value"'
+                              % (card_b64, idx))
+        if val_pos == -1:
+            continue
+        um = re.search(r'url:"([^"]+)"', script[val_pos:val_pos + 600])
+        if not um:
+            continue
+        rank = _CARD_IMAGE_KEYS.index(km.group(1))
+        if rank < best_rank:
+            best, best_rank = um.group(1), rank
+    return best
+
+
+_CARD_IMAGE_KEYS = (
+    "photo_image_full_size_large",
+    "photo_image_full_size",
+    "photo_image_original",
+    "summary_photo_image_original_large",
+    "summary_photo_image_original",
+    "summary_photo_image_1_1",
+    "summary_photo_image",
+    "thumbnail_image_original",
+    "thumbnail_image",
+)
+
+
 def extract_author(script, q_b64):
     """(display_name, screen_name) نویسنده‌ی یک توییت، یا (None, None)."""
     core_pos = script.find(f'client:{q_b64}:core":$R')
@@ -208,6 +252,7 @@ def extract_quoted_tweet(script, b64, tid):
         "id": qid,
         "text": q_text,
         "media": extract_media(script, qid),
+        "card_image": extract_card_image(script, qid),
         "author_name": author_name,
         "author_screen_name": author_screen,
     }
@@ -269,6 +314,7 @@ def parse_relay_tweets(script, count):
             "created_at_ms": int(ca_m.group(1)),
             "text": ft_m.group(1).replace('\\n', '\n'),
             "media": extract_media(script, tid),
+            "card_image": extract_card_image(script, tid),
             "quoted": extract_quoted_tweet(script, b64, tid),
         })
 
@@ -333,6 +379,10 @@ def fetch_tweet(url):
             return None, None
         media = target.get("media") or []
         image = next((mm["url"] for mm in media if mm["type"] == "image"), None)
+        card_image = target.get("card_image")
+        if not image and card_image:
+            image = card_image
+            media = media + [{"type": "image", "url": card_image}]
         entry = {
             "title": (target["text"] or "")[:200],
             "link": "https://x.com/%s/status/%s" % (handle, tid),
@@ -368,6 +418,10 @@ def scrape_user(screen_name, count=None):
             media = t.get("media") or []
             image = next((m["url"] for m in media if m["type"] == "image"),
                          None)
+            card_image = t.get("card_image")
+            if not image and card_image:
+                image = card_image
+                media = media + [{"type": "image", "url": card_image}]
             quoted = t.get("quoted")
             entries.append({
                 "title": (t["text"] or "")[:200],
