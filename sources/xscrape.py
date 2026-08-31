@@ -247,6 +247,11 @@ def extract_quoted_tweet(script, b64, tid):
             if q_ft:
                 q_text = q_ft.group(1).replace('\\n', '\n')
 
+    # نقل‌قول بلند: متن کامل note_tweet اگر موجود و طولانی‌تر بود
+    q_nt = extract_note_tweet_text(script, qid)
+    if q_nt and len(q_nt) > len(q_text):
+        q_text = q_nt
+
     author_name, author_screen = extract_author(script, q_b64)
     return {
         "id": qid,
@@ -256,6 +261,56 @@ def extract_quoted_tweet(script, b64, tid):
         "author_name": author_name,
         "author_screen_name": author_screen,
     }
+
+
+def _ref_record_pos(script, ref):
+    """موقعیت رکوردِ ارجاع‌شده (کلید relay گاهی quoted است، گاهی نه)."""
+    for pat in ('"%s":' % ref, '%s:$R[' % ref):
+        p = script.find(pat)
+        if p != -1:
+            return p
+    return -1
+
+
+def extract_note_tweet_text(script, tid):
+    """متن کامل توییت بلند (X Premium / note_tweet) برای tid — یا None.
+
+    توییت‌های بلندتر از ~۲۸۰ کاراکتر متن کامل‌شان در note_tweet است و
+    full_text فقط نسخهٔ legacy/کوتاه‌شده را دارد. ساختار relay واقعی
+    (بررسی‌شده روی x.com/sean_rogers/status/2094056601925640651):
+      client:<b64(Tweet:tid)>:note_tweet → {note_tweet_results:{__ref:R1}}
+      R1 (=b64 NoteTweetResults:nid)     → {result:{__ref:R2}}
+      R2 (=b64 NoteTweet:nid)            → {text:"…متن کامل…"}
+    """
+    raw_b64 = base64.b64encode(f'Tweet:{tid}'.encode()).decode()
+    pos = script.find('client:%s:note_tweet":$R[' % raw_b64)
+    if pos == -1:
+        pos = script.find('client:%s:note_tweet:$R[' % raw_b64)
+    if pos == -1:
+        return None
+    nt_block = _read_balanced(script, script.find('{', pos))
+    r1 = re.search(
+        r'note_tweet_results\s*:\s*\$R\[\d+\]\s*=\s*\{__ref:\s*"([A-Za-z0-9+/=]+)"',
+        nt_block)
+    if not r1:
+        return None
+    p1 = _ref_record_pos(script, r1.group(1))
+    if p1 == -1:
+        return None
+    res_block = _read_balanced(script, script.find('{', p1))
+    r2 = re.search(
+        r'result\s*:\s*\$R\[\d+\]\s*=\s*\{__ref:\s*"([A-Za-z0-9+/=]+)"',
+        res_block)
+    if not r2:
+        return None
+    p2 = _ref_record_pos(script, r2.group(1))
+    if p2 == -1:
+        return None
+    fin_block = _read_balanced(script, script.find('{', p2))
+    tm = re.search(r'\btext\s*:\s*"((?:[^"\\]|\\.)*)"', fin_block)
+    if not tm:
+        return None
+    return tm.group(1).replace('\\n', '\n') or None
 
 
 def parse_relay_tweets(script, count):
@@ -309,10 +364,17 @@ def parse_relay_tweets(script, count):
             idx = brace_pos + len(block)
             continue
 
+        # توییت بلند (X Premium): متن کامل در note_tweet است —
+        # طولانی‌تر از full_text کوتاه‌شده برنده است (fallback حفظ می‌شود).
+        use_text = ft_m.group(1)
+        nt_text = extract_note_tweet_text(script, tid)
+        if nt_text and len(nt_text) > len(use_text):
+            use_text = nt_text
+
         tweets.append({
             "id": tid,
             "created_at_ms": int(ca_m.group(1)),
-            "text": ft_m.group(1).replace('\\n', '\n'),
+            "text": use_text.replace('\\n', '\n'),
             "media": extract_media(script, tid),
             "card_image": extract_card_image(script, tid),
             "quoted": extract_quoted_tweet(script, b64, tid),
@@ -332,11 +394,12 @@ def _ms_to_rfc822(ms):
     return email.utils.formatdate(ms / 1000.0, usegmt=True)
 
 
-def _fetch_script(url, tries=None):
-    """اسکریپت relay یک صفحه‌ی x.com — با retry، چون x.com بی‌الگوی 403 می‌دهد.
+def _fetch_html(url, tries=None):
+    """HTML صفحه‌ی x.com با retry و بدون کوکی — None روی شکست.
 
     تست زنده: درخواست تکی ~۵۰٪ 403 می‌گیرد ولی با ۳ تلاش عملاً همیشه جواب
-    می‌آید. عمداً بدون کوکی (Session تازه) — session کوکی‌گرفته مدام 403 داد.
+    می‌آید. عمداً بدون کوکی (درخواست تازه در هر تلاش) — session کوکی‌گرفته
+    مدام 403 داد. هم fetch_tweet هم scrape_user از همین مسیر می‌روند.
     """
     if tries is None:
         tries = getattr(config, "XSCRAPE_FETCH_TRIES", 3)
@@ -345,14 +408,21 @@ def _fetch_script(url, tries=None):
         try:
             r = requests.get(url, headers={"User-Agent": _UA}, timeout=20)
             if r.status_code == 200 and r.text:
-                script = extract_relay_script(r.text)
-                if script:
-                    return script
+                return r.text
             log.debug("x.com %s -> HTTP %s (try %d)", url, r.status_code, i + 1)
         except Exception as e:
             log.debug("x.com %s failed (try %d): %s", url, i + 1, e)
-        time.sleep(delay * (i + 1))
+        if i < tries - 1:
+            time.sleep(delay * (i + 1))
     return None
+
+
+def _fetch_script(url, tries=None):
+    """اسکریپت relay یک صفحه‌ی x.com — با retry (پشت _fetch_html)."""
+    html = _fetch_html(url, tries)
+    if not html:
+        return None
+    return extract_relay_script(html)
 
 
 def fetch_tweet(url):
@@ -404,12 +474,11 @@ def scrape_user(screen_name, count=None):
     if count is None:
         count = getattr(config, "XSCRAPE_TWEETS_PER_ACCOUNT", 8)
     try:
-        html = fetch_page(screen_name)
-        if not html:
-            return []
-        script = extract_relay_script(html)
+        # همان مسیر retry-دارِ بدون کوکی که fetch_tweet دارد —
+        # تک‌شاتِ session کوکی‌دار ~۵۰٪ 403 می‌گرفت (inbox/2026-08-25).
+        script = _fetch_script("https://x.com/%s" % screen_name)
         if not script:
-            # صفحه آمد ولی داده‌ی relay نبود — احتمالاً بلاک/چالش JS
+            # صفحه نیامد یا داده‌ی relay نبود — احتمالاً بلاک/چالش JS
             log.debug("x.com %s: no relay data in page", screen_name)
             return []
         entries = []

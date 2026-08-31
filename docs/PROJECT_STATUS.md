@@ -18,6 +18,24 @@ Running in **test / semi-automatic mode**: bot drafts posts and sends them to an
 - Percentage formatting fix so similarity shows as a clean integer (e.g. "91%") instead of a long float.
 - Diagnosed and documented the Telegram "group upgraded to supergroup" failure mode and the fix (`get_chat_id.py` + updating `ADMIN_CHAT_ID`).
 
+## 2026-08-31 — xscrape news-loss fixes (4 bugs)
+- **Keyword filter too narrow**: `ROMANO_KEYWORDS` expanded to the current
+  squad + manager (Iraola replaced the stale `slot`) + common club names;
+  `_is_relevant` now also checks the quoted-tweet text (short caption like
+  "Here we go 🔴" + Liverpool quote is no longer rejected). NOTE: this list
+  is perishable — review it before every transfer window (see config.py).
+- **`[:3]` cap in the filter loop**: only the first 3 tweets per account were
+  checked while 8 were scraped — busy days dropped fresh tweets. Now
+  configurable via `TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE` (default 8), in
+  both `_fetch_xscrape` and `_fetch_classic`.
+- **`scrape_user` had no retry**: switched from the single-shot cookie
+  `_session` path to the shared retry/cookie-free `_fetch_html` used by
+  `fetch_tweet`. Live: 28/29 accounts answered (single-shot lost ~50% to 403).
+- **Long-form (X Premium) tweets truncated**: relay `note_tweet` block is now
+  parsed (`extract_note_tweet_text`) and preferred over the truncated legacy
+  `full_text` when longer — verified live on a real 1400+ char tweet.
+- Tests: 11 new network-free tests (161 total pass).
+
 ## 2026-08 AI newsroom upgrade
 - **Hermes Agent integration** (v0.18.2): editorial layer with 3-tier analysis,
   web-evidence verification, translation QC with channel style, image selection.

@@ -90,6 +90,12 @@ if TWITTER_MODE not in ("classic", "xscrape"):
 
 XSCRAPE_TIMEOUT = _int("XSCRAPE_TIMEOUT", 20)
 XSCRAPE_TWEETS_PER_ACCOUNT = _int("XSCRAPE_TWEETS_PER_ACCOUNT", 8)
+# در هر سیکل چند توییتِ آخر هر حساب فیلتر شود. قبلاً ۳ هاردکد بود و در
+# روزهای پرتوییت (deadline day) توییت‌های تازه‌تر از سومی گم می‌شدند.
+# پیش‌فرض ۸ = همان XSCRAPE_TWEETS_PER_ACCOUNT.
+TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE = _int(
+    "TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE", 8
+)
 # اگر x.com چند سیکل پشت‌هم جواب نداد (بلاک IP دیتاسنتر و...) برگرد به نیتر
 # تا خبر از دست نرود.
 XSCRAPE_FALLBACK_CLASSIC = (
@@ -198,10 +204,21 @@ ROMANO_FEEDS = _list(
 ROMANO_GOOGLE_FALLBACK = (
     _get("ROMANO_GOOGLE_FALLBACK", "true").lower() == "true"
 )
-# فقط توییت‌هایی که این کلمات را دارند (برای فن‌پیج لیورپول)
+# فقط توییت‌هایی که این کلمات را دارند (برای حساب‌های غیر-LFC).
+# ⚠ تاریخ‌مصرف‌دار: قبل از هر پنجرهٔ نقل‌وانتقالاتی (اول تابستان، اول زمستان)
+# این لیست را با اسکواد/مربیِ روز بازبینی کن — وگرنه اخبار با اسم‌های تازه
+# رد می‌شوند و خبر از دست می‌رود. (بازبینی: ۲۰۲۶-۰۸-۳۱)
+# «curtis jones» و «harvey elliott» عمداً فول‌نیم‌اند (jones/elliott تنها،
+# false positive زیاد می‌دهند). چک با .lower() انجام می‌شود — همه lowercase.
 ROMANO_KEYWORDS = _list(
     "ROMANO_KEYWORDS",
-    "liverpool,anfield,slot,salah,lfc,reds,merseyside",
+    "liverpool,anfield,lfc,reds,merseyside,iraola,"
+    "alisson,mamardashvili,woodman,jaros,davies,"
+    "van dijk,gomez,jacquet,kerkez,bradley,leoni,tsimikas,frimpong,araujo,ramsay,"
+    "endo,wirtz,szoboszlai,mac allister,curtis jones,harvey elliott,"
+    "gravenberch,nyoni,bajcetic,mcconnell,"
+    "isak,chiesa,gakpo,ekitike,munoz,ngumoha,barcola,"
+    "salah,robertson,konate,alexander-arnold,diaz,nunez",
 )
 
 # خبرهای بی‌ارزش برای کانال — اگر عنوان شامل یکی از این‌ها بود رد می‌شود

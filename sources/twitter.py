@@ -448,13 +448,17 @@ def _lfc_only(user):
     return user.lower() in {a.lstrip("@").lower() for a in config.TWITTER_LFC_ONLY}
 
 
-def _is_relevant(text, user):
-    """حساب‌های مختص لیورپول فیلتر کلمه‌ای نمی‌خورند؛ بقیه می‌خورند."""
+def _is_relevant(text, user, quoted_text=""):
+    """حساب‌های مختص لیورپول فیلتر کلمه‌ای نمی‌خورند؛ بقیه می‌خورند.
+
+    متن نقل‌قول هم شمرده می‌شود — توییت با کپشن کوتاه («Here we go 🔴»)
+    که خبر لیورپولی در توییت اصلی (quoted) است نباید رد شود.
+    """
     if _lfc_only(user):
         return True
     if not config.ROMANO_KEYWORDS:
         return True
-    low = (text or "").lower()
+    low = ((text or "") + " " + (quoted_text or "")).lower()
     return any(k.lower() in low for k in config.ROMANO_KEYWORDS)
 
 
@@ -957,7 +961,8 @@ def _fetch_xscrape(limit=6):
     for user in users:
         if len(out) >= limit:
             break
-        for e in (feeds.get(user) or [])[:3]:
+        per_cycle = getattr(config, "TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE", 8)
+        for e in (feeds.get(user) or [])[:per_cycle]:
             max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
             age = tweet_age_hours(e)
             if max_age and age is not None and age > max_age:
@@ -970,10 +975,11 @@ def _fetch_xscrape(limit=6):
                 log.info("skipped (noise / promo tweet): @%s — %s",
                          user, text[:50].replace("\n", " "))
                 continue
-            if not _is_relevant(text, user):
-                continue
+            # اول نقل‌قول استخراج می‌شود تا relevance متنش را هم ببیند
             quoted = e.get("_xscrape_quoted") or {}
             q_text = (quoted.get("text") or "").strip()
+            if not _is_relevant(text, user, quoted_text=q_text):
+                continue
             q_handle = (quoted.get("author_screen_name") or "").lstrip("@")
             q_name = quoted.get("author_name") or ""
 
@@ -1110,7 +1116,8 @@ def _fetch_classic(limit=6):
     for user in users:
         if len(out) >= limit:
             break
-        for e in (feeds.get(user) or [])[:3]:
+        per_cycle = getattr(config, "TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE", 8)
+        for e in (feeds.get(user) or [])[:per_cycle]:
             max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
             age = tweet_age_hours(e)
             if max_age and age is not None and age > max_age:
@@ -1123,7 +1130,10 @@ def _fetch_classic(limit=6):
                 log.info("skipped (noise / promo tweet): @%s — %s",
                          user, text[:50].replace("\n", " "))
                 continue
-            if not _is_relevant(text, user):
+            # متن نقل‌قول (blockquote نیتر) هم برای relevance دیده شود
+            q_m = _QUOTE_BLOCK.search(e.get("summary") or "")
+            quoted_text = clean_text(q_m.group(1)) if q_m else ""
+            if not _is_relevant(text, user, quoted_text=quoted_text):
                 continue
             item = {
                 "source": "Twitter",
