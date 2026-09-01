@@ -367,10 +367,13 @@ def tweet_is_noise(text, entry=None):
 _MENTION_AT_END = re.compile(
     r"(?:\s*\[?@([\w]+)\]?\s*)$"
 )
-# لینک @mention در HTML نیتر — مثل «<a href="/FabrizioRomano">@FabrizioRomano</a>»
+# لینک @mention در HTML نیتر — مثل «<a href="/FabrizioRomano">@FabrizioRomano</a>» و یا «به نقل از <a ..>
 _MENTION_LINK = re.compile(
-    r'<a[^>]+href="/(\w+)"[^>]*>@?\w+</a>\s*$', re.I
+    r'<a[^>]+href="/(\w+)"[^>]*>@?\w+</a>', re.I
 )
+# منشن در هرجای متن (نه فقط انتها): «@handle»، «(@handle)»، یا قرارداد رایج «_handle»
+# در میان متن (مثل «به نقل از _pauljoyce»). handle می‌تواند شامل _ باشد.
+_MENTION_ANYWHERE = re.compile(r"([@_])([A-Za-z0-9_]{1,15})")
 # نقل‌قول در HTML نیتر — blockquote حاوی توییت اصلی
 _QUOTE_BLOCK = re.compile(r"<blockquote>\s*(.*?)\s*</blockquote>", re.I | re.S)
 _QUOTE_AUTHOR = re.compile(
@@ -378,7 +381,64 @@ _QUOTE_AUTHOR = re.compile(
 )
 
 
+def detect_original_sources(entry, text, user):
+    """همه‌ی @منشن‌ها / authors / blockquote را به‌عنوان منابع احتمالی برمی‌گرداند.
+
+    خروجی: (primary, others, all_handles)
+      primary = اولینِ منبعِ معتبر (handle) یا None
+      others  = بقیه‌ی handleها (برای یادداشت ادمین)
+      all_handles = لیست کاملِ مرتب (بدون خودِ نویسنده و dedupe شده)
+
+    استراتژی (تصویب‌شده): هر @منشن‌ای منبع به حساب می‌آید، حتی اگر اکانتش در
+    TWITTER_NAMES نباشد (نمونه Santi_J_FM) — چون پیش‌نمایش ادمین حافظ است و
+    خودش تصمیم می‌گیرد. فقط منشنِ خودِ اکانت/نویسنده نادیده گرفته می‌شود.
+    """
+    summary = entry.get("summary") or ""
+    raw = summary
+    sources = []  # (handle, display) به ترتیب ظهور
+
+    # ۱) ریتوییت/نقل‌قول نیتر: blockquote → نویسنده
+    qm = _QUOTE_BLOCK.search(summary)
+    if qm:
+        am = _QUOTE_AUTHOR.search(qm.group(1))
+        if am:
+            sources.append((am.group(1).lstrip("@"), am.group(2).strip()))
+
+    # ۲) لینک‌های @mention در HTML خام نیتر
+    for m in _MENTION_LINK.finditer(raw):
+        sources.append((m.group(1).lstrip("@"), config.display_name(m.group(1))))
+
+    # ۳) @منشن / _handle در متن تمیز (هر جای متن — نه فقط انتها).
+    # «_pauljoyce» آندرلاینِ رهبر را به‌عنوان بخشی از handle نگه می‌دارد.
+    for pre, handle in _MENTION_ANYWHERE.findall(text or ""):
+        if pre == "_" and not handle.startswith("_"):
+            handle = "_" + handle
+        sources.append((handle, config.display_name(handle)))
+
+    # dedupe با حفظ ترتیب + حذف خودِ نویسنده/اکانت
+    seen = set()
+    uniq = []
+    for h, disp in sources:
+        key = h.lower()
+        if key == (user or "").lower():
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append((h, disp))
+
+    all_handles = [h for h, _ in uniq]
+    primary = all_handles[0] if all_handles else None
+    others = all_handles[1:]
+    return primary, others, all_handles
+
+
 def detect_original_source(entry, text, user):
+    """سازگاری با API قبلی — برمی‌گرداند (primary, display_name)."""
+    primary, _, _ = detect_original_sources(entry, text, user)
+    if not primary:
+        return None, None
+    return primary, config.display_name(primary)
     """تشخیص منبع اصلی خبر وقتی توییت نقل‌قول یا ریتوییت باشد.
 
     دو حالت:
@@ -872,6 +932,8 @@ def _attach_media(item, entry, user):
             if not item.get("image"):
                 item["image"] = item["images"][0] if item["images"] else None
         if getattr(config, "ENABLE_TWITTER_VIDEO", True) and videos and tid:
+            # همه‌ی ویدیوها برای forward چندتایی (یوزربات یا لوکال) ذخیره می‌شوند
+            item["video_urls"] = videos[:getattr(config, "TWITTER_VIDEO_MAX", 4)]
             got = resolve_video(user, tid, scraped_mp4=videos[0])
             if got:
                 if got.get("video_url"):
@@ -1147,12 +1209,13 @@ def _fetch_classic(limit=6):
             }
             _attach_media(item, e, user)   # عکس‌ها/آلبوم/ویدیو اینجا
 
-            # تشخیص منبع اصلی (نقل‌قول یا @mention)
-            orig_handle, orig_name = detect_original_source(e, text, user)
-            if orig_handle:
-                item["original_source"] = "@" + orig_handle
-                item["original_source_tag"] = orig_name
-                item["source_tag"] = orig_name  # منبع اصلی جایگزین source_tag شود
+            # تشخیص منبع اصلی (نقل‌قول یا @mention) — حالا چندگانه
+            primary_handle, other_handles, all_handles = detect_original_sources(e, text, user)
+            if primary_handle:
+                item["original_source"] = "@" + primary_handle
+                item["original_source_tag"] = config.display_name(primary_handle)
+                item["source_tag"] = config.display_name(primary_handle)
+                item["original_sources"] = ["@" + h for h in all_handles]
                 # تشخیص نوع: اگر blockquote بوده یعنی ریتوییت/نقل‌قول
                 summary = e.get("summary") or ""
                 item["_is_quote"] = bool(_QUOTE_BLOCK.search(summary))

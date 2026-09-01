@@ -45,11 +45,17 @@ def build_original_source_note(item):
         return None
     orig_tag = item.get("original_source_tag") or orig
     # تشخیص نوع: اگر blockquote بوده باشد یعنی ریتوییت
-    summary = ""
     if item.get("_is_quote"):
-        return f"\U0001F4AC نقل‌قول از: {esc(orig_tag)} ({esc(orig)})"
+        head = f"\U0001F4AC نقل‌قول از: {esc(orig_tag)} ({esc(orig)})"
     else:
-        return f"\U0001F517 منبع اصلی: {esc(orig_tag)} ({esc(orig)})"
+        head = f"\U0001F517 منبع اصلی: {esc(orig_tag)} ({esc(orig)})"
+    # منابع اضافه (هر @منشن دیگر در همان توییت) — فقط یادداشت ادمین
+    extra = item.get("original_sources") or []
+    extra = [s for s in extra if s.lower() != str(orig).lower()]
+    if extra:
+        tags = [f"{esc(config.display_name(s.lstrip('@')))} ({esc(s)})" for s in extra[:3]]
+        head += "\n\U0001F465 منابع دیگر: " + "، ".join(tags)
+    return head
 
 
 def build_admin_caption(item, tr):
