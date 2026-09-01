@@ -247,6 +247,19 @@ def test_process_item_sends_all_videos_locally(patched_main, sample_item, monkey
     assert any(c[0] == "send_message" for c in main.tg.calls)
 
 
+def test_process_item_admin_link_translation_failure_still_drafts(patched_main, sample_item, monkeypatch):
+    """لینک ادمین + شکست کامل ترجمه → پیش‌نویس با متن اصلی ساخته می‌شود (ویدیو نمی‌میرد)."""
+    import main
+
+    def _fail(item):
+        return None
+
+    monkeypatch.setattr(main.translate, "translate", _fail)
+    ok = main.process_item(sample_item, force=True)
+    assert ok is True, "لینک ادمین نباید به‌خاطر شکست ترجمه کامل رد شود"
+    assert main.tg.sent_messages, "پیش‌نویس باید با متن اصلی ساخته می‌شد"
+
+
 def test_process_item_emoji_only_organic_skips_silently(patched_main, sample_item):
     """آیتم ارگانیک بدون متن → رد بی‌سروصدا — نه ترجمه، نه آلارم."""
     import main

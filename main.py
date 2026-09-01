@@ -271,9 +271,17 @@ def _process_item_internal(item, key, force=False, reply_to=None):
     else:
         tr = translate.translate(item)
     if not tr:
-        db.mark_attempt(key, "skipped", error="translation chain failed")
-        trace(nid, "TRANSLATION", success=False)
-        return False
+        if force:
+            # لینک ادمین: ترجمه شکست خورد ولی آیتم (معمولاً مدیا) نباید گم شود —
+            # پیش‌نویس با متن اصلی + نوت هشدار ساخته می‌شود؛ ادمین خودش تصمیم می‌گیرد.
+            log.warning("translation failed on admin link — passing through untranslated")
+            notes.append("\u26A0\uFE0F \u062A\u0631\u062C\u0645\u0647 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F \u2014 \u0645\u062A\u0646 \u0627\u0635\u0644\u06CC \u06AF\u0630\u0627\u0634\u062A\u0647 \u0634\u062F")
+            tr = {"title": item.get("title") or "", "body": item.get("body") or "",
+                  "importance": "normal", "tags": [], "provider": "raw"}
+        else:
+            db.mark_attempt(key, "skipped", error="translation chain failed")
+            trace(nid, "TRANSLATION", success=False)
+            return False
 
     # QC ترجمه (مرحله ۶) — فقط وقتی HERMES روشن است
     if config.HERMES_ENABLED and editor is not None:
