@@ -203,3 +203,48 @@ def test_e2e_hermes_off_legacy_path(monkeypatch, tmp_db, fake_tg,
         assert dbmod.get_analysis(key) is None  # بدون تحلیل AI
     finally:
         config.HERMES_ENABLED = old
+
+
+# --------------------- آیتم بدون متن قابل‌ترجمه (فقط ایموجی / مدیا) — توییت لیورپول ⏳
+def test_process_item_emoji_only_admin_link_passes_through(patched_main, sample_item):
+    """لینک ادمین با کپشن ایموجی‌محض → بدون ترجمه passthrough، بدون آلارم."""
+    import main
+    emoji_item = dict(sample_item, title="⏳️", body="⏳️",
+                      url="https://x.com/LFC/status/2094408408451485713")
+    calls = {"n": 0}
+
+    def _must_not_run(item):
+        calls["n"] += 1
+        return {"title": "x", "body": "y"}
+
+    import pytest
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setattr(main.translate, "translate", _must_not_run)
+        assert main.process_item(emoji_item, force=True) is True
+        assert calls["n"] == 0, "برای متن بدون حرف ترجمه صدا خورد"
+    finally:
+        monkeypatch.undo()
+    assert any("⏳" in m for m in main.tg.sent_messages), "پیش‌نمایش باید با متن اصلی ساخته می‌شد"
+
+
+def test_process_item_emoji_only_organic_skips_silently(patched_main, sample_item):
+    """آیتم ارگانیک بدون متن → رد بی‌سروصدا — نه ترجمه، نه آلارم."""
+    import main
+    import pytest
+    emoji_item = dict(sample_item, title="⏳️", body="⏳️",
+                      url="https://x.com/LFC/status/999")
+    calls = {"n": 0}
+
+    def _must_not_run(item):
+        calls["n"] += 1
+        return {"title": "x", "body": "y"}
+
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setattr(main.translate, "translate", _must_not_run)
+        assert main.process_item(emoji_item) is False
+        assert calls["n"] == 0
+    finally:
+        monkeypatch.undo()
+    assert not any("⏳" in m for m in main.tg.sent_messages)

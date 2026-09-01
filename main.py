@@ -195,6 +195,15 @@ def process_item(item, force=False, reply_to=None):
             _processing_keys.discard(key)
 
 
+def _has_translatable_text(text):
+    """آیا متن حداقل یک حرف از هر الفبایی دارد؟
+
+    ایموجی/عدد/لینک حرف نیستند — توییت‌های مدیا‌محض (مثل ⏳️ لیورپول)
+    باید بدون ورود به موتور ترجمه مدیریه شوند وگرنه آلارم بی‌دلیل می‌دهند.
+    """
+    return bool(re.search(r"[^\W\d_]", text or "", re.UNICODE))
+
+
 def _process_item_internal(item, key, force=False, reply_to=None):
     nid = news_id_of(item)
     notes = []
@@ -242,7 +251,25 @@ def _process_item_internal(item, key, force=False, reply_to=None):
         db.save(item, status="new")
 
     log.info("translating: %s", (item.get("title") or "")[:70])
-    tr = translate.translate(item)
+    tr = None
+    if not _has_translatable_text((item.get("title") or "") + " "
+                                  + (item.get("body") or "")):
+        # متن قابل ترجمه ندارد (فقط ایموجی/مدیا/لینک).
+        if force:
+            # لینک ادمین — ادمین خودش انتخاب کرده: متن اصلی passthrough می‌شود
+            # تا پست مدیا‌محض به پیش‌نمایش برسد؛ بدون آلارم و بدون مصرف ترجمه.
+            log.info("no translatable text — passing through untranslated")
+            tr = {"title": item.get("title") or "", "body": item.get("body") or "",
+                  "importance": "normal", "tags": [], "provider": "raw"}
+        else:
+            # آیتم ارگانیک بی‌متن — بی‌سروصدا رد می‌شود.
+            log.info("skipped (no translatable text): %s",
+                     (item.get("title") or "")[:50])
+            db.mark_attempt(key, "skipped", error="no translatable text")
+            trace(nid, "TRANSLATION", success=False, reason="no_text")
+            return False
+    else:
+        tr = translate.translate(item)
     if not tr:
         db.mark_attempt(key, "skipped", error="translation chain failed")
         trace(nid, "TRANSLATION", success=False)
