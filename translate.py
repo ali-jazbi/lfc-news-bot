@@ -200,6 +200,57 @@ def is_valid_persian_translation(text, min_persian_chars=2):
     return True
 
 
+def _looks_like_valid_translation(text):
+    """مرزی برای ردکردن خروجی‌های قاطی و تکه‌تکه‌ی qwen؛ فقط روی متن ترجمه اعمال می‌شود."""
+    if not text or not isinstance(text, str):
+        return False
+    text = text.strip()
+    if not text or contains_error_signature(text):
+        return False
+
+    if re.search(r"\*\*|__|##|\|\|\|", text):
+        return False
+
+    clean = re.sub(r"[*_`~#\[\]{}()<>|]", " ", text)
+    clean = clean.replace("‌", "").replace("\u200c", "").replace("\u200d", "")
+    clean = re.sub(r"\s+", " ", clean).strip()
+    if not clean:
+        return False
+
+    if not is_valid_persian_translation(clean, min_persian_chars=6):
+        return False
+
+    symbol_chars = sum(
+        1 for ch in clean
+        if not (ch.isalnum() or ch in " \n\t\u0600-\u06FF،؛:.!?%/()[]-\"'")
+    )
+    # اموجی‌ها، آستریک‌ها و مارک‌داون‌های اضافی در خروجی خراب زیادند؛ ترجمه معتبر معمولاً در این حد نیست.
+    if symbol_chars > max(6, len(clean) * 0.12):
+        return False
+
+    words = re.split(r"[\s،؛:.!?]+", clean)
+    words = [w for w in words if w and re.search(r"[\u0600-\u06FF]", w)]
+    if len(words) < 3:
+        return False
+
+    common = {
+        "لیورپول", "باشگاه", "بازیکن", "مربی", "توافق", "انتقال", "پوند",
+        "یورو", "مبلغ", "هفته", "بازی", "بازگشت", "مصدومیت", "تیم", "خبر",
+        "فصل", "گزارش", "مذاکره", "دور", "میلیون", "گل", "تعویض", "نقل", "نقل‌وانتقالات",
+        "قهرمانان", "داور", "سطح", "علیه", "قبل", "دارد", "می‌شود", "شد",
+        "می‌کند", "این", "آن", "چنین", "برای", "از", "در", "به", "و", "که",
+    }
+    hits = sum(1 for w in words if w.lower() in common or "لیورپ" in w or "باشگاه" in w or "تیم" in w)
+    if hits == 0:
+        return False
+
+    broken = sum(1 for w in words if len(w) > 18)
+    if broken >= max(2, len(words) // 5):
+        return False
+
+    return True
+
+
 def _strip_hashtags(text):
     """حذف هشتگ‌ها از خروجی نهایی ترجمه (تنها روی خروجی، نه روی ورودی).
 
@@ -730,7 +781,7 @@ def translate(item):
             provider = _provider_of(resp, names[0])
             data = _extract_json(text)
 
-            if data and data.get("body") and is_valid_persian_translation(str(data.get("body"))):
+            if data and data.get("body") and _looks_like_valid_translation(str(data.get("body"))):
                 health.record_ok(provider, ms=(time.time() - t0) * 1000)
                 health.record_counter("translated")
                 if provider != names[0]:
@@ -741,6 +792,8 @@ def translate(item):
                 data.setdefault("tags", [])
                 data["body"] = _trim(_strip_hashtags(_apply_glossary(str(data["body"]))))
                 data["title"] = _strip_hashtags(_apply_glossary(str(data["title"]).strip()))[:120]
+                if not _looks_like_valid_translation(str(data["title"])) and data["title"]:
+                    data["title"] = ""
                 _fix_importance(item, data)
                 data["provider"] = provider
                 return data

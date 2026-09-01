@@ -60,3 +60,16 @@ def test_extract_json_salvages_malformed_qwen_output():
     assert "body" in data
     assert "importance" in data
     assert isinstance(data.get("tags", []), list)
+
+
+def test_rejects_gibberish_qwen_salvage():
+    """ترجمه‌های نامفهوم و کلمه‌به‌کلمه‌ی خراب باید رد شوند حتی اگر از salvage بیرون بیایند."""
+    body = "🔴 **خ کار نخواهد بود،بر جدید از وضعیت نقل مگر اینکه یک‌وانتق هدف بلندالات لیورپمدت در دسترس قرارول**"
+    bad = {
+        "title": "لیورپول",
+        "body": body,
+        "importance": "high",
+        "tags": ["لیورپول"],
+    }
+    assert not translate._looks_like_valid_translation(bad["body"])
+    assert not translate._looks_like_valid_translation(bad["title"])
