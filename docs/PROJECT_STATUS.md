@@ -18,6 +18,27 @@ Running in **test / semi-automatic mode**: bot drafts posts and sends them to an
 - Percentage formatting fix so similarity shows as a clean integer (e.g. "91%") instead of a long float.
 - Diagnosed and documented the Telegram "group upgraded to supergroup" failure mode and the fix (`get_chat_id.py` + updating `ADMIN_CHAT_ID`).
 
+## 2026-08-31 — hashtags, multi-source attribution, multi-video
+- **Hashtags removed from translated output**: the LLM and Google translator
+  both pass `#hashtags` through (e.g. `#AFC #Arsenal #FPLCommunity`), plus the
+  Google path sometimes emits a literal `\x3C` artifact. `_strip_hashtags()` in
+  `translate.py` is now applied to title+body on both paths. Source-side
+  relevance is untouched — tweets with `#LFC` / `#Liverpool` hashtags are still
+  detected as relevant (regression-locked with tests).
+- **Multi-source attribution**: `detect_original_source` only looked at a
+  mention at the very END of the text (so `@Santi_J_FM` after an emoji was
+  missed). New `detect_original_sources()` scans the WHOLE text for `@handle`,
+  `_handle` (mid-text convention like «به نقل از _pauljoyce») and nitter
+  mention links, dedupes, drops the author's own handle, and returns ALL of
+  them: first = primary source (channel), rest listed in the admin preview
+  note («منابع دیگر»). Approved strategy: any mention counts — the admin
+  preview protects against false positives.
+- **Multi-video tweets**: `@twittervid_bot` sends every video of a tweet but
+  the userbot forwarder only captured the FIRST video message. It now collects
+  all video replies in a short grace window and forwards them all (caption on
+  the first). Local fallback path also sends every video from
+  `item["video_urls"]` (new, capped by `TWITTER_VIDEO_MAX`, default 4).
+
 ## 2026-08-31 — translation parse hardening
 - The qwen provider (opencode) started appending an HTML metadata comment
   (`<!-- qwen_metadata: {...} -->`) after the JSON — its closing brace broke
