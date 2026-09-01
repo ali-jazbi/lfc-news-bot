@@ -244,14 +244,21 @@ class TwitterVidDownloader:
 
                 log.info("Received %d cloud video(s) from %s — sending to %s...",
                          len(videos), self.bot_target, target_chat_id)
-                # کپشن فقط روی ویدیوی اول می‌نشیند (محدودیت تلگرام)
-                for i, vm in enumerate(videos):
-                    await client.send_file(
-                        target,
-                        vm.media,
-                        caption=(caption if i == 0 and caption else None),
-                        parse_mode="html" if (i == 0 and caption) else None,
-                    )
+                sent = []
+                for vm in videos:
+                    sent.append(await client.send_file(target, vm.media))
+
+                if caption and sent:
+                    try:
+                        first = sent[0]
+                        await client.edit_message(
+                            target,
+                            first.id,
+                            caption,
+                            parse_mode="html",
+                        )
+                    except Exception as e:
+                        log.warning("edit caption after userbot upload failed: %s", e)
                 return True
             except asyncio.TimeoutError:
                 client.remove_event_handler(new_msg_handler)
