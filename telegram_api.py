@@ -64,6 +64,12 @@ class Telegram:
     # --- helpers ---
     def send_message(self, chat_id, text, reply_markup=None, disable_preview=True,
                      silent=False, reply_to=None):
+        if text is None:
+            text = ""
+        if isinstance(text, str):
+            text = text.replace("\u200b", "").replace("\u2060", "").replace("\ufeff", "")
+            if not text.strip():
+                text = "•"
         return self.call(
             "sendMessage",
             chat_id=chat_id,
@@ -247,12 +253,12 @@ class Telegram:
                                          reply_to=reply_to)
         return None
 
-    def send_media_group(self, chat_id, image_urls, caption=None, silent=False):
-        """چند عکس را یکجا به صورت آلبوم می‌فرستد (2 تا 10 عکس).
+    def send_media_group(self, chat_id, image_urls, caption=None, silent=False,
+                        media_type="photo"):
+        """چند عکس/ویدیو را یکجا به صورت آلبوم می‌فرستد (2 تا 10 مورد).
 
-        کپشن فقط روی عکس اول می‌نشیند (محدودیت خود تلگرام). دکمه شیشه‌ای
-        روی آلبوم پشتیبانی نمی‌شود — اگر لازم است دکمه‌ها را جدا بفرست.
-        اگر کمتر از 2 عکس باشد، خودش را کم می‌کند و با همان تعداد ادامه می‌دهد.
+        برای ویدیوها، media_type='video' و caption فقط روی مورد اول می‌آید
+        (محدودیت تلگرام). برای عکس‌ها رفتار قدیمی حفظ می‌شود.
         """
         urls = [u for u in (image_urls or []) if u][:10]
         if len(urls) < 2:
@@ -260,7 +266,7 @@ class Telegram:
 
         media = []
         for i, u in enumerate(urls):
-            entry = {"type": "photo", "media": u}
+            entry = {"type": media_type, "media": u}
             if i == 0 and caption:
                 entry["caption"] = caption
                 entry["parse_mode"] = "HTML"
@@ -275,16 +281,24 @@ class Telegram:
         if res:
             return res
 
-        log.info("sendMediaGroup with URL failed (%s) — manual download and upload of images...", self.last_error)
+        log.info("sendMediaGroup with URL failed (%s) — manual upload fallback", self.last_error)
         files = {}
         media2 = []
         for i, u in enumerate(urls):
-            blob = self.fetch_image(u)
-            if not blob:
-                continue
-            key = f"photo{i}"
-            files[key] = (f"photo{i}.jpg", blob)
-            entry = {"type": "photo", "media": f"attach://{key}"}
+            if media_type == "video":
+                blob = self.fetch_video(u)
+                if not blob:
+                    continue
+                key = f"video{i}"
+                files[key] = (f"video{i}.mp4", blob)
+                entry = {"type": "video", "media": f"attach://{key}"}
+            else:
+                blob = self.fetch_image(u)
+                if not blob:
+                    continue
+                key = f"photo{i}"
+                files[key] = (f"photo{i}.jpg", blob)
+                entry = {"type": "photo", "media": f"attach://{key}"}
             if i == 0 and caption:
                 entry["caption"] = caption
                 entry["parse_mode"] = "HTML"

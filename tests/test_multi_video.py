@@ -31,3 +31,32 @@ def test_attach_media_sets_all_video_urls(monkeypatch):
         "https://video.twimg.com/low2.mp4",
     ]
     assert item["images"]  # عکس هم حفظ شده
+
+
+def test_send_media_group_supports_video_album_with_caption():
+    """آلبوم چند ویدیویی باید در sendMediaGroup با نوع video و کپشن روی مورد اول ارسال شود."""
+    import telegram_api
+
+    tg = telegram_api.Telegram(token="test-token")
+    seen = {}
+
+    def fake_call(method, **params):
+        seen["method"] = method
+        seen["params"] = params
+        return {"ok": True, "result": [{"message_id": 1}]}
+
+    tg.call = fake_call
+
+    res = tg.send_media_group(
+        chat_id=-100,
+        image_urls=["https://a.mp4", "https://b.mp4"],
+        caption="caption",
+        silent=True,
+        media_type="video",
+    )
+
+    assert res is not None
+    assert seen["method"] == "sendMediaGroup"
+    assert seen["params"]["media"][0]["type"] == "video"
+    assert seen["params"]["media"][0]["caption"] == "caption"
+    assert seen["params"]["media"][0]["parse_mode"] == "HTML"

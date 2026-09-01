@@ -44,3 +44,19 @@ def test_extract_json_braces_inside_metadata_do_not_confuse():
            ' <!-- meta: {"a":{"b":1}} extra { not json')
     data = translate._extract_json(raw)
     assert data is not None and data["title"] == "t"
+
+
+def test_extract_json_salvages_malformed_qwen_output():
+    """خروجی خراب qwen با تکرار کلیدها و آکولادهای نامنظم باید حداقل title/body/importance را بگیرد."""
+    raw = (
+        '{"title": "تما{"شای گل‌های دیtitle": "تروز از کنار زمین 🎬",صاویر کنار زمین از "body": '
+        '"تما گل‌های دیروز 🎬شای گل‌های دیروز از", "body": "تصاو کنار زمین 🎬", '
+        '"importanceیر کنار زمین از گل‌های دی": "normal", "tags": ["روز 🎬", "importance":'
+        'لیورپول", "گل", "normal", "tags": ["لی "آنفیلد"]}ورپول", "گل", "کنار_زمین"]}'
+    )
+    data = translate._extract_json(raw)
+    assert data is not None
+    assert "title" in data
+    assert "body" in data
+    assert "importance" in data
+    assert isinstance(data.get("tags", []), list)

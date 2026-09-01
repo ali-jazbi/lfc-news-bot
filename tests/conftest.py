@@ -123,8 +123,9 @@ class FakeTelegram:
         self.calls.append(("upload_video", chat_id, filename))
         return self._maybe_fail()
 
-    def send_media_group(self, chat_id, image_urls, caption=None, silent=False):
-        self.calls.append(("send_media_group", chat_id, len(image_urls)))
+    def send_media_group(self, chat_id, image_urls, caption=None, silent=False,
+                        media_type="photo"):
+        self.calls.append(("send_media_group", chat_id, len(image_urls), media_type, caption))
         return self._maybe_fail()
 
     def get_updates(self, offset=None, timeout=30):

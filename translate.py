@@ -250,6 +250,137 @@ def _balanced_json(text):
     return None
 
 
+def _parse_junk_string(rest):
+    """خروجی خراب را به یک string ساده می‌خواند؛ به اولین کوتیشن معتبر می‌رسد."""
+    rest = rest.lstrip()
+    start = rest.find('"')
+    if start == -1:
+        return None
+    out = []
+    esc = False
+    for ch in rest[start + 1:]:
+        if esc:
+            out.append(ch)
+            esc = False
+            continue
+        if ch == "\\":
+            esc = True
+            continue
+        if ch == '"':
+            return "".join(out)
+        out.append(ch)
+    return None
+
+
+def _parse_junk_scalar(rest):
+    """بلوک ساده‌ی غیر-string را تا اولین comma/brace/bracket می‌خواند."""
+    rest = rest.lstrip()
+    if not rest:
+        return None
+    stop = len(rest)
+    for i, ch in enumerate(rest):
+        if ch in ",}]":
+            stop = i
+            break
+    token = rest[:stop].strip()
+    if not token:
+        return None
+    if token.startswith('"') and token.endswith('"'):
+        return token[1:-1]
+    if token in ("true", "false"):
+        return token == "true"
+    if token.lower() in ("null", "none"):
+        return None
+    return token.strip('"')
+
+
+def _parse_junk_array(rest):
+    """لیست خراب را تا اولین ] مناسب می‌خواند و در صورت نبود JSON، برمی‌گرداند."""
+    rest = rest.lstrip()
+    if not rest.startswith('['):
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    end = None
+    for i, ch in enumerate(rest):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+            continue
+        if ch == '[':
+            depth += 1
+        elif ch == ']':
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    if end is None:
+        return None
+    candidate = rest[:end + 1]
+    try:
+        data = json.loads(candidate)
+        if isinstance(data, list):
+            return data
+    except Exception:
+        pass
+
+    items = []
+    blob = candidate[1:-1]
+    for part in re.split(r',\s*(?=(?:[^"]*"[^"]*")*[^"]*$)', blob):
+        p = part.strip()
+        if not p:
+            continue
+        p = p.strip().strip('"')
+        if p:
+            items.append(p)
+    return items if items else None
+
+
+def _salvage_json_object(text):
+    """برای خروجی‌های مخرب qwen: keyهای title/body/importance/tags را حتی در صورت junk پیدا می‌کند."""
+    s = (text or "").strip()
+    if not s:
+        return None
+
+    out = {}
+    key_order = ("title", "body", "importance", "tags")
+    for key in key_order:
+        pos = -1
+        for match in re.finditer(re.escape(key), s, flags=re.I):
+            pos = match.start()
+        if pos == -1:
+            continue
+        col = s.find(":", pos)
+        if col == -1:
+            continue
+        rest = s[col + 1:]
+        val = None
+        if rest.lstrip().startswith('"'):
+            val = _parse_junk_string(rest)
+        elif rest.lstrip().startswith('['):
+            val = _parse_junk_array(rest)
+        else:
+            val = _parse_junk_scalar(rest)
+        if val is not None:
+            out[key] = val
+
+    if not out:
+        return None
+    out.setdefault("title", "")
+    out.setdefault("body", "")
+    out.setdefault("importance", "normal")
+    out.setdefault("tags", [])
+    return out
+
+
 def _extract_json(text):
     text = (text or "").strip()
     # مدل‌های reasoning گاهی اول بلندبلند فکر می‌کنند
@@ -276,6 +407,9 @@ def _extract_json(text):
                 return data
         except Exception:
             continue
+    salvage = _salvage_json_object(cand)
+    if salvage and isinstance(salvage, dict):
+        return salvage
     return None
 
 

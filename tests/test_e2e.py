@@ -26,6 +26,29 @@ def fake_source_item():
     }
 
 
+def test_admin_followup_message_is_not_whitespace_only(monkeypatch, tmp_db, fake_tg,
+                                                      fake_source_item):
+    """پیام دکمه‌ی ادمین نباید فقط فاصله یا whitespace باشد؛ تلگرام آن را خالی می‌بیند."""
+    import config
+    import main
+
+    old = config.HERMES_ENABLED
+    config.HERMES_ENABLED = False
+    try:
+        monkeypatch.setattr(main, "tg", fake_tg)
+        monkeypatch.setattr(main.translate, "translate",
+                            lambda item: {
+                                "title": "عنوان", "body": "متن",
+                                "importance": "normal", "tags": []})
+        monkeypatch.setattr(main.channel_guard, "check",
+                            lambda tr, item=None: None)
+
+        assert main.process_item(fake_source_item) is True
+        assert all((text or "").strip() for text in fake_tg.sent_messages)
+    finally:
+        config.HERMES_ENABLED = old
+
+
 def test_e2e_happy_path(monkeypatch, tmp_db, fake_tg, fake_source_item):
     """Fake RSS → … → تایید ادمین → منتشر شد."""
     import config
@@ -229,7 +252,7 @@ def test_process_item_emoji_only_admin_link_passes_through(patched_main, sample_
 
 
 def test_process_item_sends_all_videos_locally(patched_main, sample_item, monkeypatch):
-    """آیتم با ۲ ویدیو (و یوزربات خاموش) → هر ۲ ویدیو + کپشن ارسال می‌شوند."""
+    """آیتم با ۲ ویدیو (و یوزربات خاموش) → آلبوم ویدیویی با یک کپشن مشترک ارسال می‌شود."""
     import config
     import main
     monkeypatch.setattr(config, "ENABLE_USERBOT_VIDEOS", False)
@@ -239,11 +262,11 @@ def test_process_item_sends_all_videos_locally(patched_main, sample_item, monkey
                    video_urls=["https://video.twimg.com/one.mp4",
                                "https://video.twimg.com/two.mp4"])
     assert main.process_item(two_vid, force=True) is True
-    sv = [c for c in main.tg.calls if c[0] == "send_video"]
-    assert len(sv) == 2, [c for c in main.tg.calls]
-    assert sv[0][2] == "https://video.twimg.com/one.mp4"
-    assert sv[1][2] == "https://video.twimg.com/two.mp4"
-    # کپشن + دکمه‌ها جدا ارسال شده
+    albums = [c for c in main.tg.calls if c[0] == "send_media_group"]
+    assert len(albums) == 1, [c for c in main.tg.calls]
+    assert albums[0][2] == 2
+    assert albums[0][3] == "video"
+    assert albums[0][4] and "عنوان فارسی" in albums[0][4]
     assert any(c[0] == "send_message" for c in main.tg.calls)
 
 

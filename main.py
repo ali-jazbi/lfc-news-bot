@@ -427,36 +427,58 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             log.warning("video pipeline failed: %s", e)
 
     if video and not video_sent_by_userbot and not DRY_RUN:
-        # ویدیو جدا از دکمه‌ها — اول ویدیو (بی‌صدا)، بعد کپشن + دکمه‌ها
-        # (اگر یوزربات ویدیو را داده، اینجا دیگر نباید تکرار شود)
-        if video_local:
-            try:
-                with open(video_local, "rb") as fh:
-                    tg.upload_video(config.ADMIN_CHAT_ID, fh.read(),
-                                    silent=not high,
-                                    filename=os.path.basename(video_local),
-                                    reply_to=reply_to)
-            except Exception as e:
-                log.error("local video upload failed: %s", e)
-            finally:
-                # فایل‌های موقت بعد از آپلود پاک شوند — دیسک سرور پر نشود
-                media.cleanup(video_local)
-                media.cleanup(thumb_local)
-                video_local = None
-                thumb_local = None
+        # چند ویدیو → آلبوم ویدیویی با یک کپشن مشترک روی مورد اول
+        to_send = video_urls if len(video_urls) >= 2 else ([video] if video else [])
+        if len(to_send) >= 2:
+            res = tg.send_media_group(config.ADMIN_CHAT_ID, to_send,
+                                     caption=caption,
+                                     silent=not high,
+                                     media_type="video")
+            if res:
+                msg = tg.send_message(
+                    config.ADMIN_CHAT_ID,
+                    "\u200b",
+                    reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+                    silent=not high,
+                    reply_to=reply_to,
+                )
+            else:
+                log.warning("video album failed (%s) — falling back to individual videos", tg.last_error)
+                for vurl in to_send:
+                    tg.send_video(config.ADMIN_CHAT_ID, vurl, silent=not high,
+                                  thumb=thumb_local or thumb, reply_to=reply_to)
+                msg = tg.send_message(
+                    config.ADMIN_CHAT_ID,
+                    caption,
+                    reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+                    silent=not high,
+                    reply_to=reply_to,
+                )
         else:
-            # چند ویدیو → همه جدا ارسال می‌شوند (هر کدام یک ویدیو)، بعد کپشن+دکمه
-            to_send = video_urls if len(video_urls) >= 2 else ([video] if video else [])
-            for vurl in to_send:
-                tg.send_video(config.ADMIN_CHAT_ID, vurl, silent=not high,
+            if video_local:
+                try:
+                    with open(video_local, "rb") as fh:
+                        tg.upload_video(config.ADMIN_CHAT_ID, fh.read(),
+                                        silent=not high,
+                                        filename=os.path.basename(video_local),
+                                        reply_to=reply_to)
+                except Exception as e:
+                    log.error("local video upload failed: %s", e)
+                finally:
+                    media.cleanup(video_local)
+                    media.cleanup(thumb_local)
+                    video_local = None
+                    thumb_local = None
+            else:
+                tg.send_video(config.ADMIN_CHAT_ID, video, caption=caption, silent=not high,
                               thumb=thumb_local or thumb, reply_to=reply_to)
-        msg = tg.send_message(
-            config.ADMIN_CHAT_ID,
-            caption,
-            reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
-            silent=not high,
-            reply_to=reply_to,
-        )
+            msg = tg.send_message(
+                config.ADMIN_CHAT_ID,
+                "\u200b",
+                reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+                silent=not high,
+                reply_to=reply_to,
+            )
     elif len(images) >= 2:
         # دکمه روی آلبوم کار نمی‌کند — اول آلبوم را جدا می‌فرستیم،
         # بعد کپشن + دکمه‌ها را به صورت پیام متنی جداگانه
