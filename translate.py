@@ -200,6 +200,24 @@ def is_valid_persian_translation(text, min_persian_chars=2):
     return True
 
 
+def _strip_hashtags(text):
+    """حذف هشتگ‌ها از خروجی نهایی ترجمه (تنها روی خروجی، نه روی ورودی).
+
+    - `#…` (لاتین و فارسی/یونیکد) را حذف می‌کند — فقط آن‌هایی که بعدشان کلمه است.
+    - artifact خروجی گوگل/مدل‌ها (`\x3C` که شکل escape شده‌ی `<` است) را پاک می‌کند.
+    - فاصله‌های اضافی را فشرده می‌کند.
+    - هیچ تغییری در متنِ انگلیسیِ اصلی/ورودی نمی‌دهد — پس تشخیص relevance (مثل #LFC)
+      دست‌نخورده می‌ماند.
+    """
+    if not text:
+        return text or ""
+    out = re.sub(r"#[\w\u0600-\u06FF][\w\u0600-\u06FF\-_]*", " ", text)
+    # پاک‌سازی escape شده‌ی < (artifact مترجم گوگل) به شکل‌های \x3C / \x3c / \\x3c
+    out = re.sub(r"\\+x[0-9a-fA-F]{2}", " ", out)
+    out = re.sub(r"[ \t]{2,}", " ", out).strip()
+    return out
+
+
 def _balanced_json(text):
     """اولین ابجکت { ... } متوازن را برمی‌دارد (حساب رشته‌ها هم می‌شود).
 
@@ -339,7 +357,7 @@ def _deep_translate(item):
     if title:
         raw_fa_title = tr.translate(title[:900])
         if raw_fa_title and is_valid_persian_translation(raw_fa_title, min_persian_chars=1):
-            fa_title = _apply_glossary(raw_fa_title)
+            fa_title = _strip_hashtags(_apply_glossary(raw_fa_title))
         elif raw_fa_title and contains_error_signature(raw_fa_title):
             raise RuntimeError(f"خطای وب سرور در ترجمه عنوان: {raw_fa_title[:60]}")
 
@@ -352,7 +370,7 @@ def _deep_translate(item):
             if not raw_c or contains_error_signature(raw_c):
                 raise RuntimeError(f"خطای مترجم گوگل در ترجمه متن: {raw_c[:60] if raw_c else 'خالی'}")
             translated_chunks.append(raw_c)
-        fa_body = _apply_glossary(" ".join(translated_chunks))
+        fa_body = _strip_hashtags(_apply_glossary(" ".join(translated_chunks)))
 
     final_body = _trim(fa_body or fa_title)
     if not is_valid_persian_translation(final_body, min_persian_chars=2):
@@ -587,8 +605,8 @@ def translate(item):
                 data.setdefault("title", item.get("title", ""))
                 data.setdefault("importance", "normal")
                 data.setdefault("tags", [])
-                data["body"] = _trim(_apply_glossary(str(data["body"])))
-                data["title"] = _apply_glossary(str(data["title"]).strip())[:120]
+                data["body"] = _trim(_strip_hashtags(_apply_glossary(str(data["body"]))))
+                data["title"] = _strip_hashtags(_apply_glossary(str(data["title"]).strip()))[:120]
                 _fix_importance(item, data)
                 data["provider"] = provider
                 return data
