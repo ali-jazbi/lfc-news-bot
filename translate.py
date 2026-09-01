@@ -200,12 +200,47 @@ def is_valid_persian_translation(text, min_persian_chars=2):
     return True
 
 
+def _balanced_json(text):
+    """اولین ابجکت { ... } متوازن را برمی‌دارد (حساب رشته‌ها هم می‌شود).
+
+    مسیر پشتیبان برای وقتی که بعد از JSON خروجی اختلال‌دار با آکولاد اضافه می‌شود —
+    rfind در این حالت به تودر درست ختم نمی‌رسد.
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
+
 def _extract_json(text):
     text = (text or "").strip()
     # مدل‌های reasoning گاهی اول بلندبلند فکر می‌کنند
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S | re.I)
     text = re.sub(r"<think>.*$", "", text, flags=re.S | re.I)
     text = re.sub(r"<details>.*?</details>", "", text, flags=re.S | re.I)
+    # بعضی مدل‌ها (مثل qwen عبر opencode) بعد از JSON یک کامنت HTML متاداتا می‌دهند —
+    # آکولادِ داخل آن rfind("}") را گول می‌زند و JSON سالم رد می‌شود.
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
 
     start = text.find("{")
@@ -215,7 +250,8 @@ def _extract_json(text):
     end = cand.rfind("}")
     whole = cand[: end + 1] if end != -1 else cand
 
-    for attempt in (whole, whole.replace("\n", " "), _repair_json(cand)):
+    for attempt in (whole, whole.replace("\n", " "),
+                    _balanced_json(cand), _repair_json(cand)):
         try:
             data = json.loads(attempt)
             if isinstance(data, dict):

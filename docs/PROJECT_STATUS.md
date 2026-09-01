@@ -18,6 +18,13 @@ Running in **test / semi-automatic mode**: bot drafts posts and sends them to an
 - Percentage formatting fix so similarity shows as a clean integer (e.g. "91%") instead of a long float.
 - Diagnosed and documented the Telegram "group upgraded to supergroup" failure mode and the fix (`get_chat_id.py` + updating `ADMIN_CHAT_ID`).
 
+## 2026-08-31 — translation parse hardening
+- The qwen provider (opencode) started appending an HTML metadata comment
+  (`<!-- qwen_metadata: {...} -->`) after the JSON — its closing brace broke
+  `_extract_json` (rfind hit the metadata, not the main JSON), so every valid
+  translation was rejected (خروجی نامعتبر). Parser now strips trailing HTML
+  comments and falls back to a balanced-brace extractor. 5 new tests; 166 pass.
+
 ## 2026-08-31 — xscrape news-loss fixes (4 bugs)
 - **Keyword filter too narrow**: `ROMANO_KEYWORDS` expanded to the current
   squad + manager (Iraola replaced the stale `slot`) + common club names;
