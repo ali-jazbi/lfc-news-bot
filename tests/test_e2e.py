@@ -49,6 +49,42 @@ def test_admin_followup_message_is_not_whitespace_only(monkeypatch, tmp_db, fake
         config.HERMES_ENABLED = old
 
 
+def test_approve_uses_media_group_for_multiple_final_videos(monkeypatch, tmp_db, fake_tg,
+                                                           sample_item):
+    """نسخه نهایی برای چند ویدیو باید همان آلبوم ویدیویی را حفظ کند، نه یک ویدیو تکی."""
+    import config
+    import main
+
+    config.HERMES_ENABLED = False
+    try:
+        monkeypatch.setattr(main, "tg", fake_tg)
+        monkeypatch.setattr(main.translate, "translate",
+                            lambda item: {
+                                "title": "عنوان", "body": "متن",
+                                "importance": "normal", "tags": []})
+        monkeypatch.setattr(main.channel_guard, "check",
+                            lambda tr, item=None: None)
+
+        item = dict(sample_item,
+                    video_url="https://video.twimg.com/one.mp4",
+                    video_urls=["https://video.twimg.com/one.mp4",
+                                "https://video.twimg.com/two.mp4"])
+        key = dbmod.make_key(item)
+        dbmod.save(item, status="new")
+        dbmod.update_payload(key, item)
+        dbmod.set_status(key, "new")
+        item["translated"] = {"title": "عنوان", "body": "متن",
+                              "importance": "normal", "tags": []}
+        dbmod.update_payload(key, item)
+
+        ok, _ = main.approve(key, -100)
+        assert ok is True
+        assert any(c[0] == "send_media_group" and c[3] == "video" and c[2] == 2
+                   for c in fake_tg.calls)
+    finally:
+        config.HERMES_ENABLED = False
+
+
 def test_e2e_happy_path(monkeypatch, tmp_db, fake_tg, fake_source_item):
     """Fake RSS → … → تایید ادمین → منتشر شد."""
     import config

@@ -540,11 +540,12 @@ def _process_item_internal(item, key, force=False, reply_to=None):
 def _send_final_post(target, text, item):
     """ارسال نسخه نهایی (کانال یا نسخه آماده گروه).
 
-    برای توییت ویدیویی که URL مستقیمش را بات نمی‌تواند بفرستد (video.twimg.com
-    برای تلگرام قابل fetch نیست و حجمش بالای سقف است)، ویدیو با همان کپشن
-    از طریق یوزربات ارسال می‌شود — ویدیو با کپشن زیرش، نه کپشن خالی.
+    برای چند ویدیو، آلبوم ویدیویی با یک کپشن مشترک روی مورد اول ارسال می‌شود؛
+    برای تک‌ویدیو، رفتار قبلی حفظ می‌شود.
     """
     video = item.get("video_url")
+    video_urls = [u for u in (item.get("video_urls") or []) if u]
+
     if video and getattr(config, "ENABLE_USERBOT_VIDEOS", False):
         try:
             import userbot_downloader
@@ -560,6 +561,14 @@ def _send_final_post(target, text, item):
                     return True
         except Exception as e:
             log.warning("UserBot final video failed, falling back to bot: %s", e)
+
+    if len(video_urls) >= 2:
+        res = tg.send_media_group(target, video_urls, caption=text, media_type="video")
+        if res:
+            return res
+        log.warning("final media-group failed (%s) — falling back to single video", tg.last_error)
+        video = video_urls[0]
+
     return tg.send_post(target, text,
                         image=item.get("image"),
                         images=item.get("images"),
@@ -630,7 +639,6 @@ def approve(key, chat_id):
     except Exception as e:
         log.debug("feedback record failed: %s", e)
 
-    tg.send_message(chat_id, "\U0001F447 نسخه نهایی — فوروارد/کپی کن در کانال", silent=True)
     res = _send_final_post(chat_id, text, item)
     if res:
         db.set_status(key, "approved")
