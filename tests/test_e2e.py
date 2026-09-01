@@ -228,10 +228,32 @@ def test_process_item_emoji_only_admin_link_passes_through(patched_main, sample_
     assert any("⏳" in m for m in main.tg.sent_messages), "پیش‌نمایش باید با متن اصلی ساخته می‌شد"
 
 
+def test_process_item_sends_all_videos_locally(patched_main, sample_item, monkeypatch):
+    """آیتم با ۲ ویدیو (و یوزربات خاموش) → هر ۲ ویدیو + کپشن ارسال می‌شوند."""
+    import config
+    import main
+    monkeypatch.setattr(config, "ENABLE_USERBOT_VIDEOS", False)
+    two_vid = dict(sample_item,
+                   url="https://x.com/LFC/status/2094077685064716457",
+                   video_url="https://video.twimg.com/one.mp4",
+                   video_urls=["https://video.twimg.com/one.mp4",
+                               "https://video.twimg.com/two.mp4"])
+    assert main.process_item(two_vid, force=True) is True
+    sv = [c for c in main.tg.calls if c[0] == "send_video"]
+    assert len(sv) == 2, [c for c in main.tg.calls]
+    assert sv[0][2] == "https://video.twimg.com/one.mp4"
+    assert sv[1][2] == "https://video.twimg.com/two.mp4"
+    # کپشن + دکمه‌ها جدا ارسال شده
+    assert any(c[0] == "send_message" for c in main.tg.calls)
+
+
 def test_process_item_emoji_only_organic_skips_silently(patched_main, sample_item):
     """آیتم ارگانیک بدون متن → رد بی‌سروصدا — نه ترجمه، نه آلارم."""
     import main
     import pytest
+    emoji_item = dict(sample_item, title="⏳️", body="⏳️",
+                      url="https://x.com/LFC/status/999")
+    calls = {"n": 0}
     emoji_item = dict(sample_item, title="⏳️", body="⏳️",
                       url="https://x.com/LFC/status/999")
     calls = {"n": 0}

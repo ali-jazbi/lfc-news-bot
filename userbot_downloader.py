@@ -201,18 +201,20 @@ class TwitterVidDownloader:
 
             # گوش دادن به پیام‌ها و کلیک روی دکمه کیفیت
             loop = asyncio.get_running_loop()
-            future_reply = loop.create_future()
+            first_received = loop.create_future()
+            videos = []  # همه‌ی ویدیوهای reply (یک توییت می‌تواند چند ویدیو داشته باشد)
 
             async def process_msg(msg):
                 if not msg:
                     return
-                # ۱. اگر ویدیو آماده بود:
+                # ۱. اگر ویدیو آماده بود — جمع‌آوری (برای آلبوم/چند ویدیو)
                 if msg.video or (msg.document and any(
                     getattr(attr, "__class__", None) and attr.__class__.__name__ == "DocumentAttributeVideo"
                     for attr in (getattr(msg.document, "attributes", None) or [])
                 )):
-                    if not future_reply.done():
-                        future_reply.set_result(msg)
+                    if not first_received.done():
+                        first_received.set_result(True)
+                    videos.append(msg)
                     return
 
                 # ۲. اگر دکمه‌های انتخاب کیفیت آمد، بهترین کیفیت زیر ۵۰ مگابایت را خودکار انتخاب کن:
@@ -234,17 +236,22 @@ class TwitterVidDownloader:
                 await process_msg(event.message)
 
             try:
-                video_message = await asyncio.wait_for(future_reply, timeout=timeout_seconds)
+                await asyncio.wait_for(first_received, timeout=timeout_seconds)
+                # پنجره‌ی کوتاه تا ویدیوهای بعدیِ همان آلبوم هم برسند
+                await asyncio.sleep(1.5)
                 client.remove_event_handler(new_msg_handler)
                 client.remove_event_handler(edit_msg_handler)
 
-                log.info("Received cloud video from %s — sending to %s...", self.bot_target, target_chat_id)
-                await client.send_file(
-                    target,
-                    video_message.media,
-                    caption=caption if caption else None,
-                    parse_mode="html" if caption else None,
-                )
+                log.info("Received %d cloud video(s) from %s — sending to %s...",
+                         len(videos), self.bot_target, target_chat_id)
+                # کپشن فقط روی ویدیوی اول می‌نشیند (محدودیت تلگرام)
+                for i, vm in enumerate(videos):
+                    await client.send_file(
+                        target,
+                        vm.media,
+                        caption=(caption if i == 0 and caption else None),
+                        parse_mode="html" if (i == 0 and caption) else None,
+                    )
                 return True
             except asyncio.TimeoutError:
                 client.remove_event_handler(new_msg_handler)

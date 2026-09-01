@@ -180,6 +180,7 @@ TWEET_MAX_AGE_HOURS = _int("TWEET_MAX_AGE_HOURS", 24)
 ENABLE_TWITTER_MEDIA = _get("ENABLE_TWITTER_MEDIA", "true").lower() == "true"
 ENABLE_TWITTER_VIDEO = _get("ENABLE_TWITTER_VIDEO", "true").lower() == "true"
 TWITTER_ALBUM_MAX = _int("TWITTER_ALBUM_MAX", 10)      # سقف آلبوم تلگرام = ۱۰
+TWITTER_VIDEO_MAX = _int("TWITTER_VIDEO_MAX", 4)        # سقف ویدیوهای forward چندتایی
 TWITTER_ENRICH_TTL = _int("TWITTER_ENRICH_TTL", 900)    # کش رسانه، ۱۵ دقیقه
 
 # --- پالایش نرخ درخواست نیتر (جلوگیری از 429) ---

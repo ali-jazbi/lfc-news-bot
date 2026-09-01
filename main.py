@@ -343,6 +343,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
     images = [u for u in (item.get("images") or []) if u]
     video = item.get("video_url")
     thumb = item.get("video_thumb")
+    video_urls = [u for u in (item.get("video_urls") or []) if u]
     video_local = None
     thumb_local = None
 
@@ -436,8 +437,11 @@ def _process_item_internal(item, key, force=False, reply_to=None):
                 video_local = None
                 thumb_local = None
         else:
-            tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high,
-                          thumb=thumb_local or thumb, reply_to=reply_to)
+            # چند ویدیو → همه جدا ارسال می‌شوند (هر کدام یک ویدیو)، بعد کپشن+دکمه
+            to_send = video_urls if len(video_urls) >= 2 else ([video] if video else [])
+            for vurl in to_send:
+                tg.send_video(config.ADMIN_CHAT_ID, vurl, silent=not high,
+                              thumb=thumb_local or thumb, reply_to=reply_to)
         msg = tg.send_message(
             config.ADMIN_CHAT_ID,
             caption,

@@ -114,7 +114,7 @@ class FakeTelegram:
         return r
 
     def send_video(self, chat_id, video_url, caption=None, reply_markup=None,
-                   silent=False, thumb=None):
+                   silent=False, thumb=None, reply_to=None):
         self.calls.append(("send_video", chat_id, video_url))
         return self._maybe_fail()
 
