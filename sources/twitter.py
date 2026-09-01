@@ -1109,7 +1109,16 @@ def build_tweet_item(entry, user):
     }
     _attach_media(item, entry, user)
 
-    if quoted and q_handle and q_handle.lower() != user.lower():
+    # اگر توییت، نقل‌قولِ اصلی، یا @منشنِ انتهایی به منبع دیگری اشاره می‌کند،
+    # این منبع باید به جای پست‌گذارنده به عنوان source_tag نمایش داده شود.
+    primary_handle, other_handles, all_handles = detect_original_sources(entry, text, user)
+    if primary_handle:
+        item["original_source"] = "@" + primary_handle
+        item["original_source_tag"] = config.display_name(primary_handle)
+        item["source_tag"] = item["original_source_tag"]
+        item["original_sources"] = ["@" + h for h in all_handles]
+        item["_is_quote"] = bool(_QUOTE_BLOCK.search((entry.get("summary") or "")))
+    elif quoted and q_handle and q_handle.lower() != user.lower():
         item["original_source"] = "@" + q_handle
         item["original_source_tag"] = (
             quoted.get("author_name") or config.display_name(q_handle))

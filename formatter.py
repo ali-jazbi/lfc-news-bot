@@ -8,6 +8,26 @@ def esc(t):
     return html.escape(t or "", quote=False)
 
 
+def _combined_source_label(item):
+    """برچسب منبع کانال: اگر چند منبع وجود دارد، آن‌ها را با & ترکیب می‌کند."""
+    source_tag = item.get("source_tag") or "Liverpool FC"
+    extra = item.get("original_sources") or []
+    if not extra:
+        return source_tag
+
+    names = []
+    seen = set()
+    for s in [source_tag] + [config.display_name(v.lstrip('@')) for v in extra if v]:
+        key = (s or "").strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        names.append(s)
+    if len(names) <= 1:
+        return source_tag
+    return " & ".join(names[:2])
+
+
 def build_caption(item, tr):
     """نسخه نهایی و تمیز پست — دقیقاً همانی که روی کانال می‌رود."""
     bullet = "\U0001F534" if tr.get("importance") == "high" else "\u26AA\uFE0F"
@@ -27,7 +47,7 @@ def build_caption(item, tr):
     else:
         parts = [f"{bullet} <b>{title}</b>", "", body, ""]
 
-    parts.append(f"[{esc(item.get('source_tag', 'Liverpool FC'))}]")
+    parts.append(f"[{esc(_combined_source_label(item))}]")
     parts.append(config.CHANNEL_USERNAME)
     return "\n".join(parts)
 

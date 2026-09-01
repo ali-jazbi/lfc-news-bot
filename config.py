@@ -326,6 +326,7 @@ _TWITTER_NAMES_DEFAULT = (
     "Anfieldmedia_=Anfield Media,"
     "LiverpoolFF=Liverpool FF,"
     "Asim_LFC=Asim,"
+    "Santi_J_FM=Santi Aouna,"
     "SajadIqballfc=Sajad Iqbal,"
     "Waleed_Alramahi=Waleed Alramahi,"
     "PartedBeard=Parted Beard,"

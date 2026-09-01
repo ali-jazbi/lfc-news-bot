@@ -20,6 +20,11 @@ def test_mention_middle_of_text():
     assert got[0] == "_pauljoyce"
 
 
+def test_santi_handle_maps_to_name():
+    """اسم انسانی Santi Aouna باید برای handle Santi_J_FM ثبت شود."""
+    assert twitter.config.display_name("Santi_J_FM") == "Santi Aouna"
+
+
 def test_two_mentions_both_returned():
     """دو منشن در یک توییت → اولی primary، دومی هم در لیست (منابع چندگانه)."""
     entry = {"summary": "شکستن خبر توسط _pauljoyce و تایید @FabrizioRomano 🐓"}
@@ -47,3 +52,18 @@ def test_own_mention_ignored():
     entry = {"summary": "خلاصه بازی (به نقل از AnfieldSector)"}
     got = twitter.detect_original_sources(entry, "خلاصه بازی (به نقل از AnfieldSector)", "AnfieldSector")
     assert got[0] is None  # فقط خودِ اکانت منشن شده → بدون منبع
+
+
+def test_build_caption_combines_multiple_sources():
+    """برای چند منبع، برچسب کانال باید با & ترکیب شود؛ در HTML این به &amp; تبدیل می‌شود."""
+    import formatter
+
+    item = {
+        "source_tag": "Ben Jacobs",
+        "original_source": "@JacobsBen",
+        "original_source_tag": "Ben Jacobs",
+        "original_sources": ["@JacobsBen", "@talkSPORT"],
+    }
+    tr = {"body": "Hello", "title": "Title", "importance": "high"}
+    caption = formatter.build_caption(item, tr)
+    assert "[Ben Jacobs &amp; talkSPORT]" in caption
