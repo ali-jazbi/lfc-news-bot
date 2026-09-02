@@ -53,7 +53,10 @@ NUM_RETRIES = _env_int("LLM_NUM_RETRIES", 1)
 ALLOWED_FAILS = _env_int("LLM_ALLOWED_FAILS", 2)
 JSON_MODE = (os.getenv("TRANSLATE_JSON_MODE", "false").strip().lower()
              in ("1", "true", "yes", "on"))
-MAX_TOKENS = _env_int("LLM_MAX_TOKENS", 4000)
+MAX_TOKENS = _env_int("LLM_MAX_TOKENS", 8000)
+# این سقف فقط برای سازگاری/تست است؛ مقاله‌ی طولانی با chunk ترجمه می‌شود.
+INPUT_BODY_LIMIT = _env_int("LLM_INPUT_BODY_LIMIT", 12000)
+ARTICLE_CHUNK_CHARS = _env_int("LLM_ARTICLE_CHUNK_CHARS", 5000)
 # افزودن /no_think به انتهای پرامپت — در خانواده Qwen3 تفکر را خاموش می‌کند
 NO_THINK_SUFFIX = (os.getenv("TRANSLATE_NO_THINK_SUFFIX", "false").strip().lower()
                    in ("1", "true", "yes", "on"))
@@ -94,7 +97,7 @@ SYSTEM_PROMPT = """تو مترجم و خبرنگار حرفه‌ای فوتبا�
 
 3. لحن: رسمی ولی صمیمی، مثل کانال‌های خبری فوتبال. از اغراق و نظر شخصی پرهیز کن.
 4. اعداد، مبالغ، تاریخ‌ها و نقل‌قول‌ها را دقیق نگه دار. چیزی از خودت اضافه نکن.
-5. برای توییت‌های کوتاه و نقل‌قول‌ها، ترجمه را دقیق، مستقیم و بدون کش‌دادن یا جملات ساختگی بنویس. برای مقاله‌ها و گزارش‌های طولانی، متن را در ۲ تا ۴ پاراگراف کوتاه (بین ۳۰۰ تا ۸۰۰ کاراکتر) بنویس.
+5. مقاله‌ها و گزارش‌های طولانی را کامل ترجمه کن — همه‌ی پاراگراف‌ها، نقل‌قول‌ها و جزئیات را بیاور؛ فقط تکرار و حاشیه را می‌توانی فشرده کنی. خلاصه‌کردن به چند جمله ممنوع است. برای توییت‌های کوتاه و نقل‌قول‌ها، ترجمه را دقیق، مستقیم و بدون کش‌دادن یا جملات ساختگی بنویس.
 6. هیچ اسم بازیکن، مربی، عدد یا نقل‌قولی را حذف نکن. خلاصه‌کردن یعنی حذف توضیح اضافه، نه حذف خبر.
 7. اصطلاحات فوتبالی را معنایی برگردان، نه کلمه‌به‌کلمه. نمونه خطاهای ممنوع:
    - in the driving seat ← «در موقعیت برتر» (نه «صندلی رانندگی»)
@@ -106,6 +109,7 @@ SYSTEM_PROMPT = """تو مترجم و خبرنگار حرفه‌ای فوتبا�
 8. در کل متن فارسی حتی یک کلمه لاتین نباید بماند (مثلاً AXA ← آکسا). اعداد را فارسی بنویس.
 9. نقل‌قول را داخل « » بگذار و حتماً بنویس گوینده‌اش کیست.
 10. اگر متن توییت است، لینک‌ها و هشتگ‌های اضافی را حذف کن ولی اموجی‌های معنادار را نگه دار.
+12. اگر در متن اصلی خطی فقط یک مارکر تصویر مثل [IMG-0] یا [IMG-1] بود، آن را عیناً و بدون هیچ تغییری در همان جای متن خروجی نگه دار — این‌ها جای عکس‌های مقاله را نشان می‌دهند.
 11. فقط و فقط یک JSON خروجی بده، بدون هیچ توضیح و بدون code fence:
 {"title": "عنوان کوتاه فارسی", "body": "متن فارسی", "importance": "high|normal", "tags": ["تگ۱", "تگ۲"]}
 
@@ -122,9 +126,28 @@ def _build_prompt(item):
         f"{SYSTEM_PROMPT}\n\n{_glossary_block()}\n\n"
         f"---\nمنبع: {item.get('source_tag')}\n"
         f"عنوان اصلی: {item.get('title')}\n"
-        f"متن اصلی:\n{(item.get('body') or '')[:4000]}\n---\nخروجی JSON:"
+        f"متن اصلی:\n{item.get('body') or ''}\n---\nخروجی JSON:"
         + ("\n/no_think" if NO_THINK_SUFFIX else "")
     )
+
+
+def _split_article(text, limit=ARTICLE_CHUNK_CHARS):
+    """مقاله را در مرز پاراگراف/جمله می‌شکند، نه وسط متن."""
+    text = (text or '').strip()
+    chunks = []
+    while len(text) > limit:
+        cut = text.rfind("\n\n", 0, limit)
+        if cut < limit // 2:
+            cut = text.rfind(". ", 0, limit)
+        if cut < limit // 2:
+            cut = text.rfind(" ", 0, limit)
+        if cut <= 0:
+            cut = limit
+        chunks.append(text[:cut].strip())
+        text = text[cut:].strip()
+    if text:
+        chunks.append(text)
+    return chunks
 
 
 def _repair_json(s):
@@ -248,6 +271,24 @@ def _looks_like_valid_translation(text):
     if broken >= max(2, len(words) // 5):
         return False
 
+    # متن درهم‌ریخته (دو نسخه‌ی موازی که کلمه‌به‌کلمه در هم تنیده شده‌اند) را رد کن.
+    # در ترجمه سالم، شِنگل‌های ۵کلمه‌ای تقریباً تکرار نمی‌شوند؛ در خروجی خرابِ qwen
+    # که دو رشته را با هم قاطی کرده، نسبت تکرار بالاست.
+    if len(words) >= 40:
+        n = 5
+        shingles = [tuple(words[i:i + n]) for i in range(len(words) - n + 1)]
+        if shingles:
+            uniq = len(set(shingles))
+            if uniq / len(shingles) < 0.88:
+                return False
+
+    # اثر انگشت JSON خراب‌شده: «\n» هایی که بک‌اسلششان گم شده و به حرف n تکی
+    # تبدیل شده‌اند (در.nاصلی ، اجراnشد ، nاین). حرف لاتینِ تنها — نه بخشی از
+    # سرواژه‌ای مثل VAR یا PSG — در متن فارسی سالم هرگز مجاز نیست.
+    lone_latin = re.findall(r"(?<![a-zA-Z])[a-zA-Z](?![a-zA-Z])", clean)
+    if len(lone_latin) >= 2:
+        return False
+
     return True
 
 
@@ -278,6 +319,9 @@ def _balanced_json(text):
     start = text.find("{")
     if start == -1:
         return None
+
+
+# end of translation module
     depth = 0
     in_str = False
     esc = False
@@ -301,12 +345,18 @@ def _balanced_json(text):
     return None
 
 
+# end of translation module
+
+
 def _parse_junk_string(rest):
     """خروجی خراب را به یک string ساده می‌خواند؛ به اولین کوتیشن معتبر می‌رسد."""
     rest = rest.lstrip()
     start = rest.find('"')
     if start == -1:
         return None
+
+
+# end of translation module
     out = []
     esc = False
     for ch in rest[start + 1:]:
@@ -323,11 +373,17 @@ def _parse_junk_string(rest):
     return None
 
 
+# end of translation module
+
+
 def _parse_junk_scalar(rest):
     """بلوک ساده‌ی غیر-string را تا اولین comma/brace/bracket می‌خواند."""
     rest = rest.lstrip()
     if not rest:
         return None
+
+
+# end of translation module
     stop = len(rest)
     for i, ch in enumerate(rest):
         if ch in ",}]":
@@ -336,12 +392,18 @@ def _parse_junk_scalar(rest):
     token = rest[:stop].strip()
     if not token:
         return None
+
+
+# end of translation module
     if token.startswith('"') and token.endswith('"'):
         return token[1:-1]
     if token in ("true", "false"):
         return token == "true"
     if token.lower() in ("null", "none"):
         return None
+
+
+# end of translation module
     return token.strip('"')
 
 
@@ -350,6 +412,9 @@ def _parse_junk_array(rest):
     rest = rest.lstrip()
     if not rest.startswith('['):
         return None
+
+
+# end of translation module
     depth = 0
     in_str = False
     esc = False
@@ -375,6 +440,9 @@ def _parse_junk_array(rest):
                 break
     if end is None:
         return None
+
+
+# end of translation module
     candidate = rest[:end + 1]
     try:
         data = json.loads(candidate)
@@ -401,6 +469,9 @@ def _salvage_json_object(text):
     if not s:
         return None
 
+
+# end of translation module
+
     out = {}
     key_order = ("title", "body", "importance", "tags")
     for key in key_order:
@@ -425,6 +496,9 @@ def _salvage_json_object(text):
 
     if not out:
         return None
+
+
+# end of translation module
     out.setdefault("title", "")
     out.setdefault("body", "")
     out.setdefault("importance", "normal")
@@ -446,6 +520,9 @@ def _extract_json(text):
     start = text.find("{")
     if start == -1:
         return None
+
+
+# end of translation module
     cand = text[start:]
     end = cand.rfind("}")
     whole = cand[: end + 1] if end != -1 else cand
@@ -464,6 +541,9 @@ def _extract_json(text):
     return None
 
 
+# end of translation module
+
+
 def _msg_text(resp):
     """متن جواب؛ اگر content خالی بود سراغ reasoning_content می‌رویم."""
     msg = resp.choices[0].message
@@ -473,11 +553,11 @@ def _msg_text(resp):
     return txt
 
 
-# از این سقف رد نمی‌شویم — کپشن عکس در تلگرام ۱۰۲۴ کاراکتر است
-BODY_LIMIT = 820
+# سقف کپشن تلگرام — فقط برای پیام تلگرام کاربرد دارد، نه برای صفحه‌ی Telegraph
+CAPTION_LIMIT = 820
 
 
-def _trim(text, limit=BODY_LIMIT):
+def _trim(text, limit=CAPTION_LIMIT):
     """کوتاه کردن متن بدون بریدن وسط کلمه یا جمله."""
     text = (text or "").strip()
     if len(text) <= limit:
@@ -758,7 +838,17 @@ def _provider_of(resp, default):
 
 # ---------------- ورودی اصلی ----------------
 def translate(item):
-    """خروجی: dict با کلیدهای title / body / importance / tags / provider یا None."""
+    """خروجی: dict با کلیدهای title / body / importance / tags / provider یا None.
+
+    مقاله‌های طولانی تکه‌تکه ترجمه می‌شوند تا سقف خروجی مدل باعث حذف نیمه‌ی مقاله نشود.
+    """
+    body = (item.get("body") or "").strip()
+    if len(body) > ARTICLE_CHUNK_CHARS:
+        return _translate_long_article(item)
+    return _translate_short(item)
+
+
+def _translate_short(item):
     router, names = _get_router()
     _, _, plain_enabled = _deployments()
     prompt = _build_prompt(item)
@@ -790,7 +880,7 @@ def translate(item):
                 data.setdefault("title", item.get("title", ""))
                 data.setdefault("importance", "normal")
                 data.setdefault("tags", [])
-                data["body"] = _trim(_strip_hashtags(_apply_glossary(str(data["body"]))))
+                data["body"] = _strip_hashtags(_apply_glossary(str(data["body"])))
                 data["title"] = _strip_hashtags(_apply_glossary(str(data["title"]).strip()))[:120]
                 if not _looks_like_valid_translation(str(data["title"])) and data["title"]:
                     data["title"] = ""
@@ -835,3 +925,6 @@ def translate(item):
         key="chain-down",
     )
     return None
+
+
+# end of translation module

@@ -59,6 +59,20 @@ USERBOT_SESSION = _get("USERBOT_SESSION", "lfc_userbot")
 USERBOT_BOT_TARGET = _get("USERBOT_BOT_TARGET", "@twittervid_bot")
 ENABLE_USERBOT_VIDEOS = _get("ENABLE_USERBOT_VIDEOS", "false").lower() in ("true", "1", "yes")
 
+# --- Article pipeline (article_pipeline.py) ---
+# Telegraph API token (api.telegra.ph). Kosong = pipeline membuat akun sekali-pakai
+# otomatis dan mencatat token-nya di log — isi env ini agar token reusable.
+TELEGRAPH_TOKEN = _get("TELEGRAPH_TOKEN")
+# Instant View rhash untuk t.me/iv?url=... (template telegra.ph). Kosong = pakai
+# link Telegraph langsung (halaman telegra.ph sudah IV-native).
+IV_HASH = _get("IV_HASH")
+# Nama penulis pada halaman Telegraph yang dipublikasikan.
+TELEGRAPH_AUTHOR_NAME = _get("TELEGRAPH_AUTHOR_NAME", "LIVERPOOL IRANI | لیورپول ایرانی")
+# Cookie session archive.today — یک‌بار در مرورگر security check را رد کن، بعد از
+# DevTools (Network → یک درخواست → Request Headers → Cookie) کپی کن و اینجا بگذار.
+# بدون این، وقتی archive.today برای IP سرور کپچا بیاورد، ربات مستقیم سایت اصلی را اسکرپ می‌کند.
+ARCHIVE_TODAY_COOKIE = _get("ARCHIVE_TODAY_COOKIE")
+
 # manual = ربات فقط نسخه آماده را در همان گروه می‌دهد (انتشار دستی توسط ادمین)
 # auto   = ربات خودش روی CHANNEL_ID می‌فرستد
 PUBLISH_MODE = _get("PUBLISH_MODE", "manual").lower()

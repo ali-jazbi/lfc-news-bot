@@ -43,6 +43,17 @@ CREATE TABLE IF NOT EXISTS items (
     created_at  REAL
 );
 CREATE INDEX IF NOT EXISTS idx_created ON items(created_at);
+
+-- cache della pipeline articoli (article_pipeline.py): URL normalizzato → risultato Telegraph
+CREATE TABLE IF NOT EXISTS articles (
+    url_norm      TEXT PRIMARY KEY,
+    source_url    TEXT,
+    archive_url   TEXT,
+    telegraph_url TEXT,
+    title         TEXT,
+    status        TEXT DEFAULT 'done',   -- done | failed
+    created_at    REAL
+);
 CREATE INDEX IF NOT EXISTS idx_admin_msg ON items(admin_msg);
 
 -- گواهی‌های راستی‌آزمایی (مرحله ۵): منبع، ادعا، شواهد، اطمینان
@@ -483,3 +494,24 @@ def list_source_health():
             "SELECT * FROM source_health ORDER BY status, source_id"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------ article cache (article_pipeline.py)
+def article_get(url_norm: str):
+    """Ambil hasil pipeline artikel dari cache. None kalau belum ada."""
+    with _lock:
+        row = _c().execute("SELECT * FROM articles WHERE url_norm=?", (url_norm,)).fetchone()
+    return dict(row) if row else None
+
+
+def article_save(url_norm: str, source_url: str, archive_url: str,
+                 telegraph_url: str, title: str, status: str = "done"):
+    """Simpan hasil pipeline artikel (INSERT OR REPLACE — cache terakhir menang)."""
+    with _lock:
+        _c().execute(
+            "INSERT OR REPLACE INTO articles "
+            "(url_norm, source_url, archive_url, telegraph_url, title, status, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (url_norm, source_url, archive_url, telegraph_url, title, status, time.time()),
+        )
+        _c().commit()

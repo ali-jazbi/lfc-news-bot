@@ -138,7 +138,8 @@ def keyboard(key, mode="manual"):
     return {
         "inline_keyboard": [
             [{"text": "\U0001F504 ترجمه مجدد", "callback_data": f"rtr:{key}"}],
-            [{"text": "\U0001F4E4 نسخه آماده انتشار", "callback_data": f"pub:{key}"}],
-            [{"text": "\U0001F4E2 انتشار در کانال", "callback_data": f"s2c:{key}"}],
+            [{"text": "\U0001F4E4 نسخه آماده انتشار", "callback_data": f"pub:{key}"},
+             {"text": "\U0001F4E2 انتشار در کانال", "callback_data": f"s2c:{key}"}],
+            [{"text": "\u270F\uFE0F ویرایش متن", "callback_data": f"edit:{key}"}],
         ]
     }

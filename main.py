@@ -841,6 +841,19 @@ def handle_callback(cq):
             tg.edit_markup(
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
+    elif action == "edit":
+        _pending_edits[from_user.get("id")] = {
+            "key": key, "chat_id": chat_id, "msg_id": msg_id,
+            "photo": bool(msg.get("photo")), "ts": time.time(),
+        }
+        tg.answer_callback(cid)
+        tg.send_message(
+            chat_id,
+            "✏️ <b>حالت ویرایش</b> — متن جدید را در همین گروه بفرست:\n"
+            "• خط اول با <code>#</code> شروع شود → عنوان جدید؛ بقیه‌ی پیام → متن بدنه\n"
+            "• بدون <code>#</code> → فقط متن بدنه عوض می‌شود\n"
+            "• انصراف: /cancel  (مهلت: ۱۰ دقیقه)",
+        )
     elif action == "rtr":
         tg.answer_callback(cid, "در حال ترجمه مجدد...")
         item = row["payload"]
@@ -867,6 +880,12 @@ _TWEET_LINK_ONLY = re.compile(
     re.I,
 )
 
+# لینک مقاله عمومی: هر http(s) URL که توییت/تلگرام نباشد (تک‌لینک در پیام)
+_ARTICLE_LINK_ONLY = re.compile(
+    r"^https?://\S+$",
+    re.I,
+)
+
 
 def _handle_tweet_link(url, chat_id, reply_to=None):
     """لینک خام توییت را مثل یک خبر عادی پردازش می‌کند — همان پیش‌نمایش و ۳ دکمه.
@@ -884,10 +903,86 @@ def _handle_tweet_link(url, chat_id, reply_to=None):
         tg.send_message(chat_id, "⚠️ پردازش توییت ناتمام ماند — لاگ را ببین.")
 
 
+def _handle_article_link(url, chat_id, reply_to=None):
+    """لینک مقاله (غیر توییت) → آرشیو + اسکرپ + ترجمه + Telegraph + Instant View."""
+    import article_pipeline
+
+    result = article_pipeline.run(url)
+    if result.get("ok"):
+        tg.send_message(
+            chat_id,
+            result["message"],
+            disable_preview=False,
+            reply_to=reply_to,
+        )
+    else:
+        tg.send_message(
+            chat_id,
+            f"⚠️ پردازش مقاله ناموفق بود: {result.get('error', 'نامشخص')}",
+            reply_to=reply_to,
+        )
+
+
+# ✏️ ویرایش در جریان: admin user id → {'key', 'chat_id', 'msg_id', 'photo', 'ts'}
+# یک پیامِ بعدیِ ادمین به‌عنوان متن جدید مصرف می‌شود؛ ۱۰ دقیقه مهلت دارد.
+_pending_edits: dict = {}
+
+
+def _apply_admin_edit(st, text):
+    """متن جدید ادمین را روی خبر ذخیره و پیش‌نمایش گروه را به‌روز می‌کند.
+
+    فرمت پیام ویرایش:
+      خط اول با # شروع شود → عنوان جدید؛ بقیه → بدنه
+      بدون # → فقط بدنه عوض می‌شود و عنوان دست نمی‌خورد
+    """
+    row = db.get(st["key"])
+    if not row:
+        return False, "این خبر دیگر در دیتابیس نیست"
+    item = row["payload"]
+    tr = item.setdefault("translated", {})
+    lines = text.strip().split("\n", 1)
+    if lines[0].lstrip().startswith("#"):
+        title = lines[0].lstrip().lstrip("#").strip()
+        if title:
+            tr["title"] = title[:120]
+        body = lines[1].strip() if len(lines) > 1 else ""
+    else:
+        body = text.strip()
+    if body:
+        tr["body"] = body[:4000]
+    elif not lines[0].lstrip().startswith("#"):
+        return False, "پیام خالی بود — ویرایشی ذخیره نشد"
+    db.save(item, status=row["status"], admin_msg=row["admin_msg"])
+    cap = formatter.build_admin_caption(item, tr)
+    kb = formatter.keyboard(st["key"], config.PUBLISH_MODE)
+    try:
+        if st.get("photo"):
+            tg.edit_caption(st["chat_id"], st["msg_id"], cap, kb)
+        else:
+            tg.edit_text(st["chat_id"], st["msg_id"], cap, kb)
+    except Exception as e:
+        log.warning("edit preview refresh failed: %s", e)
+    return True, "✅ ویرایش ذخیره شد — پیش‌نمایش به‌روز شد"
+
+
 def handle_message(m):
     text = (m.get("text") or "").strip()
     chat_id = m.get("chat", {}).get("id")
     from_user = m.get("from", {})
+
+    # ✏️ ویرایش دستی: ادمینِ در حالت ویرایش، متن جدید می‌فرستد
+    pid = from_user.get("id")
+    if _is_admin(pid) and text and pid in _pending_edits:
+        st = _pending_edits.pop(pid)
+        if time.time() - st.get("ts", 0) > 600:
+            tg.send_message(chat_id, "⌛ مهلت ویرایش تمام شد — دوباره دکمه‌ی ویرایش را بزن")
+            return
+        if text.startswith("/cancel"):
+            tg.send_message(chat_id, "ویرایش لغو شد")
+            return
+        ok, msg = _apply_admin_edit(st, text)
+        tg.send_message(chat_id, msg)
+        return
 
     # لینک خام توییت → استخراج کامل مثل بقیه خبرها (ادمین خودش انتخابش کرده،
     # پس فیلترهای سن/طول/کلیدواژه اینجا معنا ندارند)
@@ -895,6 +990,14 @@ def handle_message(m):
         tg.send_message(chat_id, "\U0001F50E در حال استخراج توییت...", silent=True,
                         reply_to=m.get("message_id"))
         threading.Thread(target=_handle_tweet_link, args=(text, chat_id, m.get("message_id")),
+                         daemon=True).start()
+        return
+
+    # لینک مقاله عمومی (غیر توییت) → خط لوله آرشیو + ترجمه + Telegraph
+    if _ARTICLE_LINK_ONLY.match(text) and _is_admin(from_user.get("id")):
+        tg.send_message(chat_id, "📄 در حال آرشیو و ترجمه مقاله...", silent=True,
+                        reply_to=m.get("message_id"))
+        threading.Thread(target=_handle_article_link, args=(text, chat_id, m.get("message_id")),
                          daemon=True).start()
         return
 
