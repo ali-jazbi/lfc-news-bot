@@ -60,6 +60,8 @@ USERBOT_BOT_TARGET = _get("USERBOT_BOT_TARGET", "@twittervid_bot")
 ENABLE_USERBOT_VIDEOS = _get("ENABLE_USERBOT_VIDEOS", "false").lower() in ("true", "1", "yes")
 
 # --- Article pipeline (article_pipeline.py) ---
+# فعلاً پردازش و تبدیل مقاله‌ها کاملاً غیرفعال است؛ فقط خبرهای معمولی/توییت‌ها کار می‌کنند.
+ENABLE_ARTICLES = _get("ENABLE_ARTICLES", "false").lower() in ("true", "1", "yes")
 # Telegraph API token (api.telegra.ph). Kosong = pipeline membuat akun sekali-pakai
 # otomatis dan mencatat token-nya di log — isi env ini agar token reusable.
 TELEGRAPH_TOKEN = _get("TELEGRAPH_TOKEN")
@@ -80,6 +82,23 @@ if PUBLISH_MODE not in ("manual", "auto"):
     PUBLISH_MODE = "manual"
 if PUBLISH_MODE == "auto" and not CHANNEL_ID:
     PUBLISH_MODE = "manual"
+
+# فرستنده‌ی «نسخه آماده انتشار» در گروه:
+#   bot   = خود بات (پیش‌فرض — مثل قبل)
+#   user  = اکانت تلگرام ادمینِ کلیک‌کننده (یوزربات) → پست قابل ادیت می‌شود
+#   saved = برای ادمین در Saved Messages خودش می‌فرستد (hidden sender، قابل ادیت)
+USER_PUBLISH_MODE = _get("USER_PUBLISH_MODE", "bot").lower()
+if USER_PUBLISH_MODE not in ("bot", "user", "saved"):
+    USER_PUBLISH_MODE = "bot"
+
+# متن راهنمای «حالت ویرایش» — هر وقت خواستی عوضش کن، بدون دست‌زدن به کد.
+# \n در .env به خط جدید تبدیل می‌شود؛ {{limit}} هم جای عدد مهلت (دقیقه) می‌نشیند.
+EDIT_PROMPT = _get("EDIT_PROMPT", "").replace("\\n", "\n").replace("{{limit}}", "10") or (
+    "✏️ <b>حالت ویرایش</b> — متن جدید را در همین گروه بفرست:\n"
+    "• خط اول با <code>#</code> شروع شود → عنوان جدید؛ بقیه‌ی پیام → متن بدنه\n"
+    "• بدون <code>#</code> → فقط متن بدنه عوض می‌شود\n"
+    "• انصراف: /cancel  (مهلت: {{limit}} دقیقه)"
+)
 
 # --- منابع ---
 LFC_NEWS_URL = _get("LFC_NEWS_URL", "https://www.liverpoolfc.com/news")
@@ -236,6 +255,10 @@ ROMANO_KEYWORDS = _list(
     "salah,robertson,konate,alexander-arnold,diaz,nunez",
 )
 
+# حداقل طول متن برای اینکه پست تیتر بولد جداگانه بگیرد.
+# توییت‌های کوتاه‌تر از این، خودشان تیترند و تیتر دوبل ساخته نمی‌شود.
+TITLE_MIN_BODY_CHARS = _int("TITLE_MIN_BODY_CHARS", 240)
+
 # خبرهای بی‌ارزش برای کانال — اگر عنوان شامل یکی از این‌ها بود رد می‌شود
 SKIP_KEYWORDS = _list(
     "SKIP_KEYWORDS",
@@ -244,6 +267,15 @@ SKIP_KEYWORDS = _list(
     "win a,shop,store,ticket info,membership,matchday programme,"
     "lfc tv,subscribe,behind the scenes,foundation,consulate,charity,"
     "soccer clinic,community event",
+)
+
+# اعلام پخش زنده/تماشا (مثل پست‌های خود باشگاه: «فلان بازی را پخش زنده ببینید»)
+# اگر توییت/خبر شامل یکی از این‌ها باشد رد می‌شود — همان خانواده‌ی PROMO_KEYWORDS.
+LIVESTREAM_KEYWORDS = _list(
+    "LIVESTREAM_KEYWORDS",
+    "watch live,live stream,live coverage,stream live,live blog,"
+    "how to watch,where to watch,how to follow,match live,"
+    "پخش زنده,تماشای زنده,پخش مستقیم,لایو",
 )
 
 # خبرهای تیم بانوان — اگر کانال پوشششان نمی‌دهد، false بگذار

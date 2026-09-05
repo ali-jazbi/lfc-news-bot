@@ -310,6 +310,23 @@ def get(key: str):
     return d
 
 
+def get_by_admin_msg(msg_id) -> "dict | None":
+    """خبر بر اساس message_id پیش‌نمایش گروه — برای ویرایش با ریپلای + /edit.
+    اگر چند ردیف همان msg_id را داشتند، آخرین (تازه‌ترین) برمی‌گردد."""
+    if msg_id is None:
+        return None
+    with _lock:
+        row = _c().execute(
+            "SELECT * FROM items WHERE admin_msg=? ORDER BY created_at DESC LIMIT 1",
+            (msg_id,),
+        ).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    d["payload"] = json.loads(d["payload"])
+    return d
+
+
 def count() -> int:
     with _lock:
         return _c().execute("SELECT COUNT(*) FROM items").fetchone()[0]

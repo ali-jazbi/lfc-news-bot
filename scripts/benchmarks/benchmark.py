@@ -155,11 +155,11 @@ def score(test_id, tr):
     else:
         got += 1
 
-    # ۳) انگلیسی جامانده
+    # ۳)  جامانده
     total += 1
     leftovers = sorted(set(LATIN.findall(text)))
     if leftovers:
-        notes.append(f"{WARN} انگلیسی جامانده: {', '.join(leftovers[:6])}")
+        notes.append(f"{WARN}  جامانده: {', '.join(leftovers[:6])}")
     else:
         got += 1
 
@@ -200,7 +200,7 @@ def run_one(test, out):
     banner = f"\n{'=' * 62}\nمتن شماره {tid}: {test['label']}\n{'=' * 62}"
     print(banner)
     out.append(f"\n\n# متن شماره {tid} — {test['label']}\n")
-    out.append(f"**طول متن انگلیسی:** {len(item['body'])} کاراکتر\n")
+    out.append(f"**طول متن :** {len(item['body'])} کاراکتر\n")
     out.append("<details><summary>متن اصلی</summary>\n\n```\n"
                + item["body"] + "\n```\n</details>\n")
 

@@ -286,6 +286,73 @@ class TwitterVidDownloader:
             log.error("UserBot download failed: %s", e)
             return False
 
+    async def send_as_user(
+        self,
+        text: str,
+        target_chat_id: int | str,
+        image: str | None = None,
+        images: list | None = None,
+        video: str | None = None,
+        thumb: str | None = None,
+    ) -> bool:
+        """ارسال پست از طرف خودِ اکانت یوزربات (نه بات) — نتیجه: پیام از طرف
+        خود ادمین است و قابل ادیت. fallback همیشه بات است (در caller)."""
+        if not self.is_configured():
+            log.warning("UserBot is not configured in .env (USERBOT_API_ID, USERBOT_API_HASH)")
+            return False
+        try:
+            client = await self._get_client()
+            if not await client.is_user_authorized():
+                log.error("UserBot session is not authorized — run userbot_login.py first")
+                return False
+            try:
+                cid = int(str(target_chat_id).strip())
+                target = await client.get_entity(cid)
+            except Exception:
+                target = await client.get_input_entity(target_chat_id)
+
+            urls = [u for u in (images or []) if u]
+            main_img = image or (urls[0] if urls else None)
+            if video:
+                await client.send_file(target, video, caption=text,
+                                       parse_mode="html", supports_streaming=True)
+            elif main_img and len(text) <= 1024:
+                await client.send_file(target, main_img, caption=text, parse_mode="html")
+            elif main_img:
+                await client.send_file(target, main_img, parse_mode="html")
+                await client.send_message(target, text, parse_mode="html",
+                                          link_preview=False)
+            else:
+                await client.send_message(target, text, parse_mode="html",
+                                          link_preview=False)
+            return True
+        except AuthKeyDuplicatedError:
+            log.critical("UserBot session is DEAD (AuthKeyDuplicatedError) — re-login required")
+            self._dead = True
+            return False
+        except Exception as e:
+            log.error("send_as_user failed: %s", e)
+            return False
+
+    def send_as_user_sync(self, text, target_chat_id, image=None, images=None,
+                          video=None, thumb=None, timeout_seconds=40) -> bool:
+        """نسخه سنکرون send_as_user — امن برای فراخوانی از هر ترد."""
+        if self._dead:
+            return False
+        if not self.is_configured():
+            return False
+        self._ensure_loop()
+        future = asyncio.run_coroutine_threadsafe(
+            self.send_as_user(text=text, target_chat_id=target_chat_id,
+                              image=image, images=images, video=video, thumb=thumb),
+            self._loop,
+        )
+        try:
+            return future.result(timeout=timeout_seconds + 5)
+        except Exception as e:
+            log.error("send_as_user_sync error: %s", e)
+            return False
+
 
 _downloader_instance: Optional[TwitterVidDownloader] = None
 

@@ -332,6 +332,10 @@ def is_promo_or_livestream(text):
     promo_words = getattr(config, "PROMO_KEYWORDS", [])
     if any(pw.lower() in low for pw in promo_words if pw.strip()):
         return True
+    # اعلام پخش زنده/تماشا (پست‌های خود باشگاه: «فلان بازی را پخش زنده ببینید»)
+    live_words = getattr(config, "LIVESTREAM_KEYWORDS", []) or []
+    if any(lw.lower() in low for lw in live_words if lw.strip()):
+        return True
     return False
 
 

@@ -1,9 +1,11 @@
 # مقایسه کیفیت ترجمه
+
 زنجیره: qwen3.7-plus ← opencode-deepseek ← opencode-ling ← ling-openrouter ← gemini-flash ← gemini-flash-lite ← groq-qwen ← nemotron-super ← groq ← openrouter ← مترجم گوگل
 
-
 # متن شماره 1 — توییت سبک رومانو — پر از اصطلاح نقل‌وانتقالی
-**طول متن انگلیسی:** 957 کاراکتر
+
+**طول متن :** 957 کاراکتر
+
 <details><summary>متن اصلی</summary>
 
 ```
@@ -17,9 +19,11 @@ Medical is being scheduled for Monday at the AXA Training Centre. The deal is no
 
 More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ```
+
 </details>
 
 ## qwen3.7-plus
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 11.0s &nbsp;|&nbsp; **طول:** 792 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول در آستانه جذب وینگر برزیلی
@@ -49,6 +53,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ❌ خروجی نامعتبر
 
 ## gemini-flash
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 12.0s &nbsp;|&nbsp; **طول:** 800 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول در آستانه خرید ۵۲ میلیون پوندی؛ مذاکرات پیشرفته برای وینگر برزیلی
@@ -66,6 +71,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ✅ هیچ ایراد خودکاری پیدا نشد.
 
 ## gemini-flash-lite
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 8.9s &nbsp;|&nbsp; **طول:** 797 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** مذاکرات پیشرفته لیورپول برای جذب وینگر برزیلی
@@ -85,6 +91,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ❌ خروجی نامعتبر
 
 ## nemotron-super
+
 **امتیاز:** 4/10 &nbsp;|&nbsp; **زمان:** 52.8s &nbsp;|&nbsp; **طول:** 3 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** ...
@@ -94,6 +101,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 `تگ‌ها: ...`
 
 **ایرادها:**
+
 - ❌ جا افتاد: مبلغ شرط فسخ ۵۲ میلیون
 - ❌ جا افتاد: سن ۲۲ سال
 - ❌ جا افتاد: نام لیورپول
@@ -102,6 +110,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 - ⚠️ متن خیلی کوتاه است (3 کاراکتر) — محتوا حذف شده؟
 
 ## groq
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 2.5s &nbsp;|&nbsp; **طول:** 819 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول نزدیک به توافق برای امضای قرارداد
@@ -117,6 +126,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ❌ خروجی نامعتبر
 
 ## مترجم گوگل
+
 **امتیاز:** 8/10 &nbsp;|&nbsp; **زمان:** 2.0s &nbsp;|&nbsp; **طول:** 787 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول به توافق نزدیک شد
@@ -130,12 +140,14 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 پزشکی برای دوشنبه در مرکز آموزشی آکسا برنامه ریزی شده است.
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام آرنه اسلوت
 - ❌ Slot به جای «اسلوت» غلط آوانگاری شده
 
-
 # متن شماره 2 — خبر رسمی سایت باشگاه — طولانی، رسمی، توصیفی
-**طول متن انگلیسی:** 1361 کاراکتر
+
+**طول متن :** 1361 کاراکتر
+
 <details><summary>متن اصلی</summary>
 
 ```
@@ -149,9 +161,11 @@ Virgil van Dijk, who captained the side for the 150th time, was booked in the se
 
 Attention now turns to the AXA Training Centre in Kirkby, where the squad will reconvene on Monday. Kick-off at the Amex is 3pm GMT on 21 February.
 ```
+
 </details>
 
 ## qwen3.7-plus
+
 **امتیاز:** 8/10 &nbsp;|&nbsp; **زمان:** 13.0s &nbsp;|&nbsp; **طول:** 793 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** پیروزی سخت لیورپول در دربی مرسی‌ساید
@@ -163,6 +177,7 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 `تگ‌ها: لیورپول ، اورتون ، آرنه اسلوت ، کانر بردلی ، دربی مرسی‌ساید ، لیگ برتر`
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام فن‌دایک
 - ⚠️ importance=high ولی انتظار normal بود
 
@@ -179,6 +194,7 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 ❌ خروجی نامعتبر
 
 ## gemini-flash
+
 **امتیاز:** 7/10 &nbsp;|&nbsp; **زمان:** 45.0s &nbsp;|&nbsp; **طول:** 241 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** واکنش اسلوت به پیروزی سخت سرخ‌ها و کلین‌شیت در آنفیلد
@@ -186,11 +202,13 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 آرنه اسلوت پس از پیروزی ۱-۰ لیورپول مقابل اورتون در دربی مرسی‌ساید در آنفیلد، سرسختی بازیکنانش را ستود؛ نتیجه‌ای که سرخ‌ها را در ۱۱ بازی باقی‌مانده، به فاصله ۲ امتیازی صدر رساند. بازی نمایش درخشانی نبود و لیورپول یک ساعت برای باز کردن دفاع ف
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام کانر بردلی
 - ❌ جا افتاد: نام فن‌دایک
 - ⚠️ importance=high ولی انتظار normal بود
 
 ## gemini-flash-lite
+
 **امتیاز:** 8/10 &nbsp;|&nbsp; **زمان:** 2.4s &nbsp;|&nbsp; **طول:** 798 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** پیروزی سخت لیورپول در دربی مرسی‌ساید با گل بردلی
@@ -204,6 +222,7 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 `تگ‌ها: لیورپول ، اورتون ، آرنه اسلوت ، کانر بردلی ، لیگ برتر`
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام فن‌دایک
 - ⚠️ importance=high ولی انتظار normal بود
 
@@ -212,6 +231,7 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 ❌ خروجی نامعتبر
 
 ## nemotron-super
+
 **امتیاز:** 7/10 &nbsp;|&nbsp; **زمان:** 24.2s &nbsp;|&nbsp; **طول:** 792 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** اسلوت پس از برد ۱-۰ بر اورتون: صبر و استقامت
@@ -227,11 +247,13 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 `تگ‌ها: لیورپول ، دربی مرسی‌ساید ، آرنه اسلوت`
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام فن‌دایک
-- ⚠️ انگلیسی جامانده: blieben, gebracht, postes
+- ⚠️ جامانده: blieben, gebracht, postes
 - ⚠️ importance=high ولی انتظار normal بود
 
 ## groq
+
 **امتیاز:** 8/10 &nbsp;|&nbsp; **زمان:** 3.0s &nbsp;|&nbsp; **طول:** 773 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** پیروزی سخت لیورپول در دربی مرسی‌ساید
@@ -241,6 +263,7 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 `تگ‌ها: لیورپول ، اورتون ، دربی مرسی‌ساید`
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام فن‌دایک
 - ⚠️ importance=high ولی انتظار normal بود
 
@@ -249,6 +272,7 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 ❌ خروجی نامعتبر
 
 ## مترجم گوگل
+
 **امتیاز:** 7/10 &nbsp;|&nbsp; **زمان:** 3.1s &nbsp;|&nbsp; **طول:** 779 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** اسلات منعکس کننده برد سنگین است زیرا قرمزها در آنفیلد دروازه خود را بسته نگه می دارند
@@ -260,23 +284,23 @@ Attention now turns to the AXA Training Centre in Kirkby, where the squad will r
 اسلات پس از آن گفت: "گاهی اوقات باید زشت برنده شوید." "در این لیگ، اگر فقط در بازی‌های زیبا پیروز شوید، چهارم می‌شوید. بچه‌ها حفاری کردند، آنها صبور بودند و کانر جایزه‌اش را گرفت. او از زمان پیش‌فصل در را می‌کوبد."
 
 **ایرادها:**
+
 - ❌ جا افتاد: نام فن‌دایک
 - ❌ Slot به جای «اسلوت» غلط آوانگاری شده
 - ⚠️ importance=high ولی انتظار normal بود
-
 
 ---
 
 # جمع‌بندی
 
-| سرویس | امتیاز | درصد | میانگین زمان |
-|---|---|---|---|
-| 🥇 groq | 18/20 | 90% | 2.8s |
-| 🥈 gemini-flash-lite | 18/20 | 90% | 5.7s |
-|    qwen3.7-plus | 18/20 | 90% | 12.0s |
-|    gemini-flash | 17/20 | 85% | 28.5s |
-|    مترجم گوگل | 15/20 | 75% | 2.6s |
-|    nemotron-super | 11/20 | 55% | 38.5s |
+| سرویس                | امتیاز | درصد | میانگین زمان |
+| -------------------- | ------ | ---- | ------------ |
+| 🥇 groq              | 18/20  | 90%  | 2.8s         |
+| 🥈 gemini-flash-lite | 18/20  | 90%  | 5.7s         |
+| qwen3.7-plus         | 18/20  | 90%  | 12.0s        |
+| gemini-flash         | 17/20  | 85%  | 28.5s        |
+| مترجم گوگل           | 15/20  | 75%  | 2.6s         |
+| nemotron-super       | 11/20  | 55%  | 38.5s        |
 
 بهترین: **groq** — این را اول TRANSLATE_ORDER بگذار.
 

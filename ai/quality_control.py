@@ -45,7 +45,7 @@ def _names(text: str, glossary) -> set:
 
 def _missing_names(src: str, tr_text: str, glossary) -> list:
     """نامِ دوکلمه‌ای که در متن اصلی هست ولی معادل فارسی‌اش در ترجمه نیست.
-    معادل فارسی از VALUE خودِ glossary خوانده می‌شود (نه کلید انگلیسی)."""
+    معادل فارسی از VALUE خودِ glossary خوانده می‌شود (نه کلید )."""
     low_src = (src or "").lower()
     tr_blob = tr_text or ""
     missing = []

@@ -403,6 +403,10 @@ class Telegram:
             message_id=message_id,
         )
 
+    def delete_message(self, chat_id, message_id):
+        """حذف پیام (برای پاک‌کردن پیام‌های وضعیت «در حال استخراج…»)."""
+        return self.call("deleteMessage", chat_id=chat_id, message_id=message_id)
+
     def get_updates(self, offset=None, timeout=30):
         """لیست آپدیت‌ها؛ در صورت خطا None (تا caller بتواند backoff کند)."""
         return self.call(

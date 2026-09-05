@@ -31,16 +31,21 @@ The bundle holds **work**, not only facts (full spec: docs/work-discipline.md).
 
 Tools on this bundle: `samemind query|recall|gde|brief|handoff|forget|serve` (or MCP `memory_search/get/list/write_inbox/handoff`).
 This block was installed for **Claude Code** by `samemind install` — safe to re-run, safe to delete by hand.
+
 <!-- samemind:install:end -->
 
 <!-- samemind:project:start -->
+
 ### benchmark
+
 # مقایسه کیفیت ترجمه
+
 زنجیره: qwen3.7-plus ← opencode-deepseek ← opencode-ling ← ling-openrouter ← gemini-flash ← gemini-flash-lite ← groq-qwen ← nemotron-super ← groq ← openrouter ← مترجم گوگل
 
-
 # متن شماره 1 — توییت سبک رومانو — پر از اصطلاح نقل‌وانتقالی
-**طول متن انگلیسی:** 957 کاراکتر
+
+**طول متن :** 957 کاراکتر
+
 <details><summary>متن اصلی</summary>
 
 ```
@@ -54,9 +59,11 @@ Medical is being scheduled for Monday at the AXA Training Centre. The deal is no
 
 More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ```
+
 </details>
 
 ## qwen3.7-plus
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 11.0s &nbsp;|&nbsp; **طول:** 792 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول در آستانه جذب وینگر برزیلی
@@ -86,6 +93,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ❌ خروجی نامعتبر
 
 ## gemini-flash
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 12.0s &nbsp;|&nbsp; **طول:** 800 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول در آستانه خرید ۵۲ میلیون پوندی؛ مذاکرات پیشرفته برای وینگر برزیلی
@@ -103,6 +111,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ✅ هیچ ایراد خودکاری پیدا نشد.
 
 ## gemini-flash-lite
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 8.9s &nbsp;|&nbsp; **طول:** 797 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** مذاکرات پیشرفته لیورپول برای جذب وینگر برزیلی
@@ -122,6 +131,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 ❌ خروجی نامعتبر
 
 ## nemotron-super
+
 **امتیاز:** 4/10 &nbsp;|&nbsp; **زمان:** 52.8s &nbsp;|&nbsp; **طول:** 3 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** ...
@@ -131,6 +141,7 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 `تگ‌ها: ...`
 
 **ایرادها:**
+
 - ❌ جا افتاد: مبلغ شرط فسخ ۵۲ میلیون
 - ❌ جا افتاد: سن ۲۲ سال
 - ❌ جا افتاد: نام لیورپول
@@ -139,10 +150,12 @@ More to follow. 🔴 #LFC #YNWA https://t.co/abc123
 - ⚠️ متن خیلی کوتاه است (3 کاراکتر) — محتوا حذف شده؟
 
 ## groq
+
 **امتیاز:** 10/10 &nbsp;|&nbsp; **زمان:** 2.5s &nbsp;|&nbsp; **طول:** 819 کاراکتر &nbsp;|&nbsp; **اهمیت:** high
 
 **عنوان:** لیورپول نزدیک به توافق برای امضای قرارداد
 
 لیورپول وارد مذاکرات پیشرفته برای امضای قرارداد با وینگر ۲۲ ساله برزیلی شده است. سرخ‌ها آماده‌اند تا قبل از روز آخر پنجره نقل‌وانتقالات، شرط آزادسازی ۵۲ میلیون پوندی او را فعال کنند. شرایط شخصی هیچ مشکلی ایجاد نمی‌کند، زیرا بازیکن قبلاً توافق ۵ ساله‌ای را با حقوق هفته‌ای حدود ۱۴۰ هزار پوند، به علاوه ۸ میلیون پوند در مبالغ متغیر بسته به حضور در بازی‌ها و صعود به لیگ قهرمانان، امضا کرده است. همچنین ۱۵ درصد از مبلغ فروش بعدی در قرارداد گنجانده شده است که به درخواست باشگاه فعل
 …(truncated to 6000 chars)
+
 <!-- samemind:project:end -->

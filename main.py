@@ -97,7 +97,8 @@ _check_running = False
 def _sources():
     """لیست (source_id, label, fn) — با احترام به ENABLE_* فعلی."""
     out = []
-    if config.ENABLE_LFC:
+    # منبع سایت رسمی فعلاً خاموش است چون خروجی آن از نوع مقاله است.
+    if config.ENABLE_LFC and getattr(config, "ENABLE_ARTICLES", False):
         out.append(("lfc_official", "سایت باشگاه", lfc_official.fetch))
     if getattr(config, "ENABLE_OUTLET_RSS", True):
         out.append(("outlet_rss", "خبرگزاری رسمی", outlet_rss.fetch))
@@ -328,9 +329,10 @@ def _process_item_internal(item, key, force=False, reply_to=None):
         db.update_payload(key, item)
     else:
         db.save(item, status="new")
-    caption = formatter.build_admin_caption(item, tr)
+    admin_text = formatter.build_admin_caption(item, tr)
     if notes:
-        caption += "\n" + "\n".join(notes)
+        admin_text += "\n" + "\n".join(notes)
+    caption = admin_text
 
     if DRY_RUN:
         print("\n" + "=" * 60)
@@ -506,24 +508,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
         db.set_admin_msg(key, msg.get("message_id"), status=status)
         trace(nid, "TELEGRAM", upload="success")
 
-        # متن انگلیسی دست‌نخورده، بی‌صدا و در پاسخ به همان پیش‌نمایش
-        original = formatter.build_original_message(item)
-        if original:
-            sent = tg.send_message(
-                config.ADMIN_CHAT_ID,
-                original,
-                silent=True,
-                reply_to=msg.get("message_id"),
-            )
-            if not sent:
-                log.warning("original text not sent (%s) \u2014 retrying without blockquote",
-                            getattr(tg, "last_error", "?"))
-                tg.send_message(
-                    config.ADMIN_CHAT_ID,
-                    formatter.build_original_message(item, expandable=False),
-                    silent=True,
-                    reply_to=msg.get("message_id"),
-                )
+        # متن  دیگر پیام جدا نمی‌گیرد — دکمه‌ی «📄 متن اصلی» روی همان پیش‌نمایش هست.
 
         log.info("\u2192 posted to group: %s", (item.get("title") or "")[:70])
         return True
@@ -613,9 +598,13 @@ def send_to_channel(key):
     return False, "خطا در انتشار روی کانال"
 
 
-def approve(key, chat_id):
+def approve(key, chat_id, from_user_id=None):
     """اگر PUBLISH_MODE == auto باشد مستقیم روی کانال منتشر می‌کند؛
-    اگر manual باشد نسخه تمیز را در گروه ادمین می‌گذارد."""
+    اگر manual باشد نسخه تمیز را در گروه ادمین می‌گذارد.
+
+    from_user_id → اگر USER_PUBLISH_MODE=user باشد و یوزربات سالم، نسخه آماده
+    از طرف اکانت خودِ ادمینِ کلیک‌کننده ارسال می‌شود تا قابل ادیت باشد؛
+    در غیر این صورت همان مسیر قبلی (بات)."""
     row = db.get(key)
     if not row:
         return False, "این خبر در دیتابیس نیست"
@@ -638,6 +627,28 @@ def approve(key, chat_id):
         )
     except Exception as e:
         log.debug("feedback record failed: %s", e)
+
+    # ارسال از طرف خود ادمین (قابل ادیت بعداً)
+    upm = getattr(config, "USER_PUBLISH_MODE", "bot")
+    if upm in ("user", "saved"):
+        try:
+            import userbot_downloader
+            ub = userbot_downloader.get_downloader()
+            if ub.is_configured():
+                # saved → Saved Messages خود یوزربات (hidden sender، قابل ادیت)
+                dest = "me" if upm == "saved" else chat_id
+                if ub.send_as_user_sync(
+                        text=text, target_chat_id=dest,
+                        image=item.get("image"),
+                        images=[u for u in (item.get("images") or []) if u],
+                        video=item.get("video_url"),
+                        thumb=item.get("video_thumb")):
+                    db.set_status(key, "approved")
+                    where = "Saved Messages" if upm == "saved" else "اکانت شما"
+                    return True, f"\U0001F4E4 نسخه آماده در {where} ارسال شد (قابل ادیت)"
+            log.warning("userbot user-publish unavailable — falling back to bot")
+        except Exception as e:
+            log.warning("userbot user-publish failed: %s — falling back to bot", e)
 
     res = _send_final_post(chat_id, text, item)
     if res:
@@ -825,8 +836,21 @@ def handle_callback(cq):
         tg.answer_callback(cid, "این خبر دیگر در دیتابیس نیست", alert=True)
         return
 
-    if action == "pub":
-        ok, message = approve(key, chat_id)
+    if action == "orig":
+        # متن  دست‌نخورده — فقط وقتی ادمین بخواهد ارسال می‌شود
+        original = formatter.build_original_message(row["payload"])
+        if not original:
+            tg.answer_callback(cid, "متن اصلی برای این خبر موجود نیست", alert=True)
+            return
+        sent = tg.send_message(chat_id, original, silent=True,
+                               reply_to=msg_id)
+        if not sent:
+            tg.send_message(chat_id,
+                            formatter.build_original_message(row["payload"], expandable=False),
+                            silent=True, reply_to=msg_id)
+        tg.answer_callback(cid)
+    elif action == "pub":
+        ok, message = approve(key, chat_id, from_user_id=from_user.get("id"))
         tg.answer_callback(cid, message, alert=not ok)
         if ok:
             label = f"\u2705 نسخه آماده توسط {user} ارسال شد"
@@ -842,18 +866,8 @@ def handle_callback(cq):
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
     elif action == "edit":
-        _pending_edits[from_user.get("id")] = {
-            "key": key, "chat_id": chat_id, "msg_id": msg_id,
-            "photo": bool(msg.get("photo")), "ts": time.time(),
-        }
-        tg.answer_callback(cid)
-        tg.send_message(
-            chat_id,
-            "✏️ <b>حالت ویرایش</b> — متن جدید را در همین گروه بفرست:\n"
-            "• خط اول با <code>#</code> شروع شود → عنوان جدید؛ بقیه‌ی پیام → متن بدنه\n"
-            "• بدون <code>#</code> → فقط متن بدنه عوض می‌شود\n"
-            "• انصراف: /cancel  (مهلت: ۱۰ دقیقه)",
-        )
+        # ویرایش دیگر دکمه ندارد — ریپلای + /edit. برای سازگاری با کیبوردهای قدیمی:
+        tg.answer_callback(cid, "برای ویرایش: روی همین پیام ریپلای کن و /edit بزن", alert=True)
     elif action == "rtr":
         tg.answer_callback(cid, "در حال ترجمه مجدد...")
         item = row["payload"]
@@ -886,28 +900,68 @@ _ARTICLE_LINK_ONLY = re.compile(
     re.I,
 )
 
+# لینک‌های سایت باشگاه، حتی وقتی خط لوله مقاله خاموش است، باید مثل یک پست
+# معمولی استخراج و ترجمه شوند؛ خاموش‌بودن فقط Telegraph/Archive را غیرفعال می‌کند.
+_LFC_LINK_ONLY = re.compile(
+    r"^https?://(?:www\.)?liverpoolfc\.com/(?:news|article)/[^\s]+$",
+    re.I,
+)
 
-def _handle_tweet_link(url, chat_id, reply_to=None):
-    """لینک خام توییت را مثل یک خبر عادی پردازش می‌کند — همان پیش‌نمایش و ۳ دکمه.
-    reply_to → پیش‌نمایش به همان پیامِ لینک ریپلای می‌شود."""
+
+def _handle_lfc_link(url, chat_id, reply_to=None, status_msg_id=None):
+    """لینک خبر سایت باشگاه را به پست معمولی تبدیل می‌کند.
+
+    این مسیر عمداً از article_pipeline استفاده نمی‌کند و به ENABLE_ARTICLES
+    وابسته نیست؛ بنابراین با خاموش‌بودن قابلیت مقاله، خبر عادی همچنان کار می‌کند.
+    """
+    try:
+        item = lfc_official._parse_article(url)
+    except Exception as e:
+        log.warning("direct LFC link parse failed: %s", e)
+        item = None
+    _cleanup_status(chat_id, status_msg_id)
+    if item and process_item(item, force=True, reply_to=reply_to):
+        return
+    tg.send_message(chat_id, "⚠️ استخراج خبر سایت باشگاه ناموفق بود — دوباره امتحان کن.",
+                    reply_to=reply_to)
+
+
+def _cleanup_status(chat_id, status_msg_id):
+    """پیام «در حال استخراج…» پس از ساخته‌شدن پست پاک می‌شود تا گروه شلوغ نماند."""
+    if not status_msg_id:
+        return
+    try:
+        tg.delete_message(chat_id, status_msg_id)
+    except Exception as e:
+        log.debug("status cleanup failed: %s", e)
+
+
+def _handle_tweet_link(url, chat_id, reply_to=None, status_msg_id=None):
+    """لینک خام توییت را مثل یک خبر عادی پردازش می‌کند — همان پیش‌نمایش و دکمه‌ها.
+    reply_to → پیش‌نمایش به همان پیامِ لینک ریپلای می‌شود.
+    status_msg_id → پیام «در حال استخراج…» بعد از ساخت پست پاک می‌شود."""
     from sources import twitter as twitter_src
 
     item = twitter_src.item_from_url(url)
     if not item:
+        _cleanup_status(chat_id, status_msg_id)
         tg.send_message(chat_id, "⚠️ استخراج توییت ناموفق بود — حذف شده یا x.com بلاک کرد. دوباره امتحان کن.")
         return
 
     if process_item(item, force=True, reply_to=reply_to):
+        _cleanup_status(chat_id, status_msg_id)
         log.info("tweet link processed: %s", url)
     else:
+        _cleanup_status(chat_id, status_msg_id)
         tg.send_message(chat_id, "⚠️ پردازش توییت ناتمام ماند — لاگ را ببین.")
 
 
-def _handle_article_link(url, chat_id, reply_to=None):
+def _handle_article_link(url, chat_id, reply_to=None, status_msg_id=None):
     """لینک مقاله (غیر توییت) → آرشیو + اسکرپ + ترجمه + Telegraph + Instant View."""
     import article_pipeline
 
     result = article_pipeline.run(url)
+    _cleanup_status(chat_id, status_msg_id)
     if result.get("ok"):
         tg.send_message(
             chat_id,
@@ -923,46 +977,246 @@ def _handle_article_link(url, chat_id, reply_to=None):
         )
 
 
-# ✏️ ویرایش در جریان: admin user id → {'key', 'chat_id', 'msg_id', 'photo', 'ts'}
-# یک پیامِ بعدیِ ادمین به‌عنوان متن جدید مصرف می‌شود؛ ۱۰ دقیقه مهلت دارد.
-_pending_edits: dict = {}
+# ✏️ ویرایش با ریپلای (بدون دکمه و بدون مهلت زمانی):
+#   ادمین روی پیش‌نمایش خبر ریپلای می‌زند و در همان پیام /edit می‌نویسد:
+#     خط ۱: /edit
+#     خط ۲: عنوان جدید (تایتل) — با هر فرمتی (بولد و...)
+#     خط ۳ به بعد: بدنه جدید — فرمت HTML تلگرام عیناً حفظ می‌شود
+#   /edit تنهای روی یک خبر = بدون تغییر؛ /edit با «off» = برگشت به متن AI
+
+# entity تلگرام → تگ HTML
+def _entity_to_tag(ent, frag, open_tag=True):
+    t = ent.get("type", "")
+    if t == "bold":
+        return "<b>" + frag + "</b>" if open_tag else ""
+    if t == "italic":
+        return "<i>" + frag + "</i>" if open_tag else ""
+    if t == "underline":
+        return "<u>" + frag + "</u>" if open_tag else ""
+    if t == "strikethrough":
+        return "<s>" + frag + "</s>" if open_tag else ""
+    if t in ("code", "pre"):
+        lang = ent.get("language")
+        if t == "pre" and lang:
+            return f'<pre><code class="language-{lang}">' + frag + "</code></pre>"
+        return "<code>" + frag + "</code>" if open_tag else ""
+    if t == "spoiler":
+        return "<tg-spoiler>" + frag + "</tg-spoiler>" if open_tag else ""
+    if t == "text_link":
+        return f'<a href="{ent.get("url", "")}">' + frag + "</a>" if open_tag else frag
+    if t == "url":
+        return f'<a href="{frag}">' + frag + "</a>" if open_tag else frag
+    if t == "blockquote":
+        return "<blockquote>" + frag + "</blockquote>" if open_tag else ""
+    if t == "expandable_blockquote":
+        return "<blockquote expandable>" + frag + "</blockquote>" if open_tag else ""
+    # انواع دیگر (mention، hashtag، custom_emoji و...): فرمت خاصی ندارند —
+    # متن عیناً حفظ می‌شود، هرگز خورده نمی‌شود.
+    return frag
 
 
-def _apply_admin_edit(st, text):
-    """متن جدید ادمین را روی خبر ذخیره و پیش‌نمایش گروه را به‌روز می‌کند.
+def _md_to_html(text):
+    """مارک‌داون ساده (بولد/ایتالیک/کد) را به HTML تلگرام تبدیل می‌کند
+    (برای وقتی ادمین از کلاینتی بدون فرمت‌بندی می‌فرستد)."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text, flags=re.S)
+    text = re.sub(r"__(.+?)__", r"<b>\1</b>", text, flags=re.S)
+    text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<i>\1</i>", text)
+    text = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", text)
+    return text
 
-    فرمت پیام ویرایش:
-      خط اول با # شروع شود → عنوان جدید؛ بقیه → بدنه
-      بدون # → فقط بدنه عوض می‌شود و عنوان دست نمی‌خورد
+
+def _entities_to_html(raw_text, entities):
+    """متن خام + entity های تلگرام → HTML معتبر (فرمت ادمین حفظ می‌شود).
+
+    entity ها قبل از فراخوانی باید به آفست‌های متن همین بخش شیفت شده باشند
+    (آفست‌های ورودی = UTF-16 units نسبت به ابتدای raw_text)."""
+    if not entities:
+        return formatter.esc(raw_text)
+    # از انتها به ابتدا اعمال می‌کنیم تا آفست‌ها معتبر بمانند
+    ents = sorted(entities, key=lambda e: (-(e.get("offset", 0) + e.get("length", 0))))
+    out = raw_text
+    for ent in ents:
+        frag = _utf16_slice(out, ent.get("offset", 0),
+                            ent.get("offset", 0) + ent.get("length", 0))
+        if not frag:
+            continue
+        replacement = _entity_to_tag(ent, frag, open_tag=True)
+        start = _u16_to_py(out, ent.get("offset", 0))
+        end = _u16_to_py(out, ent.get("offset", 0) + ent.get("length", 0))
+        out = out[:start] + replacement + out[end:]
+    return out
+
+
+def _transient(chat_id, text, ttl=4):
+    """پیام گذرا: بعد از ttl ثانیه خودش پاک می‌شود — گروه را شلوغ نمی‌کند."""
+    msg = tg.send_message(chat_id, text)
+    if msg and msg.get("message_id"):
+        def _rm():
+            try:
+                tg.delete_message(chat_id, msg["message_id"])
+            except Exception:
+                pass
+        t = threading.Timer(ttl, _rm)
+        t.daemon = True
+        t.start()
+
+
+def _utf16_slice(text, u16_start, u16_end):
+    """برش متن بر اساس آفست‌های UTF-16 تلگرام (ایموجی = ۲ واحد، پایتون = ۱ کاراکتر)."""
+    start = _u16_to_py(text, u16_start)
+    end = _u16_to_py(text, u16_end)
+    return text[start:end]
+
+
+def _u16_to_py(text, u16_offset):
+    """آفست UTF-16 را به ایندکس پایتون تبدیل می‌کند."""
+    if u16_offset <= 0:
+        return 0
+    units = 0
+    for i, ch in enumerate(text):
+        if units >= u16_offset:
+            return i
+        units += 2 if ord(ch) > 0xFFFF else 1
+    return len(text)
+
+
+def _utf16_len(text):
+    return sum(2 if ord(c) > 0xFFFF else 1 for c in text)
+
+
+def _apply_reply_edit(m):
+    """ریپلای ادمین با /edit یا «ادیت» را اعمال می‌کند — True اگر پیام مصرف شد.
+
+    خط ۱: /edit، ادیت یا ویرایش (با هر آرگومانی مثل @BotName — نادیده گرفته می‌شود)
+    خط ۲: عنوان جدید — اگر «#» تنها باشد عنوان دست نمی‌خورد
+    خط ۳ به بعد: بدنه جدید — فرمت تلگرام (بولد و…) عیناً حفظ می‌شود
     """
-    row = db.get(st["key"])
+    chat_id = m.get("chat", {}).get("id")
+    reply = m.get("reply_to_message") or {}
+    target_msg_id = reply.get("message_id")
+    if not target_msg_id:
+        _transient(chat_id, "برای ویرایش باید روی پیامِ خبر ریپلای کنی.")
+        return True
+
+    raw = m.get("text") or ""
+    lines = raw.split("\n")
+    arg = lines[0].strip()
+    rest = "\n".join(lines[1:]).strip()
+
+    row = db.get_by_admin_msg(target_msg_id)
     if not row:
-        return False, "این خبر دیگر در دیتابیس نیست"
+        _transient(chat_id, "این پیام خبرِ شناخته‌شده‌ای نیست — فقط پیش‌نمایش‌های خود ربات قابل ویرایش‌اند.")
+        return True
     item = row["payload"]
     tr = item.setdefault("translated", {})
-    lines = text.strip().split("\n", 1)
-    if lines[0].lstrip().startswith("#"):
-        title = lines[0].lstrip().lstrip("#").strip()
-        if title:
-            tr["title"] = title[:120]
-        body = lines[1].strip() if len(lines) > 1 else ""
-    else:
-        body = text.strip()
-    if body:
-        tr["body"] = body[:4000]
-    elif not lines[0].lstrip().startswith("#"):
-        return False, "پیام خالی بود — ویرایشی ذخیره نشد"
-    db.save(item, status=row["status"], admin_msg=row["admin_msg"])
-    cap = formatter.build_admin_caption(item, tr)
-    kb = formatter.keyboard(st["key"], config.PUBLISH_MODE)
-    try:
-        if st.get("photo"):
-            tg.edit_caption(st["chat_id"], st["msg_id"], cap, kb)
+
+    arg_clean = arg.rstrip().split("@", 1)[0].strip().lower()
+    # /edit، «ادیت» و «ویرایش» همگی یک دستورند؛ «خاموش» معادل off است.
+    edit_off = arg_clean.endswith("off") or arg_clean.endswith("خاموش")
+    # دستور تنها یا دستورِ off/خاموش → برگشت به ترجمه‌ی AI
+    if not rest or edit_off:
+        tr.pop("edited_html", None)
+        tr.pop("edited_title_html", None)
+        tr.pop("edited_body_html", None)
+        db.save(item, status=row["status"], admin_msg=row["admin_msg"])
+        _refresh_preview(row, item, tr)
+        _transient(chat_id, "↩️ متن به ترجمه‌ی AI برگشت.")
+        return True
+
+    # خط دوم = عنوان؛ «#» تنها = فقط بدنه عوض می‌شود.
+    # هر ویرایش «کامل جایگزین» است: عنوان/بدنه‌ای که در این پیام نیاید
+    # حذف می‌شود (اثر ادیت قبلی پاک می‌شود)؛ فقط «#» عنوان قبلی را نگه می‌دارد.
+    body_lines = rest.split("\n")
+    title_raw = body_lines[0].strip().lstrip("#").strip()
+    skip_title = (not title_raw)
+    body_raw = "\n".join(body_lines[1:]).strip()
+    if not skip_title:
+        tr.pop("edited_body_html", None)   # ادیت جدید فقط عنوان → بدنه‌ی قبلی پاک
+    if not body_raw:
+        tr.pop("edited_title_html", None)  # ادیت جدید فقط بدنه → عنوان قبلی پاک
+
+    # فرمت پیام ادمین را حفظ کن: entity های تلگرام (بولد/ایتالیک/لینک/کووت و...)
+    # فقط داخل بخش عنوان/بدنه اعمال می‌شوند؛ entity خطِ /edit خودش نادیده گرفته می‌شود.
+    # آفست‌های entity نسبت به «متن خام» پیام‌اند، اما عنوان/بدنه بعد از strip و
+    # حذف «#» از جای دیگری شروع می‌شوند — پس لنگر واقعی هر بخش را داخل raw پیدا
+    # می‌کنیم و آفست‌ها را دقیق نسبت به همان نقطه شیفت می‌کنیم. (قبلاً فرض می‌شد
+    # عنوان بلافاصله بعد از «/edit\n» شروع می‌شود و خط خالی یا «#» همه‌ی فرمت‌ها
+    # را چند کاراکتر جابه‌جا می‌کرد: تایتل نیمه‌بولد، کووت نیمه‌اعمال.)
+    ents = [e for e in (m.get("entities") or []) if e.get("type") != "bot_command"]
+    if ents:
+        first_nl = raw.find("\n")
+        if first_nl < 0:
+            first_nl = len(raw) - 1
+        after_cmd = raw[first_nl + 1:]
+        rest_abs = first_nl + 1 + (len(after_cmd) - len(after_cmd.lstrip()))
+        title_line = body_lines[0]
+        t_stripped = title_line.strip()
+        title_abs = rest_abs + (len(title_line) - len(title_line.lstrip())) \
+            + (len(t_stripped) - len(t_stripped.lstrip("#").lstrip()))
+        body_section = rest[len(title_line):]
+        body_abs = rest_abs + len(title_line) \
+            + (len(body_section) - len(body_section.lstrip()))
+
+        u16_title_start = _utf16_len(raw[:title_abs])
+        u16_title_end = u16_title_start + _utf16_len(title_raw)
+        u16_body_start = _utf16_len(raw[:body_abs])
+
+        title_ents, body_ents = [], []
+        for e in ents:
+            off, ln = e.get("offset", 0), e.get("length", 0)
+            end = off + ln
+            if end <= u16_title_start:
+                continue  # روی خودِ /edit یا فاصله‌های خالی — بی‌اهمیت
+            if off < u16_title_end:
+                lo, hi = max(off, u16_title_start), min(end, u16_title_end)
+                if not skip_title and hi > lo:
+                    title_ents.append({**e, "offset": lo - u16_title_start,
+                                       "length": hi - lo})
+            elif off >= u16_body_start:
+                body_ents.append({**e, "offset": off - u16_body_start})
+        if skip_title:
+            title_html = ""
+        elif title_ents:
+            title_html = _entities_to_html(title_raw, title_ents)
         else:
-            tg.edit_text(st["chat_id"], st["msg_id"], cap, kb)
+            title_html = _md_to_html(formatter.esc(title_raw))
+        body_html = (_entities_to_html(body_raw, body_ents) if body_ents
+                     else _md_to_html(formatter.esc(body_raw)))
+    else:
+        title_html = "" if skip_title else _md_to_html(formatter.esc(title_raw))
+        body_html = _md_to_html(formatter.esc(body_raw))
+
+    changed = False
+    if not skip_title and title_html:
+        # عنوان/بدنه‌ی اصلی AI دست‌نخورده می‌ماند تا /edit off بتواند کامل برگرداند
+        tr["edited_title_html"] = title_html
+        changed = True
+    if body_html:
+        tr["edited_body_html"] = body_html
+        changed = True
+    if not changed:
+        _transient(chat_id, "چیزی برای تغییر پیدا نشد.")
+        return True
+    tr["edited_html"] = True
+
+    db.save(item, status=row["status"], admin_msg=row["admin_msg"])
+    _refresh_preview(row, item, tr)
+    _transient(chat_id, "\u2705 ویرایش ذخیره شد")
+    return True
+
+
+def _refresh_preview(row, item, tr):
+    """پیش‌نمایش گروه را بعد از ویرایش رفرش می‌کند."""
+    cap = formatter.build_admin_caption(item, tr)
+    kb = formatter.keyboard(row["key"], config.PUBLISH_MODE)
+    try:
+        if row.get("admin_msg"):
+            # عکس بودن پیش‌نمایش را نمی‌دانیم — اول caption امتحان می‌شود
+            if tg.edit_caption(config.ADMIN_CHAT_ID, row["admin_msg"], cap, kb):
+                return
+            tg.edit_text(config.ADMIN_CHAT_ID, row["admin_msg"], cap, kb)
     except Exception as e:
         log.warning("edit preview refresh failed: %s", e)
-    return True, "✅ ویرایش ذخیره شد — پیش‌نمایش به‌روز شد"
 
 
 def handle_message(m):
@@ -970,34 +1224,50 @@ def handle_message(m):
     chat_id = m.get("chat", {}).get("id")
     from_user = m.get("from", {})
 
-    # ✏️ ویرایش دستی: ادمینِ در حالت ویرایش، متن جدید می‌فرستد
-    pid = from_user.get("id")
-    if _is_admin(pid) and text and pid in _pending_edits:
-        st = _pending_edits.pop(pid)
-        if time.time() - st.get("ts", 0) > 600:
-            tg.send_message(chat_id, "⌛ مهلت ویرایش تمام شد — دوباره دکمه‌ی ویرایش را بزن")
-            return
-        if text.startswith("/cancel"):
-            tg.send_message(chat_id, "ویرایش لغو شد")
-            return
-        ok, msg = _apply_admin_edit(st, text)
-        tg.send_message(chat_id, msg)
+    # ✏️ ویرایش با ریپلای + /edit، ادیت یا ویرایش — بدون مهلت زمانی
+    # فقط خودِ خط اول فرمان مهم است؛ «ادیتور» یا متن عادی اشتباهی فعال نمی‌شود.
+    first_line = text.split("\n", 1)[0].strip().lower()
+    first_command = first_line.split("@", 1)[0].strip()
+    is_edit_command = (
+        first_command in ("/edit", "ادیت", "ویرایش")
+        or first_command.startswith("/edit ")
+        or first_command.startswith("ادیت ")
+        or first_command.startswith("ویرایش ")
+    )
+    if _is_admin(from_user.get("id")) and is_edit_command:
+        _apply_reply_edit(m)
         return
 
     # لینک خام توییت → استخراج کامل مثل بقیه خبرها (ادمین خودش انتخابش کرده،
     # پس فیلترهای سن/طول/کلیدواژه اینجا معنا ندارند)
     if _TWEET_LINK_ONLY.match(text) and _is_admin(from_user.get("id")):
-        tg.send_message(chat_id, "\U0001F50E در حال استخراج توییت...", silent=True,
-                        reply_to=m.get("message_id"))
-        threading.Thread(target=_handle_tweet_link, args=(text, chat_id, m.get("message_id")),
+        status = tg.send_message(chat_id, "\U0001F50E در حال استخراج توییت...", silent=True,
+                                 reply_to=m.get("message_id"))
+        threading.Thread(target=_handle_tweet_link,
+                         args=(text, chat_id, m.get("message_id"),
+                               (status or {}).get("message_id")),
                          daemon=True).start()
         return
 
-    # لینک مقاله عمومی (غیر توییت) → خط لوله آرشیو + ترجمه + Telegraph
-    if _ARTICLE_LINK_ONLY.match(text) and _is_admin(from_user.get("id")):
-        tg.send_message(chat_id, "📄 در حال آرشیو و ترجمه مقاله...", silent=True,
-                        reply_to=m.get("message_id"))
-        threading.Thread(target=_handle_article_link, args=(text, chat_id, m.get("message_id")),
+    # لینک سایت باشگاه → استخراج به‌عنوان پست معمولی (نه مقاله/Telegraph)
+    if _LFC_LINK_ONLY.match(text) and _is_admin(from_user.get("id")):
+        status = tg.send_message(chat_id, "🔎 در حال استخراج خبر...", silent=True,
+                                 reply_to=m.get("message_id"))
+        threading.Thread(target=_handle_lfc_link,
+                         args=(text, chat_id, m.get("message_id"),
+                               (status or {}).get("message_id")),
+                         daemon=True).start()
+        return
+
+    # سایر لینک‌ها فقط وقتی خط لوله مقاله با env روشن شده باشد پردازش می‌شوند.
+    if (getattr(config, "ENABLE_ARTICLES", False)
+            and _ARTICLE_LINK_ONLY.match(text)
+            and _is_admin(from_user.get("id"))):
+        status = tg.send_message(chat_id, "📄 در حال آرشیو و ترجمه مقاله...", silent=True,
+                                 reply_to=m.get("message_id"))
+        threading.Thread(target=_handle_article_link,
+                         args=(text, chat_id, m.get("message_id"),
+                               (status or {}).get("message_id")),
                          daemon=True).start()
         return
 
