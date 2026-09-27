@@ -234,6 +234,68 @@ def _to_entry(status, handle):
     }
 
 
+def _own_statuses_paged(handle, count, since=None, with_replies=False):
+    """صفحه‌ی اول + صفحه‌های بعدی → (page, status های خودِ حساب).
+
+    **چرا pagination لازم است:** در polling افزایشی (`since`) ممکن است در پنجره‌ی
+    ۱۵ دقیقه‌ای بیش از `count` پست جمع شود (مثلاً بعد از یک downtime). اگر فقط صفحه‌ی
+    اول خوانده شود، بقیه‌ی خبرها بی‌صدا گم می‌شوند ⇒ با `cursor.bottom` تا تهیه‌شدن
+    نتیجه یا سقف `FXEMBED_MAX_PAGES` صفحه جلو می‌رویم. طبق مستندات، `since` فقط
+    «بدون cursor» معتبر است، پس صفحه‌های بعدی فقط `cursor` می‌گیرند.
+
+    بدون `since` عمداً فقط صفحه‌ی اول خوانده می‌شود: polling عادی همیشه
+    تازه‌ترین‌ها را می‌خواهد و پیمایش تا ته صفحه فقط بار بی‌فایده است.
+    """
+    page = _statuses_page(handle, count, since=since, with_replies=with_replies)
+    allow_replies = not with_replies
+    out = _own_statuses(handle, page["results"], allow_replies=allow_replies)
+    if not since or not page["ok"]:
+        return page, out
+
+    max_pages = max(1, int(_cfg("FXEMBED_MAX_PAGES", 3)))
+    hard_cap = int(count) * max_pages
+    seen = {s.get("id") for s in out}
+    cursor = page.get("cursor")
+    pages = 1
+    # سقف «تعداد درخواست» (نه فقط تعداد entry) — تا حتی با cursor تکراریِ API
+    # حلقه هرگز بی‌نهایت نشود.
+    while cursor and pages < max_pages and len(out) < hard_cap:
+        nxt = _statuses_page(handle, count, cursor=cursor, with_replies=with_replies)
+        pages += 1
+        if not nxt["ok"] or not nxt["results"]:
+            break
+        for st in _own_statuses(handle, nxt["results"], allow_replies=allow_replies):
+            if st.get("id") in seen:
+                continue
+            seen.add(st.get("id"))
+            out.append(st)
+        new_cursor = nxt.get("cursor")
+        if new_cursor == cursor:      # cursor جلو نرفت ⇒ دیگر چیزی برای گرفتن نیست
+            break
+        cursor = new_cursor
+    return page, out
+
+
+def suspension_reason(screen_name):
+    """'suspended' | 'not_found' | None — برای cooldown طولانی حساب‌های غیرقابل‌دسترس.
+
+    فقط وقتی صدا زده می‌شود که خواندن timeline چیزی نداده (نه هر سیکل برای هر
+    حساب)، پس هزینه‌اش ناچیز است.
+    """
+    handle = (screen_name or "").lstrip("@").strip()
+    if not handle:
+        return None
+    http, payload, _err = _api_get("/2/profile/%s" % handle)
+    if not isinstance(payload, dict):
+        return None
+    blob = " ".join(str(payload.get(k) or "") for k in ("message", "reason")).lower()
+    if "suspend" in blob:
+        return "suspended"
+    if payload.get("code") == 404 or http == 404 or not payload.get("user"):
+        return "not_found"
+    return None
+
+
 def scrape_user(screen_name, count=None, since=None):
     """entry های نیتر-سازگار برای یک حساب؛ [] روی هر خطا (هرگز raise نمی‌کند).
 
@@ -246,25 +308,27 @@ def scrape_user(screen_name, count=None, since=None):
     if count is None:
         count = _cfg("FXEMBED_TWEETS_PER_ACCOUNT", 20)
 
-    page = _statuses_page(handle, count, since=since)
+    page, statuses = _own_statuses_paged(handle, count, since=since)
     if not page["ok"]:
         log.debug("fxembed @%s: timeline failed (http=%s code=%s %s)",
                   handle, page["http"], page["code"], page["message"])
-    statuses = _own_statuses(handle, page["results"], allow_replies=True)
 
     # timeline پیش‌فرض خالی بود ولی حساب سالم است (تست واقعی: LiverpoolFF)
     # → یک بار با with_replies می‌خوانیم و به توییت‌های خودش محدود می‌کنیم.
     if not statuses and page["code"] == 404 and _cfg("FXEMBED_WITH_REPLIES_FALLBACK", True):
-        page2 = _statuses_page(handle, count, since=since, with_replies=True)
+        page2, statuses = _own_statuses_paged(handle, count, since=since,
+                                              with_replies=True)
         if page2["ok"]:
-            statuses = _own_statuses(handle, page2["results"], allow_replies=False)
             # با since، خالی‌بودن معمولاً یعنی «حساب ساکن است» نه «توییت اصلی ندارد»
             (log.debug if since else log.info)(
                 "fxembed @%s: default timeline empty → with_replies (%d)",
                 handle, len(statuses))
 
-    entries = [_to_entry(st, handle) for st in statuses[:count]]
-    return entries
+    # سقف دفاعی: صفحه‌ی اول برابر `count` است و صفحه‌های دنباله تا FXEMBED_MAX_PAGES
+    # (به هر حال به API اعتماد می‌کنیم که به size درخواستی احترام می‌گذارد).
+    max_pages = max(1, int(_cfg("FXEMBED_MAX_PAGES", 3)))
+    cap = int(count) * (max_pages if since else 1)
+    return [_to_entry(st, handle) for st in statuses[:cap]]
 
 
 def _parse_tweet_url(url):

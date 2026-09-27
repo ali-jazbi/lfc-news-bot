@@ -297,6 +297,197 @@ def test_bad_json_never_raises(monkeypatch, no_sleep):
     _patch(monkeypatch, [_Resp(None, 200)])
     assert fxembed.scrape_user("FabrizioRomano") == []
 
+# ============================== pagination واقعی (بازپخشِ backlog در polling)
+def _statuses(*ids, **over):
+    out = [_status(id=i, url="https://x.com/FabrizioRomano/status/" + i,
+                   text=TXT1, created_timestamp=TS1) for i in ids]
+    return out
+
+
+def test_pagination_follows_cursor_when_since_used(monkeypatch, no_sleep):
+    """با since: اگر backlog از یک صفحه بیشتر باشد صفحه‌ی دوم هم خوانده می‌شود.
+
+    ریسک اصلی: ۲۰ پست در پنجره‌ی polling → بدون cursor بقیه‌ی خبرها گم می‌شوند.
+    """
+    from sources import fxembed
+    ids1 = ["21040260265064039%02d" % i for i in range(20)]
+    ids2 = ["21040260265064038%02d" % i for i in range(5)]
+    calls = _patch(monkeypatch, [
+        _Resp(_page(_statuses(*ids1), cursor={"top": "T", "bottom": "C1"})),
+        _Resp(_page(_statuses(*ids2), cursor={"top": "C1", "bottom": "C2"})),
+        _Resp(_page([])),
+    ])
+    entries = fxembed.scrape_user("FabrizioRomano", since=TS1 - 900)
+    assert len(entries) == 25
+    assert len(calls) == 3
+    # صفحه‌های بعدی فقط cursor دارند (مستندات: since فقط بدون cursor معتبر است)
+    assert calls[1]["params"]["cursor"] == "C1"
+    assert "since" not in calls[1]["params"]
+    assert calls[2]["params"]["cursor"] == "C2"
+    assert "since" not in calls[2]["params"]
+    links = [e["link"].split("/")[-1] for e in entries]
+    assert links[0] == ids1[0] and ids1[-1] in links and len(set(links)) == 25
+
+
+def test_pagination_deduplicates_overlap(monkeypatch, no_sleep):
+    """اگر دو صفحه یک id داشته باشند، فقط یکی وارد لیست می‌شود."""
+    from sources import fxembed
+    a = ["2104026026506403%03d" % i for i in range(20)]
+    _patch(monkeypatch, [
+        _Resp(_page(_statuses(*a), cursor={"top": "T", "bottom": "C1"})),
+        _Resp(_page(_statuses(a[0], a[1], "2104026026506390001"))),
+        _Resp(_page([])),
+    ])
+    entries = fxembed.scrape_user("FabrizioRomano", since=1)
+    links = [e["link"].split("/")[-1] for e in entries]
+    # ۲۰ تای صفحه‌ی اول + ۱ تای جدید صفحه‌ی دوم (۲ id تکراری حذف می‌شوند)
+    assert len(links) == len(set(links)) == 21
+
+
+def test_pagination_respects_max_pages(monkeypatch, no_sleep):
+    """سقف صفحه‌ها (FXEMBED_MAX_PAGES) جلوی حلقه‌ی بی‌نهایت را می‌گیرد."""
+    import config
+    from sources import fxembed
+    monkeypatch.setattr(config, "FXEMBED_MAX_PAGES", 2)
+    calls = _patch(monkeypatch, [
+        _Resp(_page(_statuses("1", "2"), cursor={"top": "T", "bottom": "C1"})),
+        _Resp(_page(_statuses("3", "4"), cursor={"top": "C1", "bottom": "C2"})),
+        _Resp(_page(_statuses("5"))),
+    ])
+    entries = fxembed.scrape_user("FabrizioRomano", since=1)
+    assert len(calls) == 2                    # صفحه‌ی سوم رزرو شد
+    assert len(entries) == 4
+
+
+def test_no_pagination_without_since(monkeypatch, no_sleep):
+    """polling عادی (بدون since) فقط صفحه‌ی اول می‌خواند."""
+    from sources import fxembed
+    calls = _patch(monkeypatch, [
+        _Resp(_page(_statuses("1", "2"), cursor={"top": "T", "bottom": "C1"})),
+    ])
+    entries = fxembed.scrape_user("FabrizioRomano")
+    assert len(calls) == 1
+    assert len(entries) == 2
+
+
+# ============================== suspended / not-found (cooldown طولانی)
+def test_suspension_reason_detects_suspended(monkeypatch, no_sleep):
+    from sources import fxembed
+    _patch(monkeypatch, [_Resp({"code": 404, "message": "User is suspended"})])
+    assert fxembed.suspension_reason("AnfieldSector") == "suspended"
+
+
+def test_suspension_reason_detects_not_found(monkeypatch, no_sleep):
+    from sources import fxembed
+    _patch(monkeypatch, [_Resp({"code": 404, "message": "User not found"})])
+    assert fxembed.suspension_reason("ghostuser") == "not_found"
+
+
+def test_suspension_reason_none_for_healthy_account(monkeypatch, no_sleep):
+    from sources import fxembed
+    _patch(monkeypatch, [_Resp({"code": 200, "user": {"screen_name": "LFC"}})])
+    assert fxembed.suspension_reason("LFC") is None
+
+
+# ============================== partial failure (بخشی موفق، بخشی ناموفق)
+def test_partial_failure_updates_state_only_for_successes(monkeypatch):
+    """حساب ناموفق نباید since بگیرد و نباید dead-cycle ثبت کند."""
+    fxembed, twitter = _fx_mode(monkeypatch, accounts=("FabrizioRomano", "LFC"))
+
+    def fake_scrape(u, count=None, since=None):
+        return [] if u == "LFC" else [_entry()]
+
+    monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
+    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: None)
+    counters = []
+    monkeypatch.setattr(twitter.health, "record_counter",
+                        lambda name, n=1: counters.append(name))
+
+    items = twitter.fetch(limit=10)
+    assert len(items) == 1                  # خبرهای موفق وارد پایپ‌لاین شدند
+    assert "fxembed_dead_cycle" not in counters
+    since_map = twitter._state["fxembed_since"]
+    assert "fabrizioromano" in since_map
+    assert "lfc" not in since_map           # state فقط برای موفق‌ها
+
+
+def test_failed_account_retried_next_cycle(monkeypatch):
+    """حساب ناموفق سیکل بعد باید دوباره کامل خوانده شود (since=None)."""
+    fxembed, twitter = _fx_mode(monkeypatch, accounts=("FabrizioRomano", "LFC"))
+    seen = {}
+    ok = {"lfc": False}
+
+    def fake_scrape(u, count=None, since=None):
+        seen.setdefault(u, []).append(since)
+        if u == "LFC" and not ok["lfc"]:
+            return []
+        return [_entry()]
+
+    monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
+    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: None)
+    twitter.fetch(limit=10)
+    assert seen["LFC"] == [None]
+    ok["lfc"] = True
+    twitter.fetch(limit=10)
+    assert seen["LFC"][1] is None           # دوباره بدون since → retry واقعی
+
+
+def test_suspended_account_gets_24h_cooldown_and_is_skipped(monkeypatch):
+    """حساب suspended: یک بار تشخیص، بعد تا ۲۴ ساعت اصلاً درخواست نمی‌رود."""
+    import time as _t
+
+    import config
+    fxembed, twitter = _fx_mode(monkeypatch,
+                                accounts=("FabrizioRomano", "AnfieldSector"))
+    calls = []
+
+    def fake_scrape(u, count=None, since=None):
+        calls.append(u)
+        return [] if u == "AnfieldSector" else [_entry()]
+
+    monkeypatch.setattr(config, "FXEMBED_SUSPENDED_COOLDOWN", 86400)
+    monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
+    monkeypatch.setattr(fxembed, "suspension_reason",
+                        lambda u: "suspended" if u == "AnfieldSector" else None)
+
+    twitter.fetch(limit=10)
+    cd = twitter._state["fxembed_cooldown"]["anfieldsector"]
+    assert cd["reason"] == "suspended"
+    assert cd["until"] > _t.time() + 3600
+    assert "AnfieldSector" in calls         # سیکل اول = کشف (یک بار)
+
+    calls.clear()
+    twitter.fetch(limit=10)                   # سیکل بعد: باید کاملاً skip شود
+    assert "AnfieldSector" not in calls
+    assert "FabrizioRomano" in calls
+
+
+def test_cooldown_expires_after_24h(monkeypatch):
+    """بعد از گذشت مهلت، حساب دوباره بررسی می‌شود."""
+    fxembed, twitter = _fx_mode(monkeypatch, accounts=("AnfieldSector",))
+    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: "suspended")
+    twitter._state["fxembed_cooldown"] = {"anfieldsector": {
+        "until": 1.0, "reason": "suspended"}}
+    calls = []
+    monkeypatch.setattr(fxembed, "scrape_user",
+                        lambda u, count=None, since=None: calls.append(u) or [])
+    twitter.fetch(limit=10)
+    assert calls == ["AnfieldSector"]
+
+
+def test_fxembed_never_sleeps_between_accounts(monkeypatch):
+    """Throttle واقعی = تعداد worker است، نه sleep بعد از submit همه."""
+    fxembed, twitter = _fx_mode(monkeypatch)
+
+    def boom(_):
+        raise AssertionError("fetch نباید sleep کند — درخواست‌ها از قبل submit شده‌اند")
+
+    monkeypatch.setattr(twitter.time, "sleep", boom)
+    monkeypatch.setattr(fxembed, "scrape_user",
+                        lambda u, count=None, since=None: [_entry()])
+    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: None)
+    assert len(twitter.fetch(limit=10)) == 1
+
 
 # ============================================================ thread / focus
 def test_grouped_thread_uses_focal_status(monkeypatch, no_sleep):

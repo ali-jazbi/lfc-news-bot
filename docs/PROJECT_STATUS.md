@@ -46,6 +46,33 @@ Running in **test / semi-automatic mode**: bot drafts posts and sends them to an
 - **GraphQL was NOT needed** (recorded as the next fallback if FxEmbed ever
   becomes unavailable; self-hosting FxEmbed is the preferred intermediate step).
 
+## 2026-09-27 (review round) — production hardening
+- **Real cursor pagination in the polling path**: `since` alone was not enough — if a
+  window held more than `count=20` posts (long downtime, deadline day) the rest were
+  silently lost. `_own_statuses_paged()` now follows `cursor.bottom` until the page is
+  empty, capped by `FXEMBED_MAX_PAGES` (default 3 ⇒ hard cap 60 tweets/account), with
+  id de-duplication and a request-count cap so a non-advancing cursor can never loop.
+  Verified live: cycle 1 = 36 tweets, cycle 2 = 115 tweets via pagination, **0 lost**.
+- **Learned semantics:** `since` is a *poll signal*, not a filter — it returns `204`
+  when nothing is strictly newer, otherwise the normal page. That is exactly why the
+  15-minute overlap exists (next cycle re-sees the latest tweets; DB removes dupes).
+- **Removed the fake throttle**: `time.sleep(INTER_ACCOUNT_DELAY)` after submitting all
+  futures did nothing; the only real throttle is `FXEMBED_WORKERS`. A test now fails
+  the fetch path if it ever sleeps again. Rate-limit comment corrected to the
+  documented **1000 requests/minute per IP**.
+- **Partial-failure tests added**: state (`fxembed_since`) is written only for accounts
+  that returned data, a failed account is retried next cycle *without* `since`, and a
+  partial failure never trips `fxembed_dead_cycle` (that counter is for "all accounts
+  empty" only). Successful accounts still enter the pipeline in the same cycle.
+- **Suspended/deleted accounts now cool down 24h**: `fxembed.suspension_reason()`
+  (called only when an account yields nothing) returns `suspended`/`not_found`, which
+  is stored in `data/twitter_state.json → fxembed_cooldown`; those accounts are not
+  requested again until it expires. Verified live: `@AnfieldSector` → `suspended`,
+  `@LiverpoolFF` → 20 tweets (with_replies) → 60 in the next cycle.
+- **Tests:** `tests/test_fxembed.py` 28 → **40**; full suite **248 passed**. Live
+  29-account run after the fixes: **27/29 = 93.1%**, 528 tweets (25 with media,
+  12 with video, 23 with quotes).
+
 ## Completed
 - Multi-source ingestion: official LFC feed, 29 curated Twitter/X accounts (via Nitter + RSS fallback), legacy Romano feed checker.
 - **Twitter reliability (2026-08):** 429-safe polling (staggered rotation, 4 workers, inter-account delay); a 429 no longer triggers a 30-min account cooldown — rate-limited accounts are retried next cycle so news isn't missed.

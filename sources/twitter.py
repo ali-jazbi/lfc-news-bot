@@ -1103,30 +1103,48 @@ def _fetch_fxembed(limit=6):
     عمداً هیچ fallback ای به نیتر ندارد: classic/Nitter دیگر منبع قابل اتکایی
     نیست و افتادن به آن فقط سیکل را هدر می‌دهد. اگر همه‌ی حساب‌ها جواب ندهند،
     شمارنده‌ی سلامت ثبت می‌شود و لاگ خطا داده می‌شود (خبری جعل نمی‌شود).
+
+    دو نکته‌ی رفتاری:
+      * throttle واقعی فقط `FXEMBED_WORKERS` است؛ `time.sleep` بین اکانت‌ها
+        هیچ فایده‌ای ندارد چون همه‌ی درخواست‌ها از قبل submit شده‌اند.
+      * حساب ساسپند/حذف‌شده یک بار تشخیص داده می‌شود و تا
+        `FXEMBED_SUSPENDED_COOLDOWN` دیگر هیچ درخواستی برایش نمی‌رود.
     """
     from sources import fxembed
 
-    users = _due_accounts()
-    if not users:
+    due = _due_accounts()
+    if not due:
         return []
     t0 = time.time()
+
+    # --- حساب‌های ساسپند/حذف‌شده: تا پایان cooldown اصلاً پرسیده نمی‌شوند
+    cooldown = _state.setdefault("fxembed_cooldown", {})
+    now = time.time()
+    users, skipped = [], []
+    for u in due:
+        until = (cooldown.get(u.lower()) or {}).get("until") or 0
+        (skipped if until > now else users).append(u)
+    if skipped:
+        log.info("fxembed: %d account(s) skipped (suspended/deleted): %s",
+                 len(skipped), ", ".join(skipped))
+    if not users:
+        return []
 
     per_account = getattr(config, "FXEMBED_TWEETS_PER_ACCOUNT", 20)
     use_since = getattr(config, "FXEMBED_USE_SINCE", True)
     overlap = getattr(config, "FXEMBED_SINCE_OVERLAP_SECONDS", 900)
     since_map = dict(_state.get("fxembed_since") or {})
 
-    feeds = {}
-    newest = {}
-
     def _since_for(user):
+        """فقط حساب‌هایی که قبلاً با موفقیت خوانده شده‌اند since می‌گیرند."""
         if not use_since:
             return None
         last = since_map.get(user.lower())
         return max(0, int(last) - overlap) if last else None
 
-    with ThreadPoolExecutor(max_workers=min(
-            len(users), getattr(config, "FXEMBED_WORKERS", 6))) as pool:
+    workers = min(len(users), getattr(config, "FXEMBED_WORKERS", 6))
+    feeds, newest, empty = {}, {}, []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(fxembed.scrape_user, u, per_account,
                                _since_for(u)): u for u in users}
         for fut in as_completed(futures):
@@ -1141,15 +1159,32 @@ def _fetch_fxembed(limit=6):
                 ts = _newest_timestamp(entries)
                 if ts:
                     newest[u.lower()] = ts
-            time.sleep(INTER_ACCOUNT_DELAY)
+            else:
+                empty.append(u)            # ناموفق → سیکل بعد دوباره کامل خوانده می‌شود
+
+    # --- چیزی نداد ⇒ آخرین تلاش برای تشخیص «ساسپند/حذف‌شده» (فقط همین‌بار)
+    if empty:
+        cd_secs = getattr(config, "FXEMBED_SUSPENDED_COOLDOWN", 86400)
+        with ThreadPoolExecutor(max_workers=min(len(empty), workers)) as pool:
+            reasons = dict(zip(
+                empty,
+                pool.map(lambda u: fxembed.suspension_reason(u), empty)))
+        for u in empty:
+            reason = reasons.get(u)
+            if reason:
+                cooldown[u.lower()] = {"reason": reason, "until": now + cd_secs}
+                log.warning("fxembed @%s is %s — skipping it for %sh "
+                            "(no news exists for it anyway)",
+                            u, reason, round(cd_secs / 3600))
 
     if newest:
-        since_map.update(newest)
+        since_map.update(newest)            # state فقط برای حساب‌های موفق
         _state["fxembed_since"] = since_map
+    if newest or empty:
         _save()
 
-    log.info("fxembed: %d/%d accounts in %ss",
-             len(feeds), len(users), round(time.time() - t0, 1))
+    log.info("fxembed: %d/%d accounts in %ss (skipped %d, empty %d)",
+             len(feeds), len(due), round(time.time() - t0, 1), len(skipped), len(empty))
 
     if not feeds:
         health.record_counter("fxembed_dead_cycle", 1)

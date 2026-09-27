@@ -144,17 +144,26 @@ XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES = _int(
 )
 
 # --- FxEmbed / FxTwitter (منبع توصیه‌شده‌ی توییتر) ---
-# API عمومی و رایگان، بدون API key و بدون Cookie (سقف ۱۰۰۰ req/min برای هر IP).
+# API عمومی و رایگان، بدون API key و بدون Cookie.
+# سقف نرخ مستندشده‌ی API v2: ۱۰۰۰ درخواست در دقیقه به‌ازای هر IP — این بات با
+# حدود ۳۰ درخواست در هر سیکل (۲۹ حساب) خیلی پایین‌تر از آن است.
 FXEMBED_BASE = _get("FXEMBED_BASE", "https://api.fxtwitter.com")
 FXEMBED_TIMEOUT = _int("FXEMBED_TIMEOUT", 20)
 # این API در شبکه‌های شلوغ گاهی اتصال را نیمه‌کاره می‌بندد → چند تلاش لازم است.
 FXEMBED_FETCH_TRIES = _int("FXEMBED_FETCH_TRIES", 3)
-# این API سقف نرخ سختی برای این بات ندارد (۱۰۰۰ درخواست در دقیقه) پس چند
-# حساب همیشه موازی خوانده می‌شود (برخلاف نیتر که ۴ کارگر داشت تا ۴۲۹ ندهد).
-FXEMBED_WORKERS = _int("FXEMBED_WORKERS", 6)
 
 # چند توییت آخر هر حساب خوانده شود (سقف API: ۱۰۰).
 FXEMBED_TWEETS_PER_ACCOUNT = _int("FXEMBED_TWEETS_PER_ACCOUNT", 20)
+# سقف صفحه‌های cursor در polling افزایشی: اگر در پنجره‌ی since بیش از یک صفحه
+# پست جمع شده باشد (مثلاً بعد از downtime) تا تهیه‌شدن نتیجه ادامه می‌دهیم تا
+# خبری گم نشود. سقف سخت = FXEMBED_TWEETS_PER_ACCOUNT × FXEMBED_MAX_PAGES.
+FXEMBED_MAX_PAGES = _int("FXEMBED_MAX_PAGES", 3)
+# چند حساب همزمان خوانده شود — این تنها throttle واقعی است (sleep بین اکانت‌ها
+# بی‌فایده است چون همه‌ی درخواست‌ها از قبل submit شده‌اند).
+FXEMBED_WORKERS = _int("FXEMBED_WORKERS", 6)
+# حساب ساسپند/حذف‌شده روی X هرگز خبری نمی‌دهد → به‌جای تلاش در هر سیکل، ۲۴ ساعت
+# کاملاً از درخواست خودداری می‌کنیم (بعد دوباره بررسی می‌شود، شاید برگشته باشد).
+FXEMBED_SUSPENDED_COOLDOWN = _int("FXEMBED_SUSPENDED_COOLDOWN", 86400)
 # حساب‌هایی که توییت اصلی ندارند در timeline پیش‌فرض ۴۰۴ می‌دهند (مثل
 # LiverpoolFF) → یک بار با with_replies=1 و محدود به توییت‌های خودشان.
 FXEMBED_WITH_REPLIES_FALLBACK = (
