@@ -14,9 +14,20 @@ LFC News Bot is a Python polling service that aggregates Liverpool FC news from 
    rules. Python remains the backend — Hermes only reasons.
 1. **Fetch** — pull raw items from sources:
    - `sources/lfc_official.py` — official LFC RSS/site feed.
-   - `sources/twitter.py` — configured list of Twitter/X accounts via Nitter mirrors + RSS fallback, with per-account cooldown and rotating base URLs.
+   - `sources/twitter.py` — the 29 configured Twitter/X accounts. Which upstream
+     is used is chosen by `TWITTER_MODE`:
+     - `fxembed` (**recommended**) — FxEmbed/FxTwitter public API v2
+       (`sources/fxembed.py`): free, no API key, no cookies/login.
+     - `xscrape` — direct x.com HTML scraping (`sources/xscrape.py`). **Dead
+       since Sep 2026**: x.com no longer embeds tweet data (`relayRecords`/
+       `TBirdData`) in the initial HTML.
+     - `classic` — Nitter mirrors + RSS fallback. Legacy: mirrors are dead.
    - `sources/romano.py` — legacy Fabrizio Romano-specific feed checker (candidate for retirement, see DECISIONS.md).
 2. **Normalize** — every source returns a common item dict: `title`, `text`, `url`, `image`, `source_tag` (display name), `handle`, `published_at`.
+   Twitter-compatible sources (`xscrape`, `fxembed`) return a shared *entry*
+   contract (`title, link, summary, image, published` plus the `_xscrape_media`
+   / `_xscrape_quoted` side-channels) so the rest of the pipeline — filters,
+   `_attach_media`, `_entries_to_items`, formatter — is source-agnostic.
 3. **De-duplicate / score** — `channel_guard.py` computes a similarity score against recently-sent items (stored in `db.py`) to avoid re-posting the same story twice. Items above a similarity threshold are suppressed or flagged.
 4. **Translate** — `translate.py` runs a fallback chain of translation providers (see "Translation Chain" below) to produce Persian text while preserving names/entities via `glossary.json`.
 5. **Format** — `formatter.py` builds the final Telegram message (title, body, source tag, similarity %, buttons) using the channel post template.
@@ -52,6 +63,10 @@ The bot runs as a single long-lived Python process using Telegram long-polling (
 
 ## External dependencies
 - Telegram Bot API (bot token, admin group, public channel).
-- Nitter mirror instances (unofficial, can go down — see THREAT_MODEL.md).
+- **FxEmbed/FxTwitter public API** (`api.fxtwitter.com`) — free, key-less, cookie-less
+  source for the 29 Twitter/X accounts (`TWITTER_MODE=fxembed`). Rate limit 1000
+  req/min per IP. Self-hosting the same software is the escape hatch (see docs.fxembed.com).
+- Nitter mirror instances — **legacy/unreliable**, kept only as a compatibility path
+  (`TWITTER_MODE=classic`) and as the explicit-warning last resort of `xscrape`.
 - LLM providers for translation (opencode endpoints, Groq).
 - No database server — state is local (SQLite/JSON via `db.py`), so the deployment target must have persistent disk if history should survive restarts.

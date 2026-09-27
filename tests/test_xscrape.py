@@ -381,7 +381,11 @@ def test_fetch_tweet_accepts_twitter_and_mobile(monkeypatch, no_sleep):
 # ------------------------------------------- item_from_url در sources.twitter
 def test_item_from_url_builds_full_item(monkeypatch, no_sleep):
     """لینک خام → item استاندارد، بدون فیلتر سن/طول — مثل بقیه خبرها."""
+    import config
     import sources.twitter as twitter
+
+    # این تست مسیر xscrape را می‌پوشاند؛ حالت بات نباید به مقدار .env وابسته باشد
+    monkeypatch.setattr(config, "TWITTER_MODE", "xscrape")
 
     tid = TID1
     b1 = _b64(tid)

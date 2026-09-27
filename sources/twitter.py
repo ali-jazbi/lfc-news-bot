@@ -1014,7 +1014,13 @@ def _fetch_xscrape(limit=6):
         _save()
         max_dead = getattr(config, "XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES", 3)
         if cycles >= max_dead and getattr(config, "XSCRAPE_FALLBACK_CLASSIC", True):
-            log.error("xscrape dead for %d cycles — falling back to nitter", cycles)
+            # ⚠ آینه‌های نیتر مرده‌اند؛ این fallback فقط «بدون خطا ادامه دادن»
+            # است، نه راه‌حل. منبع واقعی از این پس TWITTER_MODE=fxembed است.
+            log.warning(
+                "xscrape dead %d cycles → falling back to classic/Nitter — "
+                "but classic/Nitter is no longer a reliable source "
+                "(dead mirrors); the working source is TWITTER_MODE=fxembed",
+                cycles)
             _state["xscrape_dead_cycles"] = 0
             _save()
             return _fetch_classic(limit)
@@ -1023,6 +1029,16 @@ def _fetch_xscrape(limit=6):
     _state["xscrape_dead_cycles"] = 0
     _save()
 
+    return _entries_to_items(feeds, users, limit)
+
+
+def _entries_to_items(feeds, users, limit):
+    """entry های خام (xscrape/fxembed) → item های نهایی پایپ‌لاین.
+
+    مشترک بین `_fetch_xscrape` و `_fetch_fxembed`: فیلتر سن/نویز/کلیدواژه،
+    ساخت body با نقل‌قول و تشخیص منبع اصلی — تا هر دو منبع دقیقاً یک رفتار
+    داشته باشند (قرارداد entry یکی است).
+    """
     out = []
     for user in users:
         if len(out) >= limit:
@@ -1081,6 +1097,84 @@ def _fetch_xscrape(limit=6):
     return out
 
 
+def _fetch_fxembed(limit=6):
+    """حالت TWITTER_MODE=fxembed — FxEmbed/FxTwitter API v2 (رایگان، بدون لاگین).
+
+    عمداً هیچ fallback ای به نیتر ندارد: classic/Nitter دیگر منبع قابل اتکایی
+    نیست و افتادن به آن فقط سیکل را هدر می‌دهد. اگر همه‌ی حساب‌ها جواب ندهند،
+    شمارنده‌ی سلامت ثبت می‌شود و لاگ خطا داده می‌شود (خبری جعل نمی‌شود).
+    """
+    from sources import fxembed
+
+    users = _due_accounts()
+    if not users:
+        return []
+    t0 = time.time()
+
+    per_account = getattr(config, "FXEMBED_TWEETS_PER_ACCOUNT", 20)
+    use_since = getattr(config, "FXEMBED_USE_SINCE", True)
+    overlap = getattr(config, "FXEMBED_SINCE_OVERLAP_SECONDS", 900)
+    since_map = dict(_state.get("fxembed_since") or {})
+
+    feeds = {}
+    newest = {}
+
+    def _since_for(user):
+        if not use_since:
+            return None
+        last = since_map.get(user.lower())
+        return max(0, int(last) - overlap) if last else None
+
+    with ThreadPoolExecutor(max_workers=min(
+            len(users), getattr(config, "FXEMBED_WORKERS", 6))) as pool:
+        futures = {pool.submit(fxembed.scrape_user, u, per_account,
+                               _since_for(u)): u for u in users}
+        for fut in as_completed(futures):
+            u = futures[fut]
+            try:
+                entries = fut.result()
+            except Exception as e:          # ماژول هرگز raise نمی‌کند؛ محض احتیاط
+                log.warning("fxembed @%s raised: %s", u, e)
+                entries = []
+            if entries:
+                feeds[u] = entries
+                ts = _newest_timestamp(entries)
+                if ts:
+                    newest[u.lower()] = ts
+            time.sleep(INTER_ACCOUNT_DELAY)
+
+    if newest:
+        since_map.update(newest)
+        _state["fxembed_since"] = since_map
+        _save()
+
+    log.info("fxembed: %d/%d accounts in %ss",
+             len(feeds), len(users), round(time.time() - t0, 1))
+
+    if not feeds:
+        health.record_counter("fxembed_dead_cycle", 1)
+        log.error("fxembed returned nothing for all %d accounts — "
+                  "check network / api.fxtwitter.com status", len(users))
+        return []
+
+    return _entries_to_items(feeds, users, limit)
+
+
+def _newest_timestamp(entries):
+    """جدیدترین زمان انتشار یک لیست entry (unix ثانیه) — برای since سیکل بعد."""
+    from email.utils import parsedate_to_datetime
+    best = 0
+    for e in entries or []:
+        raw = (e.get("published") or "").strip()
+        if not raw:
+            continue
+        try:
+            best = max(best, int(parsedate_to_datetime(raw).timestamp()))
+        except Exception:
+            continue
+    return best
+
+
 def build_tweet_item(entry, user):
     """item استاندارد از یک entry توییت — مشترک بین فید و لینک ادمین.
 
@@ -1133,19 +1227,26 @@ def build_tweet_item(entry, user):
 def item_from_url(url):
     """لینک خام توییت → item کامل (بدون فیلترها — ادمین خودش انتخاب کرده).
 
+    منبع داده تابع حالت فعلی بات است: fxembed (پیشنهادی) یا xscrape.
     خروجی: item یا None. هرگز raise نمی‌کند.
     """
-    from sources import xscrape
-
-    handle, entry = xscrape.fetch_tweet(url)
+    if getattr(config, "TWITTER_MODE", "classic") == "fxembed":
+        from sources import fxembed
+        handle, entry = fxembed.fetch_tweet(url)
+    else:
+        from sources import xscrape
+        handle, entry = xscrape.fetch_tweet(url)
     if not entry:
         return None
     return build_tweet_item(entry, handle)
 
 
 def fetch(limit=6):
-    if getattr(config, "TWITTER_MODE", "classic") == "xscrape":
+    mode = getattr(config, "TWITTER_MODE", "classic")
+    if mode == "xscrape":
         return _fetch_xscrape(limit)
+    if mode == "fxembed":
+        return _fetch_fxembed(limit)
     return _fetch_classic(limit)
 
 

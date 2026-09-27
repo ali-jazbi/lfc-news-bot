@@ -115,10 +115,12 @@ ENABLE_TWITTER_SYNDICATION = (
 )
 
 # حالت جمع‌آوری توییت:
-#   classic  = آینه‌های نیتر (رفتار قدیمی — پیش‌فرض، دست نخورده)
-#   xscrape  = اسکرپ مستقیم x.com (بدون هیچ تماس با نیتر؛ پورت از Liverpool-bot)
+#   classic  = آینه‌های نیتر (legacy — دیگر قابل اتکا نیست، فقط سازگاری)
+#   xscrape  = اسکرپ مستقیم x.com (از سپتامبر ۲۰۲۶ x.com دیگر relay data در
+#              HTML نمی‌گذارد → عملاً مرده است؛ برای سازگاری نگه داشته شده)
+#   fxembed  = FxEmbed/FxTwitter API v2 (رایگان، بدون کلید/کوکی/لاگین) ← توصیه‌شده
 TWITTER_MODE = _get("TWITTER_MODE", "classic").lower()
-if TWITTER_MODE not in ("classic", "xscrape"):
+if TWITTER_MODE not in ("classic", "xscrape", "fxembed"):
     TWITTER_MODE = "classic"
 
 XSCRAPE_TIMEOUT = _int("XSCRAPE_TIMEOUT", 20)
@@ -130,13 +132,39 @@ TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE = _int(
     "TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE", 8
 )
 # اگر x.com چند سیکل پشت‌هم جواب نداد (بلاک IP دیتاسنتر و...) برگرد به نیتر
-# تا خبر از دست نرود.
+# ⚠ توجه: classic/Nitter دیگر منبع قابل اتکایی نیست (آینه‌ها مرده‌اند). این
+# fallback فقط برای این نگه داشته شده که بات در بدترین حالت هم بدون خطا
+# ادامه دهد؛ راه‌حل واقعی رفتن به TWITTER_MODE=fxembed است. در لاگ هشدار
+# صریح داده می‌شود.
 XSCRAPE_FALLBACK_CLASSIC = (
     _get("XSCRAPE_FALLBACK_CLASSIC", "true").lower() == "true"
 )
 XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES = _int(
     "XSCRAPE_MAX_CONSECUTIVE_DEAD_CYCLES", 3
 )
+
+# --- FxEmbed / FxTwitter (منبع توصیه‌شده‌ی توییتر) ---
+# API عمومی و رایگان، بدون API key و بدون Cookie (سقف ۱۰۰۰ req/min برای هر IP).
+FXEMBED_BASE = _get("FXEMBED_BASE", "https://api.fxtwitter.com")
+FXEMBED_TIMEOUT = _int("FXEMBED_TIMEOUT", 20)
+# این API در شبکه‌های شلوغ گاهی اتصال را نیمه‌کاره می‌بندد → چند تلاش لازم است.
+FXEMBED_FETCH_TRIES = _int("FXEMBED_FETCH_TRIES", 3)
+# این API سقف نرخ سختی برای این بات ندارد (۱۰۰۰ درخواست در دقیقه) پس چند
+# حساب همیشه موازی خوانده می‌شود (برخلاف نیتر که ۴ کارگر داشت تا ۴۲۹ ندهد).
+FXEMBED_WORKERS = _int("FXEMBED_WORKERS", 6)
+
+# چند توییت آخر هر حساب خوانده شود (سقف API: ۱۰۰).
+FXEMBED_TWEETS_PER_ACCOUNT = _int("FXEMBED_TWEETS_PER_ACCOUNT", 20)
+# حساب‌هایی که توییت اصلی ندارند در timeline پیش‌فرض ۴۰۴ می‌دهند (مثل
+# LiverpoolFF) → یک بار با with_replies=1 و محدود به توییت‌های خودشان.
+FXEMBED_WITH_REPLIES_FALLBACK = (
+    _get("FXEMBED_WITH_REPLIES_FALLBACK", "true").lower() == "true"
+)
+# polling افزایشی: فقط پست‌های تازه‌تر از آخرین توییت دیده‌شده خواسته می‌شوند
+# (کد 204 = خبر تازه‌ای نیست → سیکل سریع تمام می‌شود). حاشیه‌ی زمانی عمدی
+# دارد تا اگر یک آیتم پایین‌دستی شکست خورد، سیکل بعد دوباره دیده شود.
+FXEMBED_USE_SINCE = _get("FXEMBED_USE_SINCE", "true").lower() == "true"
+FXEMBED_SINCE_OVERLAP_SECONDS = _int("FXEMBED_SINCE_OVERLAP_SECONDS", 900)
 
 # فیدهای RSS رسمی خبرگزاری‌ها — رسمی و پایدار، هیچ وابستگی به آینه/میرور ندارد.
 # برای افزودن فید جدید کافی است آدرسش را اینجا اضافه کنی (با کاما جدا کن).

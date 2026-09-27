@@ -5,6 +5,47 @@ _Last updated: reflects state as of this documentation pass. Update this file wh
 ## Mode
 Running in **test / semi-automatic mode**: bot drafts posts and sends them to an admin Telegram group for manual approval before anything reaches the public channel.
 
+## 2026-09-27 — Twitter source revived: `TWITTER_MODE=fxembed`
+- **`xscrape` died quietly (structural change on X's side).** Live probing of all
+  29 accounts: some requests get Cloudflare `403` with body `IPv6` (network/IP),
+  the rest return `HTTP 200` with 164–192 KB of real HTML **but no `relayRecords`
+  and no `TBirdData`** — X stopped embedding tweet data in the initial HTML, so
+  `extract_relay_script()` always returns `None`. The page is now a JS shell that
+  pulls data from X's internal GraphQL API. Login/cookies (`auth_token`, `ct0`,
+  `cf_clearance`) made no difference.
+- **New source `sources/fxembed.py`** — FxEmbed/FxTwitter public API v2
+  (`https://api.fxtwitter.com`): free, **no API key, no cookies, no login**
+  (official OpenAPI + docs). Maps responses to the *same* entry contract used by
+  Nitter/xscrape (`title, link, summary, image, published` +
+  `_xscrape_media`/`_xscrape_quoted`), so `translate.py`, `formatter.py`, the
+  Telegram logic and `main.py` were **not touched**.
+- **Live result (real requests, from the bot's own path):** `29 accounts → 27 ok
+  / 2 failed = 93.1%`, 524 tweets, 24 accounts with media, 11 with video, 23 with
+  quotes, ~5s average latency per account. The 2 failures (`@AnfieldSector`,
+  `@Anfieldmedia_`) are **suspended on X** (`User is suspended`) — no source can
+  serve them.
+- **Two operational findings baked into the code:** the API sometimes drops
+  connections without an HTTP code (`RemoteDisconnected`/`SSLError`) → retries
+  with backoff, never raises; and accounts with no original posts return `404`
+  on the default timeline (e.g. `@LiverpoolFF`, `@mnstr_mntlt`) → one retry with
+  `with_replies=1`, filtered to the account's own posts/retweets (this lifted the
+  success rate from 25/29 = 86% to 27/29 = 93%).
+- **Incremental polling:** `GET .../statuses?since=<unix>` returns `204 No Content`
+  when nothing is newer; per-account last-seen timestamps are stored in
+  `data/twitter_state.json` (`fxembed_since`) with a 15-minute overlap so a tweet
+  that failed downstream is seen again next cycle. Config: `FXEMBED_USE_SINCE`,
+  `FXEMBED_SINCE_OVERLAP_SECONDS`.
+- **Fallbacks:** `XSCRAPE_FALLBACK_CLASSIC` kept (default unchanged) but now logs
+  an explicit warning that classic/Nitter is *no longer a reliable source*;
+  `TWITTER_MODE=classic` and `TWITTER_MODE=xscrape` still work and are documented
+  as legacy/dead. The new mode deliberately does **not** fall back to Nitter.
+- **Tests:** `tests/test_fxembed.py` (28 network-free tests, FAIL→FIX→PASS);
+  full suite **236 passed**, zero regressions. Live harness:
+  `scripts/manual_tests/test_fxembed.py`; raw probes:
+  `scripts/diagnostics/probe_sources.py`.
+- **GraphQL was NOT needed** (recorded as the next fallback if FxEmbed ever
+  becomes unavailable; self-hosting FxEmbed is the preferred intermediate step).
+
 ## Completed
 - Multi-source ingestion: official LFC feed, 29 curated Twitter/X accounts (via Nitter + RSS fallback), legacy Romano feed checker.
 - **Twitter reliability (2026-08):** 429-safe polling (staggered rotation, 4 workers, inter-account delay); a 429 no longer triggers a 30-min account cooldown — rate-limited accounts are retried next cycle so news isn't missed.
