@@ -108,6 +108,10 @@ def _sources():
         out.append(("twitter", "توییتر", twitter.fetch))
     elif config.ENABLE_ROMANO:
         out.append(("romano", "رومانو", romano.fetch))
+    # منابع RSS جدید (اختیاری، OUTLET_RSS_SOURCES) — آخر لیست تا خبر توییتر
+    # در سقف آیتم‌های هر سیکل عقب نیفتد؛ سلامت/backoff مستقل از بقیه.
+    if getattr(config, "OUTLET_RSS_SOURCES", None):
+        out.append(("rss_extra", "منابع RSS جدید", outlet_rss.fetch_extra))
     return out
 
 

@@ -183,6 +183,14 @@ OUTLET_RSS_FEEDS = _list(
     "https://feeds.bbci.co.uk/sport/football/teams/liverpool/rss.xml",
 )
 
+# منابع RSS جدید و اختیاری (کاتالوگ آماده در sources/outlet_rss.py: CATALOG).
+# پیش‌فرض خالی = هیچ منبع جدیدی فعال نیست و رفتار قبلی عوض نمی‌شود.
+# مثال: OUTLET_RSS_SOURCES=guardian,football365,liverpoolcom,thisisanfield
+# یا OUTLET_RSS_SOURCES=all
+OUTLET_RSS_SOURCES = _list("OUTLET_RSS_SOURCES", "")
+# خبر قدیمی‌تر از این‌قدر ساعت از منابع جدید رد می‌شود (0 = بدون فیلتر سن)
+OUTLET_RSS_MAX_AGE_HOURS = _int("OUTLET_RSS_MAX_AGE_HOURS", 12)
+
 # بلواسکای — جایگزین رسمی نیتر برای خبرنگارانی که آنجا هم پست می‌گذارند.
 # غیرفعال است تا وقتی BLUESKY_HANDLES پر شود (نمونه: someone.bsky.social)
 ENABLE_BLUESKY = _get("ENABLE_BLUESKY", "false").lower() == "true"
