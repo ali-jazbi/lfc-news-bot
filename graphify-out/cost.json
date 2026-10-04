@@ -1,0 +1,12 @@
+{
+  "runs": [
+    {
+      "input_tokens": 28000,
+      "output_tokens": 5600,
+      "files": 155,
+      "note": "Semantic-agent token estimates; AST extraction uses no LLM"
+    }
+  ],
+  "total_input_tokens": 28000,
+  "total_output_tokens": 5600
+}

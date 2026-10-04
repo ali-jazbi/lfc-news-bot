@@ -1,0 +1,440 @@
+{
+  "nodes": [
+    {
+      "id": "concepts__analysis_template_analysis",
+      "label": "Analysis template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_analysis-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "A point-in-time conclusion drawn from observed facts; relations.informs links to Ideas."
+    },
+    {
+      "id": "concepts__decision_template_decision",
+      "label": "Decision template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_decision-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Decisions preserve history: a new Decision supersedes an old one instead of rewriting it."
+    },
+    {
+      "id": "concepts__engine_rule_template_engine_rule",
+      "label": "EngineRule template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_engine-rule-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "One rule per engine defines its role, allowed actions, forbidden actions and style; relations.part_of identifies its agent Identity."
+    },
+    {
+      "id": "concepts__idea_template_idea",
+      "label": "Idea template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_idea-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Ideas mature through spark and incubating to adopted or rejected; rejection requires a reason and adoption links to a Plan."
+    },
+    {
+      "id": "concepts__identity_template_identity",
+      "label": "Identity template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_identity-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "One agent Identity per bundle defines Voice, Values, Boundaries and conflict hierarchy; named headings support brief assembly."
+    },
+    {
+      "id": "concepts__research_template_research",
+      "label": "Research template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_research-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Point-in-time research answers one question with sourced findings; it may be spawned by Analysis and inform an Idea."
+    },
+    {
+      "id": "concepts__session_template_session",
+      "label": "Session template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_session-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "An append-only closing session artifact records Done, Decided and Next."
+    },
+    {
+      "id": "concepts__template_concept",
+      "label": "Concept template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Concept paths serve as identity."
+    },
+    {
+      "id": "concepts_index_concepts",
+      "label": "Concepts index",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "entities__template_entity",
+      "label": "Entity template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\entities\\_template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Entities represent people, organizations and systems; User is reserved for the bundle owner."
+    },
+    {
+      "id": "entities__user_template_user",
+      "label": "User template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\entities\\_user-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "One User per bundle identifies the human or organization served; introductory preferences and hard rules receive top priority in brief assembly."
+    },
+    {
+      "id": "entities_index_entities",
+      "label": "Entities index",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\entities\\index.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "projects__plan_template_plan",
+      "label": "Plan template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\_plan-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Plans record coordinated stages and risks; replacing a plan creates a new Plan that supersedes its predecessor."
+    },
+    {
+      "id": "projects__task_template_task",
+      "label": "Task template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\_task-template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Tasks track current state through in-place edits; blocked tasks require an explanation of what blocks and unblocks them."
+    },
+    {
+      "id": "projects__template_project",
+      "label": "Project template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\_template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "projects_index_projects",
+      "label": "Projects index",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\index.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "secret__template_secret_visibility",
+      "label": "Secret visibility template",
+      "file_type": "document",
+      "source_file": "D:\\Github\\lfc-news-bot\\secret\\_template.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Secret visibility excludes nodes from default queries; the secret folder is gitignored and inclusion requires --include-secret."
+    },
+    {
+      "id": "assets_sample_sample_image",
+      "label": "Red sample image with two white horizontal stripes",
+      "file_type": "image",
+      "source_file": "D:\\Github\\lfc-news-bot\\assets\\sample.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__template_concept",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__identity_template_identity",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__engine_rule_template_engine_rule",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__decision_template_decision",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__session_template_session",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__analysis_template_analysis",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__research_template_research",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts_index_concepts",
+      "target": "concepts__idea_template_idea",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "entities_index_entities",
+      "target": "entities__template_entity",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\entities\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "entities_index_entities",
+      "target": "entities__user_template_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\entities\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "projects_index_projects",
+      "target": "projects__template_project",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "projects_index_projects",
+      "target": "projects__plan_template_plan",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "projects_index_projects",
+      "target": "projects__task_template_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\projects\\index.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__analysis_template_analysis",
+      "target": "concepts__idea_template_idea",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_analysis-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__research_template_research",
+      "target": "concepts__analysis_template_analysis",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_research-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__research_template_research",
+      "target": "concepts__idea_template_idea",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_research-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__idea_template_idea",
+      "target": "projects__plan_template_plan",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_idea-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__engine_rule_template_engine_rule",
+      "target": "concepts__identity_template_identity",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_engine-rule-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__identity_template_identity",
+      "target": "concepts__engine_rule_template_engine_rule",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_identity-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "entities__user_template_user",
+      "target": "concepts__identity_template_identity",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\entities\\_user-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__session_template_session",
+      "target": "concepts__decision_template_decision",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_session-template.md",
+      "source_location": null,
+      "weight": 1
+    },
+    {
+      "source": "concepts__session_template_session",
+      "target": "projects__task_template_task",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:\\Github\\lfc-news-bot\\concepts\\_session-template.md",
+      "source_location": null,
+      "weight": 1
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

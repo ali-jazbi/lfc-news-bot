@@ -1,0 +1,205 @@
+{
+  "node_count": 1676,
+  "unverified_node_count": 0,
+  "raw_edge_count": 3821,
+  "non_object_edges": 0,
+  "missing_endpoint_edges": 0,
+  "dangling_endpoint_edges": 305,
+  "external_reference_edges": 0,
+  "self_loop_edges": 2,
+  "valid_candidate_edges": 3516,
+  "exact_duplicate_edges": 0,
+  "directed_unique_endpoint_pairs": 3365,
+  "directed_same_endpoint_collapsed_edges": 151,
+  "undirected_unique_endpoint_pairs": 3364,
+  "undirected_same_endpoint_collapsed_edges": 152,
+  "same_endpoint_group_count": 150,
+  "relation_variant_groups": 148,
+  "source_file_variant_groups": 0,
+  "source_location_variant_groups": 2,
+  "context_variant_groups": 0,
+  "post_build_graph_type": "DiGraph",
+  "post_build_node_count": 1712,
+  "post_build_edge_count": 3658,
+  "post_build_error": "",
+  "producer_suppression": {
+    "path": "C:\\Users\\mehdi\\AppData\\Roaming\\uv\\tools\\graphifyy\\Lib\\site-packages\\graphify\\extract.py",
+    "total_sites": 12,
+    "sites": [
+      {
+        "line": 1676,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2209,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2211,
+        "name": "seen_doc_refs",
+        "tuple_arity": 0,
+        "sample": "seen_doc_refs: set[str] = set()"
+      },
+      {
+        "line": 2628,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2775,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n.get(\"id\") for n in nodes}"
+      },
+      {
+        "line": 3501,
+        "name": "seen_keys",
+        "tuple_arity": 0,
+        "sample": "seen_keys: set[tuple] = set()"
+      },
+      {
+        "line": 3670,
+        "name": "seen_keys",
+        "tuple_arity": 0,
+        "sample": "seen_keys: set[tuple] = set()"
+      },
+      {
+        "line": 5777,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 5885,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 5964,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 6479,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 6480,
+        "name": "seen_edges",
+        "tuple_arity": 4,
+        "sample": "seen_edges: set[tuple[str, str, str, str | None]] = set()"
+      }
+    ],
+    "error": ""
+  },
+  "examples": [
+    {
+      "source": "ai_editor_deterministic_analysis",
+      "target": "ai_schemas_newsanalysis",
+      "edge_count": 3,
+      "relations": [
+        "calls",
+        "references",
+        "uses"
+      ],
+      "source_files": [
+        "ai/editor.py"
+      ],
+      "source_locations": [
+        "L172",
+        "L188"
+      ],
+      "contexts": [
+        "",
+        "call",
+        "return_type"
+      ]
+    },
+    {
+      "source": "ai_init",
+      "target": "ai_schemas",
+      "edge_count": 2,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "ai/__init__.py"
+      ],
+      "source_locations": [
+        "L6"
+      ],
+      "contexts": [
+        "export",
+        "import"
+      ]
+    },
+    {
+      "source": "ai_init",
+      "target": "ai_editor",
+      "edge_count": 2,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "ai/__init__.py"
+      ],
+      "source_locations": [
+        "L10"
+      ],
+      "contexts": [
+        "export",
+        "import"
+      ]
+    },
+    {
+      "source": "ai_init",
+      "target": "ai_tracing",
+      "edge_count": 2,
+      "relations": [
+        "imports_from",
+        "re_exports"
+      ],
+      "source_files": [
+        "ai/__init__.py"
+      ],
+      "source_locations": [
+        "L11"
+      ],
+      "contexts": [
+        "export",
+        "import"
+      ]
+    },
+    {
+      "source": "ai_editor_collect_evidence",
+      "target": "ai_editor_collect_evidence_add",
+      "edge_count": 2,
+      "relations": [
+        "calls",
+        "contains"
+      ],
+      "source_files": [
+        "ai/editor.py"
+      ],
+      "source_locations": [
+        "L408",
+        "L424"
+      ],
+      "contexts": [
+        "",
+        "call"
+      ]
+    }
+  ]
+}

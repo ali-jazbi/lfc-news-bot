@@ -1,0 +1,151 @@
+{
+  "nodes": 1712,
+  "edges": 3658,
+  "communities": 86,
+  "god_nodes": [
+    {
+      "id": "db_c",
+      "label": "_c()",
+      "degree": 45
+    },
+    {
+      "id": "ai_schemas_newsanalysis",
+      "label": "NewsAnalysis",
+      "degree": 40
+    },
+    {
+      "id": "ai_editor_newseditor",
+      "label": "NewsEditor",
+      "degree": 36
+    },
+    {
+      "id": "ai_schemas_verificationresult",
+      "label": "VerificationResult",
+      "degree": 30
+    },
+    {
+      "id": "telegram_api_telegram",
+      "label": "Telegram",
+      "degree": 30
+    },
+    {
+      "id": "tests_test_fxembed_resp",
+      "label": "_Resp",
+      "degree": 30
+    },
+    {
+      "id": "tests_test_fxembed_patch",
+      "label": "_patch()",
+      "degree": 30
+    },
+    {
+      "id": "sources_fxembed_scrape_user",
+      "label": "scrape_user()",
+      "degree": 29
+    },
+    {
+      "id": "ai_editor_deterministic_analysis",
+      "label": "deterministic_analysis()",
+      "degree": 28
+    },
+    {
+      "id": "ai_schemas_translationreview",
+      "label": "TranslationReview",
+      "degree": 28
+    }
+  ],
+  "surprising_connections": [
+    {
+      "source": "RSS age filtering keeps unknown dates and bypasses keyword checks",
+      "target": "Never silently lose news",
+      "source_files": [
+        "inbox/2026-09-28-extra-rss-sources.md",
+        "docs/DECISIONS.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; semantically similar concepts with no structural link; peripheral node `RSS age filtering keeps unknown dates and bypasses keyword checks` unexpectedly reaches hub `Never silently lose news`"
+    },
+    {
+      "source": "Durable news pipeline operation",
+      "target": "approve()",
+      "source_files": [
+        "docs/NEWS_PIPELINE.md",
+        "names.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "documents",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (doc ↔ code); connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "Durable news pipeline operation",
+      "target": "split_html()",
+      "source_files": [
+        "docs/NEWS_PIPELINE.md",
+        "telegram_text.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "documents",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (doc ↔ code); connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "Durable news pipeline operation",
+      "target": "_quality_review()",
+      "source_files": [
+        "docs/NEWS_PIPELINE.md",
+        "translate.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "documents",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (doc ↔ code); connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "Durable news pipeline operation",
+      "target": "ingest_batch()",
+      "source_files": [
+        "docs/NEWS_PIPELINE.md",
+        "db.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "documents",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (doc ↔ code); connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `Manual forwarding publication workflow` and `Approved public channel message`?",
+      "why": "Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `HermesClient` connect `hermes_client, test_verification` to `schemas, test_ai`, `hermes_client, test_verification`, `test_ai, test_decision`?",
+      "why": "High betweenness centrality (0.003) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `NewsEditor` connect `test_image, image_selector` to `editor, test_decision`, `hermes_client, test_verification`, `test_ai, test_decision`?",
+      "why": "High betweenness centrality (0.002) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `translate()` connect `test_independent_translation, translate` to `translate, `?",
+      "why": "High betweenness centrality (0.002) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 3 inferred relationships involving `NewsEditor` (e.g. with `HermesClient` and `NewsAnalysis`) actually correct?",
+      "why": "`NewsEditor` has 3 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `npx`, `OKF_ROOT`, `redeploy.sh script` to the rest of the system?",
+      "why": "29 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `telegram_api, names` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.05030181086519115 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

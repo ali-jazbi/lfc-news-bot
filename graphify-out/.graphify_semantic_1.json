@@ -1,0 +1,737 @@
+{
+  "nodes": [
+    {
+      "id": "readme_admin_review",
+      "label": "Human review before public publishing",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/README.md",
+      "source_location": "16-17",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_glossary",
+      "label": "Glossary consistency across translation providers",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/README.md",
+      "source_location": "57-61,81",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_architecture_pipeline",
+      "label": "Fetch, normalize, deduplicate, translate, review, publish, persist",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/ARCHITECTURE.md",
+      "source_location": "15-36",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_decisions_never_lose_news",
+      "label": "Never silently lose news",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/DECISIONS.md",
+      "source_location": "16,22",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Delivery failures retain error and retry state; incremental source overlap re-exposes downstream failures."
+    },
+    {
+      "id": "docs_decisions_delivery_retry",
+      "label": "Bounded delivery retry state machine",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/DECISIONS.md",
+      "source_location": "16",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "MAX_SEND_RETRIES ends in an observable failed state rather than disappearance."
+    },
+    {
+      "id": "docs_decisions_source_health",
+      "label": "Concurrent collection with source backoff and jitter",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/DECISIONS.md",
+      "source_location": "17",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Slow or dead sources must not block the collection cycle."
+    },
+    {
+      "id": "docs_decisions_translation_fallback",
+      "label": "Multi-provider translation with non-LLM last resort",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/DECISIONS.md",
+      "source_location": "6",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Free providers fail or rate-limit; fallback maximizes availability without paid infrastructure."
+    },
+    {
+      "id": "docs_project_status_fxembed_overlap",
+      "label": "FxEmbed timestamp overlap and success-only cursor persistence",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "33-37,56-66",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_project_status_pagination_cap",
+      "label": "FxEmbed bounded pagination: default three pages, sixty posts",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "50-55",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Pagination recovers busy-window posts, while a request cap prevents non-advancing cursors from looping."
+    },
+    {
+      "id": "docs_project_status_source_cooldown",
+      "label": "Suspended or deleted accounts cool down twenty-four hours",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "67-71,78",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Permanent account failures use cooldown; transient rate-limits should retry next cycle."
+    },
+    {
+      "id": "docs_next_session_plan_live_validation",
+      "label": "Tweet and QC changes require restart and live verification",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/NEXT_SESSION_PLAN.md",
+      "source_location": "1-8",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_hermes_integration_hermes",
+      "label": "Hermes reasons; Python owns infrastructure",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "5-15",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_hermes_integration_policy_guard",
+      "label": "Deterministic hard rules and verification policy override AI",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "80-94",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Editorial models cannot override channel exclusions or publish sensitive unofficial claims without required review."
+    },
+    {
+      "id": "docs_hermes_integration_qc_fail_closed",
+      "label": "Unavailable QC requires human review; revisions are bounded",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "99-105",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_hermes_integration_prompt_policy",
+      "label": "Web and RSS evidence is untrusted; embedded instructions are ignored",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "113-117",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_evaluation_report_borderline_confirmation",
+      "label": "Hermes mistakes source wording confirmed for official confirmation",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/EVALUATION_REPORT.md",
+      "source_location": "51-66,102-114",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Reported accuracy uses a small mixed golden set; the injury case still goes to human review in practice."
+    },
+    {
+      "id": "docs_edit_workflow_admin_override",
+      "label": "Admin edits preserve formatting and bypass automated text reshaping",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/EDIT_WORKFLOW.md",
+      "source_location": "19-26",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_article_pipeline_plan_full_article",
+      "label": "Pending complete article translation and ordered Telegraph assembly",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/ARTICLE_PIPELINE_PLAN.md",
+      "source_location": "3-12,18-36",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_article_pipeline_plan_fail_closed",
+      "label": "Any article translation chunk failure stops publication",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/ARTICLE_PIPELINE_PLAN.md",
+      "source_location": "11,26-29,41",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Long articles must remain complete; silent Google fallback is intentionally forbidden."
+    },
+    {
+      "id": "docs_threat_model_paywall_policy",
+      "label": "Paywalled article full text must never be scraped or republished",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/THREAT_MODEL.md",
+      "source_location": "7-10",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Use public source summaries and links to avoid copyright and terms exposure."
+    },
+    {
+      "id": "docs_threat_model_silent_delivery",
+      "label": "Documented risk of Telegram failures silently stopping delivery",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/THREAT_MODEL.md",
+      "source_location": "16-18",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "inbox_2026_08_31_xscrape_news_loss_fixes_relevance_filters",
+      "label": "Perishable relevance keywords, quoted text, and bounded tweet checks",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-08-31-xscrape-news-loss-fixes.md",
+      "source_location": "10-18,41-43",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "inbox_2026_09_28_extra_rss_sources_optional_rss",
+      "label": "Optional RSS catalogue with separate per-feed limits and source health",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-28-extra-rss-sources.md",
+      "source_location": "15-29",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "A shared BBC-first limit starved later feeds; extra RSS runs last so Twitter retains cycle priority."
+    },
+    {
+      "id": "inbox_2026_09_28_extra_rss_sources_age_filter",
+      "label": "RSS age filtering keeps unknown dates and bypasses keyword checks",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-28-extra-rss-sources.md",
+      "source_location": "31-39",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Prevent stale-news floods without losing news because dates or explicit Liverpool keywords are absent."
+    },
+    {
+      "id": "inbox_2026_09_27_fxembed_twitter_source_fxembed",
+      "label": "FxEmbed replaces structurally dead X HTML and unreliable Nitter",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-27-fxembed-twitter-source.md",
+      "source_location": "15-52,119-130,186-196",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Credential-free API preserves the existing entry contract; FxEmbed deliberately avoids fallback to dead Nitter."
+    },
+    {
+      "id": "hermes_skills_lfc_news_editor_skill_editor",
+      "label": "Editor classification with conservative review and anti-hallucination",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-editor/SKILL.md",
+      "source_location": "24-38,48-52",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "hermes_skills_lfc_news_translator_skill_translator",
+      "label": "Translator preserves viewpoint, glossary names, numbers, and all content",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-translator/SKILL.md",
+      "source_location": "20-40",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "The instruction combines approximately 400–800 characters with nothing omitted, creating a completeness constraint for longer input."
+    },
+    {
+      "id": "hermes_skills_lfc_news_quality_control_skill_qc",
+      "label": "QC checks source fidelity, glossary, exact facts, and channel style",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-quality-control/SKILL.md",
+      "source_location": "18-37",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "hermes_skills_lfc_news_verifier_skill_verifier",
+      "label": "Verifier requires independent evidence and never uses memory",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-verifier/SKILL.md",
+      "source_location": "18-37",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "hermes_skills_lfc_image_selector_skill_image_selection",
+      "label": "Conservative image selection: no image beats a wrong image",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-image-selector/SKILL.md",
+      "source_location": "22-39",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_agent_workflow_publishing_signoff",
+      "label": "Publishing changes require rollback and explicit user sign-off",
+      "file_type": "rationale",
+      "source_file": "D:/Github/lfc-news-bot/docs/AGENT_WORKFLOW.md",
+      "source_location": "5-17",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_release_policy_retention",
+      "label": "Bounded database retention trims heavy data and deletes old rows",
+      "file_type": "concept",
+      "source_file": "D:/Github/lfc-news-bot/docs/RELEASE_POLICY.md",
+      "source_location": "12-15",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Small shared hosts require bounded disk use; protection covers selected legacy states younger than forty-eight hours."
+    }
+  ],
+  "edges": [
+    {
+      "source": "docs_architecture_pipeline",
+      "target": "readme_admin_review",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARCHITECTURE.md",
+      "source_location": "34-35",
+      "weight": 1
+    },
+    {
+      "source": "docs_architecture_pipeline",
+      "target": "readme_glossary",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARCHITECTURE.md",
+      "source_location": "32,45",
+      "weight": 1
+    },
+    {
+      "source": "docs_decisions_delivery_retry",
+      "target": "docs_decisions_never_lose_news",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/DECISIONS.md",
+      "source_location": "16",
+      "weight": 1
+    },
+    {
+      "source": "docs_project_status_fxembed_overlap",
+      "target": "docs_decisions_never_lose_news",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "33-37,63-66",
+      "weight": 1
+    },
+    {
+      "source": "docs_project_status_pagination_cap",
+      "target": "docs_decisions_never_lose_news",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "50-55",
+      "weight": 1
+    },
+    {
+      "source": "docs_project_status_source_cooldown",
+      "target": "docs_decisions_source_health",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "67-78",
+      "weight": 1
+    },
+    {
+      "source": "docs_project_status_source_cooldown",
+      "target": "docs_decisions_never_lose_news",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:/Github/lfc-news-bot/docs/PROJECT_STATUS.md",
+      "source_location": "67-78",
+      "weight": 1
+    },
+    {
+      "source": "inbox_2026_08_31_xscrape_news_loss_fixes_relevance_filters",
+      "target": "docs_decisions_never_lose_news",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-08-31-xscrape-news-loss-fixes.md",
+      "source_location": "7-28",
+      "weight": 1
+    },
+    {
+      "source": "inbox_2026_09_28_extra_rss_sources_optional_rss",
+      "target": "inbox_2026_09_27_fxembed_twitter_source_fxembed",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-28-extra-rss-sources.md",
+      "source_location": "7-8",
+      "weight": 1
+    },
+    {
+      "source": "inbox_2026_09_28_extra_rss_sources_optional_rss",
+      "target": "docs_decisions_source_health",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-28-extra-rss-sources.md",
+      "source_location": "28",
+      "weight": 1
+    },
+    {
+      "source": "inbox_2026_09_28_extra_rss_sources_age_filter",
+      "target": "docs_decisions_never_lose_news",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-28-extra-rss-sources.md",
+      "source_location": "33-39",
+      "weight": 1
+    },
+    {
+      "source": "inbox_2026_09_27_fxembed_twitter_source_fxembed",
+      "target": "docs_project_status_fxembed_overlap",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-27-fxembed-twitter-source.md",
+      "source_location": "110-117,149-152",
+      "weight": 1
+    },
+    {
+      "source": "inbox_2026_09_27_fxembed_twitter_source_fxembed",
+      "target": "docs_project_status_source_cooldown",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/inbox/2026-09-27-fxembed-twitter-source.md",
+      "source_location": "154-160",
+      "weight": 1
+    },
+    {
+      "source": "docs_hermes_integration_hermes",
+      "target": "docs_architecture_pipeline",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARCHITECTURE.md",
+      "source_location": "7-14",
+      "weight": 1
+    },
+    {
+      "source": "docs_hermes_integration_policy_guard",
+      "target": "hermes_skills_lfc_news_editor_skill_editor",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "80-94",
+      "weight": 1
+    },
+    {
+      "source": "hermes_skills_lfc_news_editor_skill_editor",
+      "target": "hermes_skills_lfc_news_verifier_skill_verifier",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-editor/SKILL.md",
+      "source_location": "13,37",
+      "weight": 1
+    },
+    {
+      "source": "docs_hermes_integration_prompt_policy",
+      "target": "hermes_skills_lfc_news_verifier_skill_verifier",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "107-117",
+      "weight": 1
+    },
+    {
+      "source": "docs_evaluation_report_borderline_confirmation",
+      "target": "docs_hermes_integration_policy_guard",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/EVALUATION_REPORT.md",
+      "source_location": "51-66",
+      "weight": 1
+    },
+    {
+      "source": "hermes_skills_lfc_news_translator_skill_translator",
+      "target": "readme_glossary",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-translator/SKILL.md",
+      "source_location": "29-30",
+      "weight": 1
+    },
+    {
+      "source": "hermes_skills_lfc_news_quality_control_skill_qc",
+      "target": "readme_glossary",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-quality-control/SKILL.md",
+      "source_location": "23",
+      "weight": 1
+    },
+    {
+      "source": "hermes_skills_lfc_news_translator_skill_translator",
+      "target": "hermes_skills_lfc_news_quality_control_skill_qc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-translator/SKILL.md",
+      "source_location": "13",
+      "weight": 1
+    },
+    {
+      "source": "docs_hermes_integration_qc_fail_closed",
+      "target": "hermes_skills_lfc_news_quality_control_skill_qc",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "99-105",
+      "weight": 1
+    },
+    {
+      "source": "docs_hermes_integration_qc_fail_closed",
+      "target": "docs_decisions_translation_fallback",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "99-105",
+      "weight": 1
+    },
+    {
+      "source": "docs_article_pipeline_plan_fail_closed",
+      "target": "docs_decisions_translation_fallback",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARTICLE_PIPELINE_PLAN.md",
+      "source_location": "11,41",
+      "weight": 1
+    },
+    {
+      "source": "docs_article_pipeline_plan_fail_closed",
+      "target": "docs_hermes_integration_qc_fail_closed",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARTICLE_PIPELINE_PLAN.md",
+      "source_location": "11,29,33",
+      "weight": 1
+    },
+    {
+      "source": "docs_article_pipeline_plan_full_article",
+      "target": "docs_threat_model_paywall_policy",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARTICLE_PIPELINE_PLAN.md",
+      "source_location": "1,7-12,36",
+      "weight": 1
+    },
+    {
+      "source": "docs_article_pipeline_plan_full_article",
+      "target": "docs_next_session_plan_live_validation",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/ARTICLE_PIPELINE_PLAN.md",
+      "source_location": "3",
+      "weight": 1
+    },
+    {
+      "source": "docs_threat_model_silent_delivery",
+      "target": "docs_decisions_delivery_retry",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:/Github/lfc-news-bot/docs/THREAT_MODEL.md",
+      "source_location": "18",
+      "weight": 1
+    },
+    {
+      "source": "docs_release_policy_retention",
+      "target": "docs_decisions_delivery_retry",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:/Github/lfc-news-bot/docs/RELEASE_POLICY.md",
+      "source_location": "13-15",
+      "weight": 1
+    },
+    {
+      "source": "docs_edit_workflow_admin_override",
+      "target": "readme_admin_review",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/EDIT_WORKFLOW.md",
+      "source_location": "4-26",
+      "weight": 1
+    },
+    {
+      "source": "docs_agent_workflow_publishing_signoff",
+      "target": "readme_admin_review",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/AGENT_WORKFLOW.md",
+      "source_location": "13",
+      "weight": 1
+    },
+    {
+      "source": "hermes_skills_lfc_image_selector_skill_image_selection",
+      "target": "docs_hermes_integration_hermes",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md",
+      "source_location": "7,32-33,74",
+      "weight": 1
+    },
+    {
+      "source": "hermes_skills_lfc_news_translator_skill_translator",
+      "target": "docs_article_pipeline_plan_full_article",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:/Github/lfc-news-bot/hermes_skills/lfc-news-translator/SKILL.md",
+      "source_location": "31",
+      "weight": 1
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "news_preservation_with_bounded_resources",
+      "label": "Preserving news requires reconciling retry limits, pagination caps, cooldown, and retention",
+      "nodes": [
+        "docs_decisions_never_lose_news",
+        "docs_decisions_delivery_retry",
+        "docs_project_status_pagination_cap",
+        "docs_project_status_source_cooldown",
+        "docs_release_policy_retention"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/DECISIONS.md"
+    },
+    {
+      "id": "translation_fidelity_and_availability",
+      "label": "Translation availability, glossary fidelity, and fail-closed quality review",
+      "nodes": [
+        "docs_decisions_translation_fallback",
+        "readme_glossary",
+        "docs_hermes_integration_qc_fail_closed",
+        "hermes_skills_lfc_news_translator_skill_translator",
+        "hermes_skills_lfc_news_quality_control_skill_qc"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:/Github/lfc-news-bot/docs/HERMES_INTEGRATION.md"
+    }
+  ],
+  "input_tokens": 28000,
+  "output_tokens": 5600
+}

@@ -36,3 +36,6 @@ node_modules/
 /.samemind/
 /ledger/events.jsonl
 /mcp.json.bak
+
+# graphify extraction cache
+/graphify-out/cache/
