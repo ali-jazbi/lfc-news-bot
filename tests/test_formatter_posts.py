@@ -49,7 +49,7 @@ def test_interview_post_gets_microphone_icon():
                   "آماده‌ی رقابت‌های پیش روست و هواداران باید امیدوار باشند چون کیفیت "
                   "سکواد بالاست و هدف قهرمانی است در این فصل طولانی و پرفشار پیش رو."}
     cap = formatter.build_caption(_item(), tr)
-    assert cap.startswith("🎙 ")
+    assert cap.startswith("🎙️ ")
 
 
 def test_single_quote_becomes_telegram_blockquote():

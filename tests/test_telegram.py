@@ -108,6 +108,38 @@ def test_handle_callback_approve(patched_main, sample_item):
     assert db.get(key)["status"] == "approved"
 
 
+def test_callback_is_acknowledged_before_publish_work(patched_main, sample_item, monkeypatch):
+    import config
+    import db
+    import main
+    monkeypatch.setattr(config, "ADMIN_USER_IDS", [])
+    events = []
+    monkeypatch.setattr(main.tg, "answer_callback",
+                        lambda *a, **k: events.append("ack") or True)
+    monkeypatch.setattr(main, "approve",
+                        lambda *a, **k: events.append("publish") or (True, "sent"))
+    key = db.save(_with_translation(sample_item), status="sent_admin")
+    main.handle_callback({"id": "slow", "data": "pub:" + key,
+                          "message": {"chat": {"id": -100}, "message_id": 7},
+                          "from": {"id": 1, "first_name": "admin"}})
+    assert events[:2] == ["ack", "publish"]
+
+
+def test_edit_message_not_modified_is_idempotent_success(monkeypatch):
+    from telegram_api import Telegram
+    client = Telegram(token="test")
+
+    class Response:
+        @staticmethod
+        def json():
+            return {"ok": False, "error_code": 400,
+                    "description": "Bad Request: message is not modified"}
+
+    monkeypatch.setattr(client.s, "post", lambda *a, **k: Response())
+    result = client.edit_caption(-100, 10, "same caption")
+    assert result["unchanged"] is True
+
+
 def test_callback_unknown_news(patched_main):
     import main
     cq = {"id": "cid2", "data": "pub:unknownkey123",

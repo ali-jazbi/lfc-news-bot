@@ -20,6 +20,21 @@ import re
 
 log = logging.getLogger("userbot")
 
+
+async def _send_video_with_caption(client, target, media, caption=''):
+    from telegram_text import split_html
+    parts = split_html(caption, limit=1000) if caption else ['']
+    sent = await client.send_file(target, media, caption=parts[0],
+                                  parse_mode='html', supports_streaming=True)
+    if not sent:
+        raise RuntimeError('video send returned no message')
+    for part in parts[1:]:
+        result = await client.send_message(target, part, parse_mode='html',
+                                           link_preview=False, reply_to=sent.id)
+        if not result:
+            raise RuntimeError('video caption continuation failed')
+    return sent
+
 try:
     from telethon import TelegramClient, events
     from telethon.errors import AuthKeyDuplicatedError
@@ -245,21 +260,10 @@ class TwitterVidDownloader:
                 log.info("Received %d cloud video(s) from %s — sending to %s...",
                          len(videos), self.bot_target, target_chat_id)
                 sent = []
-                for vm in videos:
-                    sent.append(await client.send_file(target, vm.media))
-
-                if caption and sent:
-                    try:
-                        first = sent[0]
-                        await client.edit_message(
-                            target,
-                            first.id,
-                            caption,
-                            parse_mode="html",
-                        )
-                    except Exception as e:
-                        log.warning("edit caption after userbot upload failed: %s", e)
-                return True
+                for index, vm in enumerate(videos):
+                    sent.append(await _send_video_with_caption(
+                        client, target, vm.media, caption if index == 0 else ''))
+                return bool(sent)
             except asyncio.TimeoutError:
                 client.remove_event_handler(new_msg_handler)
                 client.remove_event_handler(edit_msg_handler)
@@ -314,8 +318,7 @@ class TwitterVidDownloader:
             urls = [u for u in (images or []) if u]
             main_img = image or (urls[0] if urls else None)
             if video:
-                await client.send_file(target, video, caption=text,
-                                       parse_mode="html", supports_streaming=True)
+                await _send_video_with_caption(client, target, video, text)
             elif main_img and len(text) <= 1024:
                 await client.send_file(target, main_img, caption=text, parse_mode="html")
             elif main_img:

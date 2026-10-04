@@ -36,6 +36,14 @@ class Telegram:
                     time.sleep(wait + 1)
                     continue
                 code = data.get("error_code") or 0
+                description = str(data.get("description") or "")
+                if code == 400 and method in {
+                    "editMessageText", "editMessageCaption", "editMessageReplyMarkup"
+                } and "message is not modified" in description.casefold():
+                    # Desired text/markup is already present; Telegram treats
+                    # this idempotent edit as a 400, but it is operational success.
+                    self.last_error = ""
+                    return {"message_id": params.get("message_id"), "unchanged": True}
                 if code >= 500:
                     # خطای موقت سرور/گیت‌وی — فشار نیاوریم، کمی صبر و دوباره
                     wait = 3 * (attempt + 1)
@@ -247,6 +255,10 @@ class Telegram:
                    silent=False, thumb=None, reply_to=None):
         """اول URL را به تلگرام می‌دهیم (خودش دانلود می‌کند)؛ اگر نشد
         خودمان دانلود و آپلود می‌کنیم. thumb فقط وقتی خودمان آپلود می‌کنیم."""
+        if isinstance(video_url, str) and os.path.isfile(video_url):
+            with open(video_url, 'rb') as video_file:
+                return self.upload_video(chat_id, video_file.read(), caption,
+                                         reply_markup, silent, reply_to=reply_to)
         res = self.call(
             "sendVideo",
             chat_id=chat_id,
@@ -278,6 +290,17 @@ class Telegram:
         if len(urls) < 2:
             return None
 
+        from telegram_text import split_html
+        parts = split_html(caption, limit=1000) if caption else ['']
+        caption = parts[0]
+
+        def finish(result):
+            for part in parts[1:]:
+                if not self.send_message(chat_id, part, silent=silent,
+                                         reply_to=result[0].get('message_id')):
+                    return None
+            return result
+
         media = []
         for i, u in enumerate(urls):
             entry = {"type": media_type, "media": u}
@@ -293,7 +316,7 @@ class Telegram:
             disable_notification=silent,
         )
         if res:
-            return res
+            return finish(res)
 
         log.info("sendMediaGroup with URL failed (%s) — manual upload fallback", self.last_error)
         files = {}
@@ -313,7 +336,7 @@ class Telegram:
                 key = f"photo{i}"
                 files[key] = (f"photo{i}.jpg", blob)
                 entry = {"type": "photo", "media": f"attach://{key}"}
-            if i == 0 and caption:
+            if not media2 and caption:
                 entry["caption"] = caption
                 entry["parse_mode"] = "HTML"
             media2.append(entry)
@@ -326,7 +349,7 @@ class Telegram:
             r = self.s.post(url, data=data, files=files, timeout=120)
             resj = r.json()
             if resj.get("ok"):
-                return resj["result"]
+                return finish(resj["result"])
             log.error("sendMediaGroup (manual upload) also failed: %s", resj.get("description"))
             self.last_error = resj.get("description") or str(resj)
         except Exception as e:
@@ -340,16 +363,16 @@ class Telegram:
         نبود آلبوم؛ ورنه طبق رفتار قدیمی: یک عکس + متن (یا فقط متن)."""
         imgs = [u for u in (images or []) if u]
 
-        if video and len(text.encode('utf-16-le')) // 2 > 1024:
-            res = self.send_video(chat_id, video, silent=silent, thumb=thumb, reply_to=reply_to)
-            if not res:
-                return None
-            return self.send_message(chat_id, text, reply_markup, silent=silent, reply_to=reply_to)
-
-        if video and len(text) <= 1024:
-            res = self.send_video(chat_id, video, text, reply_markup, silent, thumb,
+        if video:
+            from telegram_text import split_html
+            parts = split_html(text, limit=1000) if text else ['']
+            res = self.send_video(chat_id, video, parts[0], reply_markup, silent, thumb,
                                   reply_to=reply_to)
             if res:
+                for part in parts[1:]:
+                    if not self.send_message(chat_id, part, silent=silent,
+                                             reply_to=res.get('message_id')):
+                        return None
                 return res
             log.warning("video send failed (%s) — continuing with poster/photo", self.last_error)
             if thumb:

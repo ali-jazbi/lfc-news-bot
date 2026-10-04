@@ -363,7 +363,9 @@ def _llm_slot(n):
     }
 
 
-LLM_SLOTS = {("llm%d" % n): _llm_slot(n) for n in range(1, 11)}
+LLM_SLOTS = {slot: _llm_slot(int(slot[3:])) for slot in
+             {s.lower() for s in ['llm%d' % n for n in range(1, 11)] + TRANSLATE_ORDER}
+             if slot.startswith('llm') and slot[3:].isdigit()}
 
 # مترجم ماشینی گوگل — بدون کلید، بدون سقف. کیفیت پایین‌تر ولی همیشه در دسترس
 ENABLE_DEEP_TRANSLATOR = _get("ENABLE_DEEP_TRANSLATOR", "true").lower() == "true"

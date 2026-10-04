@@ -58,13 +58,13 @@ _STAT_HINTS = (
 )
 
 _SAY_VERB = re.compile(r"(گفت|نوشت|افزود|تأکید کرد|اظهار کرد|واکنش|پاسخ داد|می‌گوید|گفته)")
-_QUOTE_SPAN = re.compile(r"«[^»]{20,}»")
+_QUOTE_SPAN = re.compile(r'«[^»]{2,}»|“[^”]{2,}”|"[^"]{2,}"')
 
 _TAG_RE = re.compile(r"</?[a-zA-Z][^>]*>")
 
 _INTERVIEW_MARKERS = (
     "مصاحبه", "به نقل از", "گفت‌وگو", "گفتگو", "واکنش", "اظهارات",
-    "اظهار کرد", "interview", "exclusive",
+    "اظهار کرد", "interview",
 )
 
 
@@ -93,11 +93,34 @@ def _is_interview(item, tr):
         str(tr.get("title") or ""), str(tr.get("body") or "")[:400],
         str(item.get("title") or ""), str(item.get("body") or "")[:300],
     ]).lower()
+    speaker = _speaker(tr) or _speaker(item)
+    if _is_reporter(speaker, item):
+        return False
+    if speaker and (_QUOTE_SPAN.search(str(tr.get('body') or '')) or re.search(r'[:：]\s*["“«]', text)):
+        return True
     if any(m in text for m in _INTERVIEW_MARKERS):
         return True
-    if item.get("_is_quote") and _QUOTE_SPAN.search(str(tr.get("body") or "")):
-        return True
     return False
+
+
+def _speaker(tr):
+    for field in ('body', 'title'):
+        match = re.match(r'^\s*([^\n:：«»]{2,60})[:：]\s*', tr.get(field) or '')
+        if match:
+            return _EMOJI_RE.sub('', match.group(1)).strip()
+    return ''
+
+
+def _is_reporter(speaker, item):
+    if not speaker:
+        return False
+    reporters = set(config.TWITTER_NAMES.values()) | {
+        'جیمز پیرس', 'جیمز پی‌یرس', 'فابریتزیو رومانو', 'دیوید اورنستین',
+        'دیوید لینچ', 'پل جویس', 'لوئیس استیل', 'کریس بسکامب', 'بن جیکوبز',
+        'ملیسا ردی', 'پال گورست', 'نیکولو شیرا', 'جانلوکا دی‌مارتزیو',
+    }
+    reporters.add(item.get('source_tag') or '')
+    return speaker.casefold() in {name.casefold() for name in reporters if name}
 
 
 def _detect_quote_post(tr, body):
@@ -150,7 +173,9 @@ def build_caption(item, tr):
         body = _normalize_stats_emojis(esc(tr.get("body", "")).strip())
         title = esc(tr.get("title", "")).strip()
 
-    bullet = "\U0001F399" if _is_interview(item, tr) else (
+    interview = _is_interview(item, tr)
+    bullet = "\U0001F399\uFE0F" if interview else (
+        "\U0001F534" if _is_reporter(_speaker(tr) or _speaker(item), item) else
         "\U0001F534" if tr.get("importance") == "high" else "\u26AA\uFE0F"
     )
     # اگر ادمین عنوانش را خودش با ایموجی شروع کرده، گلوله تکراری نمی‌گذاریم
@@ -161,6 +186,15 @@ def build_caption(item, tr):
     # اگر ادمین با /edit متن را عوض کرده، دست نمی‌زنیم — متن او نهایی است
     # و هیچ بازسازی/جابه‌جایی قدیمی نباید داخلش نشت کند.
     quote = None if tr.get("edited_html") else _detect_quote_post(tr, body)
+    if interview and not tr.get('edited_html') and (_speaker(tr) or _speaker(item)):
+        match = re.match(r'^\s*([^\n:：]{2,60})[:：]\s*(.+)', body, re.S)
+        if match:
+            quote = (match.group(1).strip() + ':', match.group(2).strip())
+        else:
+            import names
+            speaker = _speaker(tr) or _speaker(item)
+            spellings = {en.casefold(): fa for en, fa in names.glossary().items()}
+            quote = (esc(spellings.get(speaker.casefold(), speaker)) + ':', body)
     if quote:
         q_title, q_body = quote
         head = f"{bullet} <b>{q_title}</b>" if q_title else bullet
@@ -217,12 +251,12 @@ def build_admin_caption(item, tr):
     caption = build_caption(item, tr)
     src = item.get("url", "")
     tail = f"\n\n\u2500\u2500\u2500\n\U0001F517 <a href=\"{esc(src)}\">منبع اصلی</a>"
-    if tr.get("provider"):
-        tail += f" | ترجمه: {esc(str(tr['provider']))}"
-    if tr.get("machine"):
-        tail += "\n\u26A0\uFE0F ترجمه ماشینی — قبل از انتشار متن را بازبینی کن"
-    if tr.get('human_review_required'):
-        tail += '\n⚠️ نیازمند بازبینی: ' + esc('؛ '.join(tr.get('quality_issues') or ['کیفیت تأیید نشده']))
+    if tr.get('provider') == 'raw':
+        tail += '\n⚠️ ترجمه انجام نشده؛ متن اصلی پیش از انتشار باید ترجمه شود.'
+    elif tr.get('machine'):
+        tail += '\n⚠️ ترجمه ماشینی است؛ پیش از انتشار بازبینی کن.'
+    elif tr.get('human_review_required'):
+        tail += '\n⚠️ پیش از انتشار، ترجمه و نام‌ها را بازبینی کن.'
     # یادداشت منبع اصلی (نقل‌قول/ریتوییت)
     orig_note = build_original_source_note(item)
     if orig_note:

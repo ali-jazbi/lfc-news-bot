@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 
 import config
@@ -28,6 +29,8 @@ import translation_quality
 log = logging.getLogger("translate")
 
 _proxies = {"http": config.PROXY, "https": config.PROXY} if config.PROXY else None
+_google_lock = threading.Lock()
+_google_next_request = 0.0
 
 try:
     import litellm
@@ -606,7 +609,7 @@ def _deep_translate(item):
 
     fa_title = ""
     if title:
-        raw_fa_title = tr.translate(title[:900])
+        raw_fa_title = _google_translate(tr, title[:900])
         if raw_fa_title and is_valid_persian_translation(raw_fa_title, min_persian_chars=1):
             fa_title = _strip_hashtags(_apply_glossary(raw_fa_title))
         elif raw_fa_title and contains_error_signature(raw_fa_title):
@@ -617,7 +620,7 @@ def _deep_translate(item):
         chunks = _split_article(body, limit=4500)
         translated_chunks = []
         for c in chunks:
-            raw_c = tr.translate(c)
+            raw_c = _google_translate(tr, c)
             if not raw_c or contains_error_signature(raw_c):
                 raise RuntimeError(f"خطای مترجم گوگل در ترجمه متن: {raw_c[:60] if raw_c else 'خالی'}")
             translated_chunks.append(raw_c)
@@ -634,6 +637,29 @@ def _deep_translate(item):
         "tags": [],
         "machine": True,
     }
+
+
+def _google_translate(translator, text):
+    """Serialize Google fallback calls below its documented 5-request/sec limit."""
+    global _google_next_request
+    with _google_lock:
+        for attempt in range(3):
+            wait = _google_next_request - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            try:
+                result = translator.translate(text)
+            except Exception as exc:
+                _google_next_request = time.monotonic() + 0.26
+                message = str(exc).casefold()
+                limited = any(marker in message for marker in
+                              ("too many requests", "rate limit", "429"))
+                if not limited or attempt == 2:
+                    raise
+                time.sleep(1 + attempt)
+                continue
+            _google_next_request = time.monotonic() + 0.26
+            return result
 
 
 # ---------------- ساخت زنجیره برای LiteLLM ----------------
@@ -874,9 +900,13 @@ def _normalise(data, item, provider):
 
 
 def _translate_short(item, review=True):
-    router, model_names = _get_router()
     _, _, plain_enabled = _deployments()
     errors = []
+    try:
+        router, model_names = _get_router()
+    except Exception as exc:
+        router, model_names = None, []
+        errors.append('router initialization: ' + str(exc)[:120])
     # Model output validity belongs to the application, not the HTTP fallback router.
     for model in model_names if router else []:
         t0 = time.time()

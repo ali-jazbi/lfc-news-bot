@@ -82,3 +82,22 @@ def test_translate_llm_output_has_no_hashtags(monkeypatch):
     assert "#" not in (data["title"] or "")
     assert BS + "x3C" not in (data["body"] or "")
     assert "مسکورا" in data["body"]
+
+
+def test_google_fallback_retries_rate_limit(monkeypatch):
+    monkeypatch.setattr(translate, "_google_next_request", 0.0)
+    sleeps = []
+    monkeypatch.setattr(translate.time, "sleep", sleeps.append)
+
+    class Translator:
+        calls = 0
+        def translate(self, text):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("429 Too many requests")
+            return "ترجمه فارسی"
+
+    translator = Translator()
+    assert translate._google_translate(translator, "hello") == "ترجمه فارسی"
+    assert translator.calls == 2
+    assert 1 in sleeps

@@ -238,7 +238,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             db.mark_attempt(key, db.STATUS_REJECTED, error=reason)
             health.record_counter('policy_rejected')
             return False
-        notes.append('🔎 بررسی ادمین: ' + reason)
+        log.debug('editorial review: %s', reason)
 
     # --------------------------------------------------------- مرحله AI
     if config.HERMES_ENABLED:
@@ -310,16 +310,12 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             # لینک ادمین: ترجمه شکست خورد ولی آیتم (معمولاً مدیا) نباید گم شود —
             # پیش‌نویس با متن اصلی + نوت هشدار ساخته می‌شود؛ ادمین خودش تصمیم می‌گیرد.
             log.warning("translation failed on admin link — passing through untranslated")
-            notes.append("\u26A0\uFE0F \u062A\u0631\u062C\u0645\u0647 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F \u2014 \u0645\u062A\u0646 \u0627\u0635\u0644\u06CC \u06AF\u0630\u0627\u0634\u062A\u0647 \u0634\u062F")
             tr = {"title": item.get("title") or "", "body": item.get("body") or "",
                   "importance": "normal", "tags": [], "provider": "raw"}
         else:
             db.stage_failed(key, "translation", "translation chain failed")
             trace(nid, "TRANSLATION", success=False)
             return False
-
-    if tr.get('human_review_required') or tr.get('machine') or tr.get('provider') == 'raw':
-        notes.append('⚠️ ترجمه نیازمند بازبینی: ' + '؛ '.join(tr.get('quality_issues') or ['ترجمه ماشینی/متن اصلی']))
 
     # QC ترجمه (مرحله ۶) — فقط وقتی HERMES روشن است
     if config.HERMES_ENABLED and editor is not None:
@@ -433,7 +429,9 @@ def _process_item_internal(item, key, force=False, reply_to=None):
                     if msg:
                         status = db.STATUS_PENDING_ADMIN if config.HERMES_ENABLED else "sent_admin"
                         db.set_admin_msg(key, msg.get("message_id"), status=status)
-                    return True
+                        return True
+                    db.stage_failed(key, 'send', 'admin video preview text failed')
+                    return False
         except Exception as e:
             log.warning("UserBot cloud download failed, falling back to local: %s", e)
 
@@ -867,10 +865,12 @@ def handle_callback(cq):
         return
 
     if action == "orig":
+        tg.answer_callback(cid)
         # متن  دست‌نخورده — فقط وقتی ادمین بخواهد ارسال می‌شود
         original = formatter.build_original_message(row["payload"])
         if not original:
-            tg.answer_callback(cid, "متن اصلی برای این خبر موجود نیست", alert=True)
+            tg.send_message(chat_id, "متن اصلی برای این خبر موجود نیست", silent=True,
+                            reply_to=msg_id)
             return
         sent = tg.send_message(chat_id, original, silent=True,
                                reply_to=msg_id)
@@ -878,23 +878,26 @@ def handle_callback(cq):
             tg.send_message(chat_id,
                             formatter.build_original_message(row["payload"], expandable=False),
                             silent=True, reply_to=msg_id)
-        tg.answer_callback(cid)
     elif action == "pub":
+        tg.answer_callback(cid, "در حال انتشار…")
         ok, message = approve(key, chat_id, from_user_id=from_user.get("id"))
-        tg.answer_callback(cid, message, alert=not ok)
         if ok:
             label = f"\u2705 نسخه آماده توسط {user} ارسال شد"
             tg.edit_markup(
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
+        else:
+            tg.send_message(chat_id, message, silent=True, reply_to=msg_id)
     elif action == "s2c":
+        tg.answer_callback(cid, "در حال ارسال به کانال…")
         ok, message = send_to_channel(key)
-        tg.answer_callback(cid, message, alert=not ok)
         if ok:
             label = f"\u2705 ارسال شد به کانال توسط {user}"
             tg.edit_markup(
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
+        else:
+            tg.send_message(chat_id, message, silent=True, reply_to=msg_id)
     elif action == "edit":
         # ویرایش دیگر دکمه ندارد — ریپلای + /edit. برای سازگاری با کیبوردهای قدیمی:
         tg.answer_callback(cid, "برای ویرایش: روی همین پیام ریپلای کن و /edit بزن", alert=True)
@@ -903,7 +906,8 @@ def handle_callback(cq):
         item = row["payload"]
         tr = translate.translate(item)
         if not tr:
-            tg.answer_callback(cid, "ترجمه مجدد ناموفق بود", alert=True)
+            tg.send_message(chat_id, "ترجمه مجدد ناموفق بود", silent=True,
+                            reply_to=msg_id)
             return
         item["translated"] = tr
         db.save(item, status=row["status"], admin_msg=row["admin_msg"])
