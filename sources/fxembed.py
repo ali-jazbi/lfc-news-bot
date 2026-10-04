@@ -276,26 +276,6 @@ def _own_statuses_paged(handle, count, since=None, with_replies=False):
     return page, out
 
 
-def suspension_reason(screen_name):
-    """'suspended' | 'not_found' | None — برای cooldown طولانی حساب‌های غیرقابل‌دسترس.
-
-    فقط وقتی صدا زده می‌شود که خواندن timeline چیزی نداده (نه هر سیکل برای هر
-    حساب)، پس هزینه‌اش ناچیز است.
-    """
-    handle = (screen_name or "").lstrip("@").strip()
-    if not handle:
-        return None
-    http, payload, _err = _api_get("/2/profile/%s" % handle)
-    if not isinstance(payload, dict):
-        return None
-    blob = " ".join(str(payload.get(k) or "") for k in ("message", "reason")).lower()
-    if "suspend" in blob:
-        return "suspended"
-    if payload.get("code") == 404 or http == 404 or not payload.get("user"):
-        return "not_found"
-    return None
-
-
 def scrape_user(screen_name, count=None, since=None):
     """entry های نیتر-سازگار برای یک حساب؛ [] روی هر خطا (هرگز raise نمی‌کند).
 

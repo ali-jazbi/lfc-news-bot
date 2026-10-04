@@ -370,25 +370,6 @@ def test_no_pagination_without_since(monkeypatch, no_sleep):
     assert len(entries) == 2
 
 
-# ============================== suspended / not-found (cooldown طولانی)
-def test_suspension_reason_detects_suspended(monkeypatch, no_sleep):
-    from sources import fxembed
-    _patch(monkeypatch, [_Resp({"code": 404, "message": "User is suspended"})])
-    assert fxembed.suspension_reason("AnfieldSector") == "suspended"
-
-
-def test_suspension_reason_detects_not_found(monkeypatch, no_sleep):
-    from sources import fxembed
-    _patch(monkeypatch, [_Resp({"code": 404, "message": "User not found"})])
-    assert fxembed.suspension_reason("ghostuser") == "not_found"
-
-
-def test_suspension_reason_none_for_healthy_account(monkeypatch, no_sleep):
-    from sources import fxembed
-    _patch(monkeypatch, [_Resp({"code": 200, "user": {"screen_name": "LFC"}})])
-    assert fxembed.suspension_reason("LFC") is None
-
-
 # ============================== partial failure (بخشی موفق، بخشی ناموفق)
 def test_partial_failure_updates_state_only_for_successes(monkeypatch):
     """حساب ناموفق نباید since بگیرد و نباید dead-cycle ثبت کند."""
@@ -398,7 +379,6 @@ def test_partial_failure_updates_state_only_for_successes(monkeypatch):
         return [] if u == "LFC" else [_entry()]
 
     monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
-    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: None)
     counters = []
     monkeypatch.setattr(twitter.health, "record_counter",
                         lambda name, n=1: counters.append(name))
@@ -427,7 +407,6 @@ def test_failed_account_retried_next_cycle(monkeypatch):
         return [_entry()]
 
     monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
-    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: None)
     twitter.fetch(limit=10)
     assert seen["LFC"] == [None]
     ok["lfc"] = True
@@ -442,7 +421,6 @@ def test_empty_or_suspended_account_is_polled_on_next_cycle(monkeypatch):
         calls.append(user)
         return [] if user == 'AnfieldSector' else [_entry()]
     monkeypatch.setattr(fxembed, 'scrape_user', scrape)
-    monkeypatch.setattr(fxembed, 'suspension_reason', lambda user: (_ for _ in ()).throw(AssertionError('must not classify empty accounts')))
     twitter._state['fxembed_cooldown'] = {'anfieldsector': {'until': 9999999999, 'reason': 'suspended'}}
     twitter.fetch(limit=5)
     calls.clear()
@@ -453,7 +431,6 @@ def test_empty_or_suspended_account_is_polled_on_next_cycle(monkeypatch):
 def test_cooldown_expires_after_24h(monkeypatch):
     """بعد از گذشت مهلت، حساب دوباره بررسی می‌شود."""
     fxembed, twitter = _fx_mode(monkeypatch, accounts=("AnfieldSector",))
-    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: "suspended")
     twitter._state["fxembed_cooldown"] = {"anfieldsector": {
         "until": 1.0, "reason": "suspended"}}
     calls = []
@@ -473,7 +450,6 @@ def test_fxembed_never_sleeps_between_accounts(monkeypatch):
     monkeypatch.setattr(twitter.time, "sleep", boom)
     monkeypatch.setattr(fxembed, "scrape_user",
                         lambda u, count=None, since=None: [_entry()])
-    monkeypatch.setattr(fxembed, "suspension_reason", lambda u: None)
     assert len(twitter.fetch(limit=10)) == 1
 
 
