@@ -88,8 +88,6 @@ def fetch(limit=6):
     for handle in handles:
         for e in _fetch_author(handle):
             text = e["text"]
-            if len(text) < getattr(config, "TWEET_MIN_CHARS", 60):
-                continue
             out.append(
                 {
                     "source": "Bluesky",
@@ -101,8 +99,7 @@ def fetch(limit=6):
                     "image": (e["images"][0] if e["images"] else None),
                     "images": e["images"],
                     "priority": True,
+                    "published_at": e.get("created"),
                 }
             )
-            if len(out) >= limit:
-                return out
     return out

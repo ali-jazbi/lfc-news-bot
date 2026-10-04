@@ -20,6 +20,7 @@ def tmp_db(tmp_path, monkeypatch):
     import config
     monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "test.db"))
     monkeypatch.setattr(config, "HERMES_ENABLED", False)
+    monkeypatch.setattr(config, "ENABLE_USERBOT_VIDEOS", False)
     db._conn = None
     db.init()
     yield db
@@ -33,6 +34,12 @@ def tmp_db(tmp_path, monkeypatch):
 @pytest.fixture()
 def news_db(tmp_db):
     return tmp_db
+
+
+@pytest.fixture(autouse=True)
+def isolated_pipeline_storage(tmp_db):
+    """Polling/checkpoint/name tests must never open the local production database."""
+    yield
 
 
 # ------------------------------------------------------------- آیتم نمونه

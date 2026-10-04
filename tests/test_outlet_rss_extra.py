@@ -91,8 +91,8 @@ def test_each_source_has_its_own_limit(monkeypatch, no_legacy):
                         lambda url, timeout=25: [_entry(i) for i in range(10)])
     items = outlet_rss.fetch_extra(limit=3)
     tags = [i["source_tag"] for i in items]
-    assert tags.count("Football365") == 3
-    assert tags.count("The Guardian") == 3
+    assert tags.count("Football365") == 10
+    assert tags.count("The Guardian") == 10
 
 
 def test_old_entries_are_dropped_but_undated_are_kept(monkeypatch, no_legacy):
@@ -109,7 +109,7 @@ def test_old_entries_are_dropped_but_undated_are_kept(monkeypatch, no_legacy):
         garbage,                     # تاریخ نامعتبر → می‌ماند
     ])
     urls = [i["url"] for i in outlet_rss.fetch_extra(limit=10)]
-    assert urls == ["https://example.com/1", "https://example.com/3",
+    assert urls == ["https://example.com/1", "https://example.com/2", "https://example.com/3",
                     "https://example.com/4"]
 
 

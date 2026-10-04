@@ -75,8 +75,6 @@ def fetch(limit=6):
             link = e.get("link") or ""
             if not title or not link:
                 continue
-            if not _is_relevant(feed_url, title, summary):
-                continue
             out.append(
                 {
                     "source": name,
@@ -85,11 +83,10 @@ def fetch(limit=6):
                     "title": title,
                     "body": summary or title,
                     "image": e.get("image"),
+                    "published_at": e.get("published"),
                 }
             )
             got += 1
-            if len(out) >= limit:
-                return out
         log.info("feed %s (%s): %d relevant items", name, feed_url, got)
     return out
 
@@ -181,8 +178,6 @@ def fetch_extra(limit=6):
             link = e.get("link") or ""
             if not title or not link:
                 continue
-            if _too_old(e.get("published"), max_age):
-                continue
             out.append(
                 {
                     "source": src["name"],
@@ -191,10 +186,9 @@ def fetch_extra(limit=6):
                     "title": title,
                     "body": summary or title,
                     "image": e.get("image"),
+                    "published_at": e.get("published"),
                 }
             )
             got += 1
-            if got >= limit:
-                break
         log.info("feed %s (%s): %d items", src["name"], sid, got)
     return out

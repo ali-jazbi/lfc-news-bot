@@ -62,10 +62,6 @@ def fetch(limit=6):
     out = []
     for e in entries:
         text = clean_text(e.get("summary") or e.get("title"))
-        if not text or text.startswith("RT "):
-            continue
-        if not _is_relevant(text):
-            continue
         out.append(
             {
                 "source": "Fabrizio Romano",
@@ -77,6 +73,4 @@ def fetch(limit=6):
                 "priority": True,
             }
         )
-        if len(out) >= limit:
-            break
     return out

@@ -6,11 +6,13 @@ import sqlite3
 import hashlib
 import threading
 import time
-from urllib.parse import urlparse, urlunparse
+from collections import defaultdict, deque
+from pathlib import Path
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 import config
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 _conn = None
 
 # وضعیت‌های جدید (state machine) — وضعیت‌های قدیمی همچنان معتبرند
@@ -27,10 +29,26 @@ STATUS_APPROVED = "approved"
 STATUS_PUBLISHED = "published"
 STATUS_FAILED = "failed"
 STATUS_RETRY_PENDING = "retry_pending"
+QUEUE_STATUSES = (STATUS_DISCOVERED, "new", "processing", STATUS_ANALYZING,
+                  STATUS_VERIFICATION, STATUS_APPROVED_BY_AI, STATUS_TRANSLATION,
+                  STATUS_TRANSLATION_REVIEW, STATUS_MEDIA_PROCESSING,
+                  STATUS_RETRY_PENDING, STATUS_FAILED, STATUS_PENDING_ADMIN,
+                  "sent_admin", STATUS_APPROVED)
 # وضعیت‌های قدیمی که برای سازگاری حفظ شده‌اند:
 # new | sent_admin | skipped | rejected | approved | published
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS pipeline_meta (key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS checkpoints (
+    source_id TEXT, account TEXT, watermark REAL,
+    PRIMARY KEY(source_id, account)
+);
+CREATE TABLE IF NOT EXISTS person_names (
+    id INTEGER PRIMARY KEY, english TEXT UNIQUE, persian TEXT,
+    aliases TEXT DEFAULT '[]', official_url TEXT, wikidata_id TEXT,
+    candidate TEXT, evidence TEXT DEFAULT '[]', checked_at REAL DEFAULT 0,
+    approved_at REAL, identity_verified INTEGER DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS items (
     key         TEXT PRIMARY KEY,
     source      TEXT,
@@ -100,6 +118,9 @@ _COLUMN_MIGRATIONS = (
     "ALTER TABLE items ADD COLUMN analysis TEXT",
     "ALTER TABLE items ADD COLUMN verification TEXT",
     "ALTER TABLE items ADD COLUMN feedback TEXT",
+    "ALTER TABLE items ADD COLUMN retry_stage TEXT",
+    "ALTER TABLE items ADD COLUMN next_retry_at REAL DEFAULT 0",
+    "ALTER TABLE items ADD COLUMN canonical_url TEXT",
 )
 
 
@@ -117,6 +138,14 @@ def init():
     os.makedirs(os.path.dirname(os.path.abspath(config.DB_PATH)), exist_ok=True)
     _conn = sqlite3.connect(config.DB_PATH, check_same_thread=False)
     _conn.row_factory = sqlite3.Row
+    # Back up an existing DB before the first queue migration, including WAL data.
+    has_items = _conn.execute("SELECT 1 FROM sqlite_master WHERE name='items'").fetchone()
+    has_meta = _conn.execute("SELECT 1 FROM sqlite_master WHERE name='pipeline_meta'").fetchone()
+    if has_items and not has_meta:
+        folder = Path(config.DB_PATH).resolve().parent / "backups"
+        folder.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(folder / f"pre-queue-{time.time_ns()}.db") as backup:
+            _conn.backup(backup)
     # WAL: چون poller_loop (ترد پس‌زمینه) و bot_loop (ترد اصلی) هم‌زمان به
     # دیتابیس می‌نویسند/می‌خوانند، WAL خواندن و نوشتن هم‌زمان را ممکن می‌کند
     # و ریسک قفل‌شدن دیتابیس ("database is locked") را عملاً از بین می‌برد.
@@ -126,6 +155,25 @@ def init():
     _conn.execute("PRAGMA busy_timeout=5000")
     _conn.executescript(SCHEMA)
     _migrate()
+    # Preserve old news keys/buttons while adopting stronger URL canonicalization.
+    for row in _conn.execute("SELECT key,url FROM items WHERE canonical_url IS NULL").fetchall():
+        _conn.execute("UPDATE items SET canonical_url=? WHERE key=?", (normalize_url(row['url'] or ''), row['key']))
+    _conn.execute('CREATE INDEX IF NOT EXISTS idx_canonical_url ON items(canonical_url)')
+    if not _conn.execute("SELECT 1 FROM pipeline_meta WHERE key='queue_v1'").fetchone():
+        _conn.execute("UPDATE items SET status=?, retry_stage='translation', retry_count=0 "
+                      "WHERE status='skipped' AND error='translation chain failed'",
+                      (STATUS_DISCOVERED,))
+        _conn.execute("INSERT INTO pipeline_meta VALUES ('queue_v1','1')")
+    for row in _conn.execute("SELECT key,payload,retry_count FROM items WHERE status='retry_pending' AND retry_stage IS NULL").fetchall():
+        payload = json.loads(row['payload'] or '{}')
+        stage = 'send' if payload.get('translated') else 'translation'
+        status = STATUS_FAILED if (row['retry_count'] or 0) >= config.MAX_SEND_RETRIES else STATUS_RETRY_PENDING
+        _conn.execute('UPDATE items SET retry_stage=?,status=? WHERE key=?', (stage, status, row['key']))
+    # A process restart makes interrupted stages eligible again, retaining payload.
+    _conn.execute("UPDATE items SET status=? WHERE status IN "
+                  "('processing','analyzing','verification','approved_by_ai',"
+                  "'translation','translation_review','media_processing')",
+                  (STATUS_DISCOVERED,))
     _conn.commit()
     return _conn
 
@@ -137,7 +185,15 @@ def _c():
 def normalize_url(url: str) -> str:
     try:
         p = urlparse(url)
-        return urlunparse((p.scheme, p.netloc.lower().replace("www.", ""), p.path.rstrip("/"), "", "", ""))
+        host = p.netloc.lower().removeprefix('www.')
+        scheme = 'https' if p.scheme in ('http', 'https') else p.scheme
+        # Canonical Twitter identity is independent of handle spelling/domain.
+        tweet = re.search(r'/status(?:es)?/(\d+)', p.path)
+        if host in ('x.com', 'twitter.com', 'mobile.twitter.com') and tweet:
+            return 'https://x.com/i/status/' + tweet.group(1)
+        query = urlencode(sorted((k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
+                                 if not k.lower().startswith("utm_") and k.lower() not in ("fbclid", "gclid")))
+        return urlunparse((scheme, host, p.path.rstrip("/"), "", query, ""))
     except Exception:
         return url
 
@@ -151,6 +207,11 @@ def normalize_title(title: str) -> str:
 
 def make_key(item: dict) -> str:
     base = normalize_url(item.get("url", "")) or item.get("title", "")
+    if _conn is not None and item.get('url'):
+        with _lock:
+            row = _conn.execute('SELECT key FROM items WHERE canonical_url=? ORDER BY created_at LIMIT 1', (base,)).fetchone()
+        if row:
+            return row['key']
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:20]
 
 
@@ -169,41 +230,16 @@ def _source_key(item: dict) -> str:
 
 
 def is_duplicate(item: dict) -> bool:
-    """لایه ۱: کلید یکتا  |  لایه ۲: شباهت عنوان در ۴۸ ساعت اخیر.
-
-    پیش‌فرض DUPLICATE_SCOPE=source یعنی شباهت فقط درون همان منبع چک می‌شود؛
-    پس اگر رومانو و اورنستین یک خبر را بدهند، هر دو به گروه می‌روند.
-    """
+    """Only exact identities in terminal/review states block processing."""
     key = make_key(item)
-    norm = normalize_title(item.get("title", ""))
-    scope = getattr(config, "DUPLICATE_SCOPE", "source")
-    src = _source_key(item)
-
     with _lock:
-        cur = _c().execute("SELECT 1 FROM items WHERE key=?", (key,))
-        if cur.fetchone():
-            return True
-        if not norm:
-            return False
-        since = time.time() - 48 * 3600
-        rows = _c().execute(
-            "SELECT norm_title, payload FROM items WHERE created_at > ?", (since,)
-        ).fetchall()
-
-    for r in rows:
-        if not r["norm_title"]:
-            continue
-        if scope == "source" and src:
-            try:
-                old = json.loads(r["payload"] or "{}")
-            except Exception:
-                old = {}
-            if _source_key(old) != src:
-                continue  # منبع دیگری است — خبرش جداگانه ارزش دارد
-        if _similar(norm, r["norm_title"]) >= config.DUPLICATE_THRESHOLD:
-            return True
-    return False
-
+        cur = _c().execute("SELECT status FROM items WHERE key=?", (key,))
+        row = cur.fetchone()
+        if row:
+            return row['status'] in ('sent_admin', STATUS_PENDING_ADMIN,
+                                     STATUS_APPROVED, STATUS_PUBLISHED, STATUS_REJECTED,
+                                     'skipped')
+        return False  # Similar titles are advisory; a different URL is not a duplicate.
 
 def similar_sources(item: dict, hours=48, statuses=None, exclude_self=True):
     """منابعی که همین خبر را داده‌اند (برای نمایش به ادمین).
@@ -246,9 +282,11 @@ def save(item: dict, status="new", admin_msg=None):
     key = make_key(item)
     with _lock:
         _c().execute(
-            "INSERT OR REPLACE INTO items "
-            "(key, source, url, title, norm_title, payload, status, admin_msg, created_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO items "
+            "(key, source, url, title, norm_title, payload, status, admin_msg, created_at, canonical_url) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET "
+            "payload=excluded.payload, title=excluded.title, norm_title=excluded.norm_title, "
+            "status=excluded.status, admin_msg=COALESCE(excluded.admin_msg,items.admin_msg)",
             (
                 key,
                 item.get("source"),
@@ -259,10 +297,117 @@ def save(item: dict, status="new", admin_msg=None):
                 status,
                 admin_msg,
                 time.time(),
+                normalize_url(item.get('url') or ''),
             ),
         )
         _c().commit()
     return key
+
+
+def checkpoint_map(source_id):
+    with _lock:
+        return {r['account']: r['watermark'] for r in _c().execute(
+            "SELECT account,watermark FROM checkpoints WHERE source_id=?", (source_id,))}
+
+
+def import_checkpoints(source_id, values):
+    """One-time legacy import. Collection subsequently owns all watermark writes."""
+    marker = 'checkpoint_import:' + source_id
+    with _lock:
+        c = _c()
+        if c.execute("SELECT 1 FROM pipeline_meta WHERE key=?", (marker,)).fetchone():
+            return
+        with c:
+            for account, watermark in values.items():
+                c.execute("INSERT OR IGNORE INTO checkpoints VALUES (?,?,?)",
+                          (source_id, account.lower(), float(watermark)))
+            c.execute("INSERT INTO pipeline_meta VALUES (?, '1')", (marker,))
+
+
+def ingest_batch(source_id, batch):
+    """Either received payloads AND watermarks commit, or neither does."""
+    inserted = 0
+    with _lock:
+        c = _c()
+        with c:
+            for original in batch.items:
+                item = dict(original, source_id=source_id)
+                cur = c.execute(
+                    "INSERT OR IGNORE INTO items "
+                    "(key,source,url,title,norm_title,payload,status,created_at,canonical_url) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    (make_key(item), item.get('source'), item.get('url'), item.get('title'),
+                     normalize_title(item.get('title')), json.dumps(item, ensure_ascii=False),
+                     STATUS_DISCOVERED, time.time(), normalize_url(item.get('url') or '')))
+                inserted += cur.rowcount
+            for account, watermark in batch.checkpoints.items():
+                c.execute("INSERT INTO checkpoints VALUES (?,?,?) ON CONFLICT(source_id,account) "
+                          "DO UPDATE SET watermark=MAX(checkpoints.watermark,excluded.watermark)",
+                          (source_id, account.lower(), float(watermark)))
+    return inserted
+
+
+def queue_items(limit=5):
+    """Claim FIFO per source/account, rotating across groups between cycles."""
+    with _lock:
+        c = _c()
+        rows = c.execute("SELECT * FROM items WHERE status IN ('discovered','new') "
+                         "OR (status='retry_pending' AND retry_stage!='send' AND "
+                         "COALESCE(next_retry_at,0)<=?) ORDER BY created_at,key",
+                         (time.time(),)).fetchall()
+        groups = defaultdict(deque)
+        for r in rows:
+            item = json.loads(r['payload'])
+            group = str(item.get('source_id') or item.get('source') or '') + ':' + str(
+                item.get('ingest_handle') or item.get('handle') or '')
+            groups[group].append((dict(r), item))
+        keys = sorted(groups)
+        cursor = c.execute("SELECT value FROM pipeline_meta WHERE key='queue_cursor'").fetchone()
+        if cursor and keys:
+            cut = next((i for i, k in enumerate(keys) if k > cursor['value']), len(keys))
+            keys = keys[cut:] + keys[:cut]
+        chosen = []
+        with c:
+            while keys and len(chosen) < limit:
+                for group in list(keys):
+                    row, item = groups[group].popleft()
+                    row['payload'] = item
+                    chosen.append(row)
+                    c.execute("UPDATE items SET status='processing', last_attempt_at=? WHERE key=?",
+                              (time.time(), row['key']))
+                    c.execute("INSERT INTO pipeline_meta VALUES ('queue_cursor',?) "
+                              "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (group,))
+                    if not groups[group]:
+                        keys.remove(group)
+                    if len(chosen) >= limit:
+                        break
+        return chosen
+
+
+def stage_failed(key, stage, error):
+    with _lock:
+        c = _c()
+        row = c.execute("SELECT retry_stage,retry_count FROM items WHERE key=?", (key,)).fetchone()
+        attempts = (row['retry_count'] or 0) + 1 if row and row['retry_stage'] == stage else 1
+        status = STATUS_FAILED if attempts >= getattr(config, 'MAX_SEND_RETRIES', 3) else STATUS_RETRY_PENDING
+        c.execute("UPDATE items SET status=?,retry_stage=?,retry_count=?,error=?,"
+                  "last_attempt_at=?,next_retry_at=? WHERE key=?",
+                  (status, stage, attempts, str(error)[:500], time.time(),
+                   time.time() + min(30 * 2 ** (attempts - 1), 1800), key))
+        c.commit()
+
+
+def reset_retry(key):
+    with _lock:
+        c = _c()
+        c.execute("UPDATE items SET status='discovered',retry_count=0,next_retry_at=0,error=NULL "
+                  "WHERE key=? AND status IN ('failed','retry_pending')", (key,))
+        c.commit()
+
+
+def pipeline_stats():
+    with _lock:
+        return dict(_c().execute("SELECT status,COUNT(*) FROM items GROUP BY status").fetchall())
 
 
 def set_status(key: str, status: str):
@@ -423,9 +568,9 @@ def retryable_items(limit=10, max_retries=None):
     max_retries = max_retries if max_retries is not None else getattr(config, "MAX_SEND_RETRIES", 3)
     with _lock:
         rows = _c().execute(
-            "SELECT * FROM items WHERE status=? AND COALESCE(retry_count,0) < ?"
+            "SELECT * FROM items WHERE status=? AND (retry_stage='send' OR retry_stage IS NULL) AND COALESCE(retry_count,0) < ? AND COALESCE(next_retry_at,0)<=?"
             " ORDER BY last_attempt_at ASC LIMIT ?",
-            (STATUS_RETRY_PENDING, max_retries, limit),
+            (STATUS_RETRY_PENDING, max_retries, time.time(), limit),
         ).fetchall()
     out = []
     for r in rows:

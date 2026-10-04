@@ -219,7 +219,8 @@ def _parse_article(url):
         "source_tag": "Liverpool FC",
         "url": url,
         "title": _clean_title(title),
-        "body": body,
+        "body": body if config.ENABLE_ARTICLES else (desc or body),
+        "published_at": meta(s, "article:published_time"),
         "image": image,
         "images": _article_images(s, image),
     }
@@ -244,6 +245,8 @@ def _google_fallback(limit=5):
 
 
 def fetch(limit=6):
+    if not config.ENABLE_ARTICLES:
+        return _listing_summaries()
     out = []
     try:
         links = _article_links(limit=limit * 2)
@@ -258,10 +261,6 @@ def fetch(limit=6):
             art = _parse_article(url)
             if not art:
                 continue
-            why = is_noise(art["title"], art["url"], art.get("body") or art.get("summary") or "")
-            if why:
-                log.info("rejected (%s): %s", why, art["title"][:60])
-                continue
             out.append(art)
         except Exception as e:
             log.warning("article failed %s: %s", url, e)
@@ -269,10 +268,38 @@ def fetch(limit=6):
     if not out:
         log.warning("direct site parse gave nothing — falling back to Google News")
         try:
-            out = [
-                it for it in _google_fallback(limit * 2)
-                if not is_noise(it["title"], it["url"], it.get("body") or it.get("summary") or "")
-            ][:limit]
+            out = _google_fallback(limit)
         except Exception as e:
             log.error("fallback failed: %s", e)
     return out
+
+
+def _listing_summaries():
+    """One listing request provides normal drafts without fetching full articles."""
+    html = http_get(config.LFC_NEWS_URL)
+    if not html:
+        return _google_fallback(100)
+    soup = soup_of(html)
+    out, seen = [], set()
+    for anchor in soup.select('a[href]'):
+        href = anchor.get('href', '')
+        if not re.search(r'/(?:news|article)/[^/?#]+', href):
+            continue
+        url = urljoin('https://www.liverpoolfc.com', href).split('#')[0]
+        if url in seen:
+            continue
+        heading = anchor.find(['h2', 'h3', 'h4'])
+        title = clean_text((heading or anchor).get_text(' ', strip=True))
+        if not title or title.lower() in ('read more', 'read article', 'view all'):
+            continue
+        seen.add(url)
+        image = anchor.find('img')
+        card = anchor.find_parent(['article', 'li']) or anchor
+        summary = card.find('p')
+        stamp = card.find('time')
+        out.append({'source': 'LFC Official', 'source_tag': 'Liverpool FC',
+                    'url': url, 'title': _clean_title(title),
+                    'body': clean_text(summary.get_text(' ', strip=True)) if summary else title,
+                    'image': urljoin(url, image.get('src', '')) if image and image.get('src') else None,
+                    'published_at': stamp.get('datetime') if stamp else None})
+    return out or _google_fallback(100)

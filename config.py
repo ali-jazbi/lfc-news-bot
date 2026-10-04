@@ -161,9 +161,6 @@ FXEMBED_MAX_PAGES = _int("FXEMBED_MAX_PAGES", 3)
 # چند حساب همزمان خوانده شود — این تنها throttle واقعی است (sleep بین اکانت‌ها
 # بی‌فایده است چون همه‌ی درخواست‌ها از قبل submit شده‌اند).
 FXEMBED_WORKERS = _int("FXEMBED_WORKERS", 6)
-# حساب ساسپند/حذف‌شده روی X هرگز خبری نمی‌دهد → به‌جای تلاش در هر سیکل، ۲۴ ساعت
-# کاملاً از درخواست خودداری می‌کنیم (بعد دوباره بررسی می‌شود، شاید برگشته باشد).
-FXEMBED_SUSPENDED_COOLDOWN = _int("FXEMBED_SUSPENDED_COOLDOWN", 86400)
 # حساب‌هایی که توییت اصلی ندارند در timeline پیش‌فرض ۴۰۴ می‌دهند (مثل
 # LiverpoolFF) → یک بار با with_replies=1 و محدود به توییت‌های خودشان.
 FXEMBED_WITH_REPLIES_FALLBACK = (
@@ -340,6 +337,8 @@ POLL_INTERVAL = _int("POLL_INTERVAL", 60)      # ثانیه
 # خیلی بلند باشد، یک سرویس هنگ‌کرده کل زنجیره را معطل می‌کند.
 REQUEST_TIMEOUT = _int("REQUEST_TIMEOUT", 45)  # ثانیه
 MAX_ITEMS_PER_CYCLE = _int("MAX_ITEMS_PER_CYCLE", 5)
+FETCH_ITEMS_PER_SOURCE = _int("FETCH_ITEMS_PER_SOURCE", 100)
+TRANSLATION_QC_ENABLED = _get("TRANSLATION_QC_ENABLED", "true").lower() == "true"
 BOOTSTRAP_SILENT = _get("BOOTSTRAP_SILENT", "false").lower() == "true"
 
 # --- ترجمه ---

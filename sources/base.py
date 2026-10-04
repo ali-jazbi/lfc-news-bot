@@ -2,12 +2,26 @@
 import html as html_mod
 import logging
 import re
+from dataclasses import dataclass, field
 
 import requests
 
 import config
 
 log = logging.getLogger("src.base")
+
+
+@dataclass
+class SourceBatch:
+    """Unfiltered received items and checkpoints committed together by the collector."""
+    items: list = field(default_factory=list)
+    checkpoints: dict = field(default_factory=dict)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __len__(self):
+        return len(self.items)
 
 _session = requests.Session()
 _session.headers.update({"User-Agent": config.USER_AGENT, "Accept-Language": "en-GB,en"})
@@ -86,7 +100,9 @@ def parse_rss(url, timeout=25, raw=None):
     try:
         if raw is None:
             raw = http_get(url, timeout=timeout)
-        feed = feedparser.parse(raw if raw else url)
+        if not raw:
+            return []  # Do not let feedparser make a second, unbounded network call.
+        feed = feedparser.parse(raw)
     except Exception as e:
         log.warning("rss %s failed: %s", url, e)
         return []

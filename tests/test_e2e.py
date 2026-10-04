@@ -228,6 +228,8 @@ def test_e2e_failure_scenario(monkeypatch, tmp_db, fake_tg, fake_source_item):
 
         # 2) تلگرام درست شد → retry موفق → pending_admin
         fake_tg.fail_send = False
+        dbmod._c().execute("UPDATE items SET next_retry_at=0")
+        dbmod._c().commit()
         n = main.retry_pending_sends(limit=5)
         assert n == 1
         assert dbmod.get(key)["status"] == dbmod.STATUS_PENDING_ADMIN

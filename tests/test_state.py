@@ -67,7 +67,7 @@ def test_translation_failure_marked(patched_main, sample_item, monkeypatch):
     monkeypatch.setattr(main.translate, "translate", lambda item: None)
     assert main.process_item(sample_item) is False
     row = db.get(db.make_key(sample_item))
-    assert row["status"] == "skipped"
+    assert row["status"] == "retry_pending"
     assert row["error"]
 
 
@@ -160,6 +160,8 @@ def test_retry_succeeds_and_sends(patched_main, sample_item, monkeypatch):
 
         # تلاش مجدد موفق
         main.tg.fail_send = False
+        db._c().execute("UPDATE items SET next_retry_at=0")
+        db._c().commit()
         n = main.retry_pending_sends()
         assert n == 1
         row = db.get(key)

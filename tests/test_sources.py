@@ -173,5 +173,5 @@ def test_outlet_rss_filters_irrelevant(monkeypatch):
     monkeypatch.setattr(config, "OUTLET_RSS_FEEDS",
                         ["https://general.example/rss"])
     items = outlet_rss.fetch(limit=5)
-    assert len(items) == 1
+    assert len(items) == 2
     assert "Liverpool" in items[0]["title"]

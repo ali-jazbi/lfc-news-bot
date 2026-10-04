@@ -41,7 +41,9 @@ DB_TRIM_AFTER_HOURS = int(os.environ.get("DB_TRIM_AFTER_HOURS", "24"))
 PRUNE_INTERVAL_SECONDS = int(os.environ.get("DB_PRUNE_INTERVAL_SECONDS", "3600"))
 
 # وضعیت‌هایی که هنوز برای دکمه‌های ادمین لازمند — فشرده نمی‌شوند تا تازه‌اند
-_ACTIVE_STATUSES = ("new", "sent_admin", "approved")
+_ACTIVE_STATUSES = ("new", "discovered", "processing", "analyzing", "verification",
+                    "approved_by_ai", "translation", "translation_review", "media_processing",
+                    "retry_pending", "failed", "sent_admin", "pending_admin", "approved")
 
 
 def _conn():
@@ -62,7 +64,7 @@ def prune(keep_days=DB_KEEP_DAYS, trim_hours=DB_TRIM_AFTER_HOURS, dry=False):
     # ۱) حذف ردیف‌های قدیمی
     cutoff = now - keep_days * 86400
     cur = c.execute("SELECT key, payload, status FROM items WHERE created_at < ?", (cutoff,))
-    old_rows = cur.fetchall()
+    old_rows = [row for row in cur.fetchall() if row[2] not in _ACTIVE_STATUSES]
     stats["deleted"] = len(old_rows)
     if old_rows and not dry:
         for r in old_rows:
@@ -76,7 +78,7 @@ def prune(keep_days=DB_KEEP_DAYS, trim_hours=DB_TRIM_AFTER_HOURS, dry=False):
             stats["kept"] += 1
             continue
         # ردیف تازه‌ای که هنوز برای دکمه‌ها لازم است را دست نزن
-        if status in _ACTIVE_STATUSES and now - created_at < 48 * 3600:
+        if status in _ACTIVE_STATUSES:
             stats["kept"] += 1
             continue
         try:

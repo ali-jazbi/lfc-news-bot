@@ -403,10 +403,13 @@ def test_partial_failure_updates_state_only_for_successes(monkeypatch):
     monkeypatch.setattr(twitter.health, "record_counter",
                         lambda name, n=1: counters.append(name))
 
-    items = twitter.fetch(limit=10)
+    batch = twitter.fetch_batch()
+    import db
+    db.ingest_batch("twitter", batch)
+    items = batch.items
     assert len(items) == 1                  # خبرهای موفق وارد پایپ‌لاین شدند
     assert "fxembed_dead_cycle" not in counters
-    since_map = twitter._state["fxembed_since"]
+    since_map = db.checkpoint_map("twitter")
     assert "fabrizioromano" in since_map
     assert "lfc" not in since_map           # state فقط برای موفق‌ها
 
@@ -432,34 +435,19 @@ def test_failed_account_retried_next_cycle(monkeypatch):
     assert seen["LFC"][1] is None           # دوباره بدون since → retry واقعی
 
 
-def test_suspended_account_gets_24h_cooldown_and_is_skipped(monkeypatch):
-    """حساب suspended: یک بار تشخیص، بعد تا ۲۴ ساعت اصلاً درخواست نمی‌رود."""
-    import time as _t
-
-    import config
-    fxembed, twitter = _fx_mode(monkeypatch,
-                                accounts=("FabrizioRomano", "AnfieldSector"))
+def test_empty_or_suspended_account_is_polled_on_next_cycle(monkeypatch):
+    fxembed, twitter = _fx_mode(monkeypatch, accounts=("FabrizioRomano", "AnfieldSector"))
     calls = []
-
-    def fake_scrape(u, count=None, since=None):
-        calls.append(u)
-        return [] if u == "AnfieldSector" else [_entry()]
-
-    monkeypatch.setattr(config, "FXEMBED_SUSPENDED_COOLDOWN", 86400)
-    monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
-    monkeypatch.setattr(fxembed, "suspension_reason",
-                        lambda u: "suspended" if u == "AnfieldSector" else None)
-
-    twitter.fetch(limit=10)
-    cd = twitter._state["fxembed_cooldown"]["anfieldsector"]
-    assert cd["reason"] == "suspended"
-    assert cd["until"] > _t.time() + 3600
-    assert "AnfieldSector" in calls         # سیکل اول = کشف (یک بار)
-
+    def scrape(user, count=None, since=None):
+        calls.append(user)
+        return [] if user == 'AnfieldSector' else [_entry()]
+    monkeypatch.setattr(fxembed, 'scrape_user', scrape)
+    monkeypatch.setattr(fxembed, 'suspension_reason', lambda user: (_ for _ in ()).throw(AssertionError('must not classify empty accounts')))
+    twitter._state['fxembed_cooldown'] = {'anfieldsector': {'until': 9999999999, 'reason': 'suspended'}}
+    twitter.fetch(limit=5)
     calls.clear()
-    twitter.fetch(limit=10)                   # سیکل بعد: باید کاملاً skip شود
-    assert "AnfieldSector" not in calls
-    assert "FabrizioRomano" in calls
+    twitter.fetch(limit=5)
+    assert set(calls) == {'FabrizioRomano', 'AnfieldSector'}
 
 
 def test_cooldown_expires_after_24h(monkeypatch):
@@ -575,14 +563,14 @@ def test_fetch_dispatches_to_fxembed(monkeypatch):
     assert item["video_url"] == "https://video.twimg.com/x.mp4"
 
 
-def test_fxembed_mode_still_applies_filters(monkeypatch):
+def test_fxembed_preserves_items_before_editorial_filtering(monkeypatch):
     """فیلترهای موجود (کلیدواژه/سن/نویز) در حالت fxembed هم اعمال می‌شوند."""
     fxembed, twitter = _fx_mode(monkeypatch)
     irrelevant = _entry(text=("What a lovely evening in Milano with friends "
                               "and a very nice dinner downtown tonight"))
     monkeypatch.setattr(fxembed, "scrape_user",
                         lambda u, count=None, since=None: [irrelevant])
-    assert twitter.fetch(limit=5) == []
+    assert len(twitter.fetch(limit=5)) == 1
 
 
 def test_fxembed_records_last_seen_and_sends_since(monkeypatch):
@@ -598,8 +586,11 @@ def test_fxembed_records_last_seen_and_sends_since(monkeypatch):
         return [_entry()]
 
     monkeypatch.setattr(fxembed, "scrape_user", fake_scrape)
-    twitter.fetch(limit=5)
-    assert twitter._state["fxembed_since"]["fabrizioromano"] == TS1
+    import db
+    batch = twitter.fetch_batch()
+    assert db.checkpoint_map("twitter") == {}
+    db.ingest_batch("twitter", batch)
+    assert db.checkpoint_map("twitter")["fabrizioromano"] == TS1
 
     twitter.fetch(limit=5)                     # سیکل بعد
     assert seen["since"] == TS1 - 900          # با حاشیه‌ی اطمینان

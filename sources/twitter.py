@@ -31,6 +31,8 @@ import requests
 
 import config
 import health
+import db
+from sources.base import SourceBatch
 from sources.base import (
     parse_rss,
     clean_text,
@@ -49,7 +51,6 @@ FEED_TIMEOUT = 12
 FALLBACK_TIMEOUT = 8          # آینه کمکی نباید کل سیکل را معطل کند
 # حسابی که (بدون 429) چیزی نداد، فقط این مدت کنار می‌رود تا سیکل بعد دوباره
 # خوانده شود — دیگر ۳۰ دقیقه محرومیت نداریم که خبر از دست برود.
-ACCOUNT_SKIP_SECONDS = 60
 WORKERS = 4          # چند حساب همزمان — کمتر تا نیتر 429 ندهد
 INTER_ACCOUNT_DELAY = 0.25    # فاصله کوتاه بین درخواست حساب‌ها (۲۹ حساب = ~۷ ثانیه)
 BASE_SWITCH_THRESHOLD = 0.5   # اگر بیش از نیمی از حساب‌ها خالی ماندند آینه عوض کن
@@ -86,6 +87,19 @@ def _load():
             _state.update(json.load(f))
     except Exception:
         pass
+
+    # Legacy account exclusions are never used by polling again.
+    removed = _state.pop("fxembed_cooldown", None)
+    removed = _state.pop("cooldown", None) or removed
+    if removed:
+        import shutil
+        from pathlib import Path
+        path = Path(_STATE_PATH)
+        if path.exists():
+            backup = path.parent / "backups" / ("pre-cooldown-" + str(time.time_ns()) + ".json")
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, backup)
+        _save()
 
 
 def _save():
@@ -818,16 +832,7 @@ def _read_many(base, users):
                 missing.append(u)
             time.sleep(INTER_ACCOUNT_DELAY)   # فاصله کوتاه بین حساب‌ها — ضد 429
 
-    now = time.time()
-    cool = _state.setdefault("cooldown", {})
-    # 429 ≠ بی‌خبری: با یک زمان بسیار قدیمی علامت می‌زنیم تا سیکل بعد فوراً بخواند
-    for u in rl_flagged:
-        cool[u.lower()] = now - 1_000_000
-
-    fresh_missing = [
-        u for u in missing
-        if now - float(cool.get(u.lower(), 0)) > ACCOUNT_SKIP_SECONDS
-    ]
+    fresh_missing = missing
     if fresh_missing:
         others = [b for b in config.NITTER_BASES if b and b != base][:2]
         pairs = [(alt, u) for u in fresh_missing for alt in others]
@@ -842,10 +847,6 @@ def _read_many(base, users):
                 if entries:
                     result[u] = entries
                     log.info("backup mirror %s responded for @%s", alt, u)
-        for u in fresh_missing:
-            if not result.get(u):
-                cool[u.lower()] = now     # فقط یک سیکل (≈۶۰ ثانیه) صبر
-                log.info("@%s gave nothing - retrying next cycle", u)
     _save()
     return result, rl_flagged
 
@@ -1029,10 +1030,10 @@ def _fetch_xscrape(limit=6):
     _state["xscrape_dead_cycles"] = 0
     _save()
 
-    return _entries_to_items(feeds, users, limit)
+    return _entries_to_items(feeds, users, raw=True)
 
 
-def _entries_to_items(feeds, users, limit):
+def _entries_to_items(feeds, users, limit=None, raw=False):
     """entry های خام (xscrape/fxembed) → item های نهایی پایپ‌لاین.
 
     مشترک بین `_fetch_xscrape` و `_fetch_fxembed`: فیلتر سن/نویز/کلیدواژه،
@@ -1041,27 +1042,13 @@ def _entries_to_items(feeds, users, limit):
     """
     out = []
     for user in users:
-        if len(out) >= limit:
-            break
-        per_cycle = getattr(config, "TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE", 8)
-        for e in (feeds.get(user) or [])[:per_cycle]:
-            max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
-            age = tweet_age_hours(e)
-            if max_age and age is not None and age > max_age:
-                log.debug("skipped (%.0fh old): @%s", age, user)
-                continue
+        for e in feeds.get(user) or []:
             text = tweet_text(e)
-            if not text or text.startswith("RT "):
-                continue
-            if tweet_is_noise(text, e):
-                log.info("skipped (noise / promo tweet): @%s — %s",
-                         user, text[:50].replace("\n", " "))
-                continue
-            # اول نقل‌قول استخراج می‌شود تا relevance متنش را هم ببیند
             quoted = e.get("_xscrape_quoted") or {}
             q_text = (quoted.get("text") or "").strip()
-            if not _is_relevant(text, user, quoted_text=q_text):
-                continue
+            if not raw:
+                if tweet_is_noise(text, e) or not _is_relevant(text, user, quoted_text=q_text):
+                    continue
             q_handle = (quoted.get("author_screen_name") or "").lstrip("@")
             q_name = quoted.get("author_name") or ""
 
@@ -1082,6 +1069,9 @@ def _entries_to_items(feeds, users, limit):
                 "body": full_body,
                 "image": tweet_image(e),
                 "priority": True,
+                "ingest_handle": "@" + user,
+                "published_at": e.get("published"),
+                "raw_entry": e,
             }
             _attach_media(item, e, user)
 
@@ -1092,107 +1082,54 @@ def _entries_to_items(feeds, users, limit):
                 item["source_tag"] = item["original_source_tag"]
 
             out.append(item)
-            if len(out) >= limit:
-                break
     return out
 
 
-def _fetch_fxembed(limit=6):
-    """حالت TWITTER_MODE=fxembed — FxEmbed/FxTwitter API v2 (رایگان، بدون لاگین).
-
-    عمداً هیچ fallback ای به نیتر ندارد: classic/Nitter دیگر منبع قابل اتکایی
-    نیست و افتادن به آن فقط سیکل را هدر می‌دهد. اگر همه‌ی حساب‌ها جواب ندهند،
-    شمارنده‌ی سلامت ثبت می‌شود و لاگ خطا داده می‌شود (خبری جعل نمی‌شود).
-
-    دو نکته‌ی رفتاری:
-      * throttle واقعی فقط `FXEMBED_WORKERS` است؛ `time.sleep` بین اکانت‌ها
-        هیچ فایده‌ای ندارد چون همه‌ی درخواست‌ها از قبل submit شده‌اند.
-      * حساب ساسپند/حذف‌شده یک بار تشخیص داده می‌شود و تا
-        `FXEMBED_SUSPENDED_COOLDOWN` دیگر هیچ درخواستی برایش نمی‌رود.
-    """
+def _fetch_fxembed_batch():
+    """Poll the existing scraper without account exclusions or downstream caps."""
     from sources import fxembed
-
     due = _due_accounts()
     if not due:
-        return []
-    t0 = time.time()
-
-    # --- حساب‌های ساسپند/حذف‌شده: تا پایان cooldown اصلاً پرسیده نمی‌شوند
-    cooldown = _state.setdefault("fxembed_cooldown", {})
-    now = time.time()
-    users, skipped = [], []
-    for u in due:
-        until = (cooldown.get(u.lower()) or {}).get("until") or 0
-        (skipped if until > now else users).append(u)
-    if skipped:
-        log.info("fxembed: %d account(s) skipped (suspended/deleted): %s",
-                 len(skipped), ", ".join(skipped))
-    if not users:
-        return []
-
-    per_account = getattr(config, "FXEMBED_TWEETS_PER_ACCOUNT", 20)
-    use_since = getattr(config, "FXEMBED_USE_SINCE", True)
+        return SourceBatch()
+    db.import_checkpoints("twitter", _state.get("fxembed_since") or {})
+    since_map = db.checkpoint_map("twitter")
     overlap = getattr(config, "FXEMBED_SINCE_OVERLAP_SECONDS", 900)
-    since_map = dict(_state.get("fxembed_since") or {})
-
-    def _since_for(user):
-        """فقط حساب‌هایی که قبلاً با موفقیت خوانده شده‌اند since می‌گیرند."""
-        if not use_since:
-            return None
+    def since_for(user):
         last = since_map.get(user.lower())
-        return max(0, int(last) - overlap) if last else None
-
-    workers = min(len(users), getattr(config, "FXEMBED_WORKERS", 6))
-    feeds, newest, empty = {}, {}, []
+        return max(0, int(last) - overlap) if last and config.FXEMBED_USE_SINCE else None
+    feeds, checkpoints = {}, {}
+    workers = max(1, min(len(due), getattr(config, "FXEMBED_WORKERS", 6)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(fxembed.scrape_user, u, per_account,
-                               _since_for(u)): u for u in users}
+        futures = {pool.submit(fxembed.scrape_user, u, config.FXEMBED_TWEETS_PER_ACCOUNT,
+                               since_for(u)): u for u in due}
         for fut in as_completed(futures):
-            u = futures[fut]
+            user = futures[fut]
             try:
                 entries = fut.result()
-            except Exception as e:          # ماژول هرگز raise نمی‌کند؛ محض احتیاط
-                log.warning("fxembed @%s raised: %s", u, e)
+            except Exception as exc:
+                log.warning("poll @%s failed: %s", user, exc)
                 entries = []
             if entries:
-                feeds[u] = entries
-                ts = _newest_timestamp(entries)
-                if ts:
-                    newest[u.lower()] = ts
-            else:
-                empty.append(u)            # ناموفق → سیکل بعد دوباره کامل خوانده می‌شود
-
-    # --- چیزی نداد ⇒ آخرین تلاش برای تشخیص «ساسپند/حذف‌شده» (فقط همین‌بار)
-    if empty:
-        cd_secs = getattr(config, "FXEMBED_SUSPENDED_COOLDOWN", 86400)
-        with ThreadPoolExecutor(max_workers=min(len(empty), workers)) as pool:
-            reasons = dict(zip(
-                empty,
-                pool.map(lambda u: fxembed.suspension_reason(u), empty)))
-        for u in empty:
-            reason = reasons.get(u)
-            if reason:
-                cooldown[u.lower()] = {"reason": reason, "until": now + cd_secs}
-                log.warning("fxembed @%s is %s — skipping it for %sh "
-                            "(no news exists for it anyway)",
-                            u, reason, round(cd_secs / 3600))
-
-    if newest:
-        since_map.update(newest)            # state فقط برای حساب‌های موفق
-        _state["fxembed_since"] = since_map
-    if newest or empty:
-        _save()
-
-    log.info("fxembed: %d/%d accounts in %ss (skipped %d, empty %d)",
-             len(feeds), len(due), round(time.time() - t0, 1), len(skipped), len(empty))
-
+                feeds[user] = entries
+                newest = _newest_timestamp(entries)
+                if newest:
+                    checkpoints[user.lower()] = newest
     if not feeds:
         health.record_counter("fxembed_dead_cycle", 1)
-        log.error("fxembed returned nothing for all %d accounts — "
-                  "check network / api.fxtwitter.com status", len(users))
-        return []
+    log.info("fxembed: %d/%d accounts returned items; empty accounts remain eligible",
+             len(feeds), len(due))
+    return SourceBatch(_entries_to_items(feeds, due, raw=True), checkpoints)
 
-    return _entries_to_items(feeds, users, limit)
+
+def _fetch_fxembed(limit=6):
+    # Compatibility for diagnostic callers; only collect() commits checkpoints.
+    return _fetch_fxembed_batch().items
+
+
+def fetch_batch(limit=100):
+    if getattr(config, "TWITTER_MODE", "classic") == "fxembed":
+        return _fetch_fxembed_batch()
+    return SourceBatch(fetch(limit=limit))
 
 
 def _newest_timestamp(entries):
@@ -1323,54 +1260,4 @@ def _fetch_classic(limit=6):
     if rl_flagged:
         health.record_counter("twitter_rl", len(rl_flagged))
 
-    out = []
-    for user in users:
-        if len(out) >= limit:
-            break
-        per_cycle = getattr(config, "TWEETS_CHECKED_PER_ACCOUNT_PER_CYCLE", 8)
-        for e in (feeds.get(user) or [])[:per_cycle]:
-            max_age = getattr(config, "TWEET_MAX_AGE_HOURS", 24)
-            age = tweet_age_hours(e)
-            if max_age and age is not None and age > max_age:
-                log.debug("skipped (%.0fh old): @%s", age, user)
-                continue
-            text = tweet_text(e)
-            if not text or text.startswith("RT "):
-                continue
-            if tweet_is_noise(text, e):
-                log.info("skipped (noise / promo tweet): @%s — %s",
-                         user, text[:50].replace("\n", " "))
-                continue
-            # متن نقل‌قول (blockquote نیتر) هم برای relevance دیده شود
-            q_m = _QUOTE_BLOCK.search(e.get("summary") or "")
-            quoted_text = clean_text(q_m.group(1)) if q_m else ""
-            if not _is_relevant(text, user, quoted_text=quoted_text):
-                continue
-            item = {
-                "source": "Twitter",
-                "source_tag": config.display_name(user),
-                "handle": "@" + user,
-                "url": canonical(e.get("link"), user),
-                "title": text[:200],
-                "body": text,
-                "image": tweet_image(e),
-                "priority": True,
-            }
-            _attach_media(item, e, user)   # عکس‌ها/آلبوم/ویدیو اینجا
-
-            # تشخیص منبع اصلی (نقل‌قول یا @mention) — حالا چندگانه
-            primary_handle, other_handles, all_handles = detect_original_sources(e, text, user)
-            if primary_handle:
-                item["original_source"] = "@" + primary_handle
-                item["original_source_tag"] = config.display_name(primary_handle)
-                item["source_tag"] = config.display_name(primary_handle)
-                item["original_sources"] = ["@" + h for h in all_handles]
-                # تشخیص نوع: اگر blockquote بوده یعنی ریتوییت/نقل‌قول
-                summary = e.get("summary") or ""
-                item["_is_quote"] = bool(_QUOTE_BLOCK.search(summary))
-
-            out.append(item)
-            if len(out) >= limit:
-                break
-
-    return out
+    return _entries_to_items(feeds, users, raw=True)

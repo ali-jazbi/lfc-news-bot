@@ -42,6 +42,9 @@ import media
 import sample_item
 import source_health
 import translate
+import news_policy
+import names
+from sources.base import SourceBatch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ai.tracing import news_id_of, trace
 from sources import lfc_official, romano, twitter, outlet_rss, bluesky
@@ -97,15 +100,15 @@ _check_running = False
 def _sources():
     """لیست (source_id, label, fn) — با احترام به ENABLE_* فعلی."""
     out = []
-    # منبع سایت رسمی فعلاً خاموش است چون خروجی آن از نوع مقاله است.
-    if config.ENABLE_LFC and getattr(config, "ENABLE_ARTICLES", False):
+    # Normal club summaries are independent of full-article publishing.
+    if config.ENABLE_LFC:
         out.append(("lfc_official", "سایت باشگاه", lfc_official.fetch))
     if getattr(config, "ENABLE_OUTLET_RSS", True):
         out.append(("outlet_rss", "خبرگزاری رسمی", outlet_rss.fetch))
     if getattr(config, "ENABLE_BLUESKY", False):
         out.append(("bluesky", "بلواسکای", bluesky.fetch))
     if getattr(config, "ENABLE_TWITTER", True):
-        out.append(("twitter", "توییتر", twitter.fetch))
+        out.append(("twitter", "توییتر", twitter.fetch_batch))
     elif config.ENABLE_ROMANO:
         out.append(("romano", "رومانو", romano.fetch))
     # منابع RSS جدید (اختیاری، OUTLET_RSS_SOURCES) — آخر لیست تا خبر توییتر
@@ -123,7 +126,13 @@ def _fetch_source(source_id, label, fn):
         return []
     t0 = time.time()
     try:
-        got = fn(limit=config.MAX_ITEMS_PER_CYCLE)
+        got = fn(limit=config.FETCH_ITEMS_PER_SOURCE)
+        batch = got if isinstance(got, SourceBatch) else SourceBatch(got or [])
+        received = len(batch.items)
+        inserted = db.ingest_batch(source_id, batch)
+        health.record_counter("received", received)
+        health.record_counter("exact_duplicates", received - inserted)
+        got = batch.items
         ms = (time.time() - t0) * 1000
         health.record_ok(label, ms=ms, kind="source")
         source_health.mark_ok(source_id, items=len(got or []), latency_ms=ms)
@@ -195,6 +204,12 @@ def process_item(item, force=False, reply_to=None):
 
     try:
         return _process_item_internal(item, key, force=force, reply_to=reply_to)
+    except Exception as exc:
+        log.exception("processing failed for %s", key)
+        row = db.get(key)
+        stage = "send" if row and row['payload'].get('translated') else "translation"
+        db.stage_failed(key, stage, exc)
+        return False
     finally:
         with _processing_lock:
             _processing_keys.discard(key)
@@ -213,6 +228,17 @@ def _process_item_internal(item, key, force=False, reply_to=None):
     nid = news_id_of(item)
     notes = []
     editor = None
+
+    if not config.HERMES_ENABLED and not force:
+        action, reason = news_policy.decision(item)
+        item['editorial_decision'] = action
+        item['editorial_reason'] = reason
+        db.save(item, status=db.STATUS_DISCOVERED)
+        if action == 'reject':
+            db.mark_attempt(key, db.STATUS_REJECTED, error=reason)
+            health.record_counter('policy_rejected')
+            return False
+        notes.append('🔎 بررسی ادمین: ' + reason)
 
     # --------------------------------------------------------- مرحله AI
     if config.HERMES_ENABLED:
@@ -256,8 +282,12 @@ def _process_item_internal(item, key, force=False, reply_to=None):
         db.save(item, status="new")
 
     log.info("translating: %s", (item.get("title") or "")[:70])
-    tr = None
-    if not _has_translatable_text((item.get("title") or "") + " "
+    names.remember_unknowns(item)
+    previous = db.get(key)
+    tr = (item.get('translated') or {}) if (previous and previous.get('retry_stage') == 'send') else None
+    if tr:
+        pass
+    elif not _has_translatable_text((item.get("title") or "") + " "
                                   + (item.get("body") or "")):
         # متن قابل ترجمه ندارد (فقط ایموجی/مدیا/لینک).
         if force:
@@ -284,9 +314,12 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             tr = {"title": item.get("title") or "", "body": item.get("body") or "",
                   "importance": "normal", "tags": [], "provider": "raw"}
         else:
-            db.mark_attempt(key, "skipped", error="translation chain failed")
+            db.stage_failed(key, "translation", "translation chain failed")
             trace(nid, "TRANSLATION", success=False)
             return False
+
+    if tr.get('human_review_required') or tr.get('machine') or tr.get('provider') == 'raw':
+        notes.append('⚠️ ترجمه نیازمند بازبینی: ' + '؛ '.join(tr.get('quality_issues') or ['ترجمه ماشینی/متن اصلی']))
 
     # QC ترجمه (مرحله ۶) — فقط وقتی HERMES روشن است
     if config.HERMES_ENABLED and editor is not None:
@@ -432,6 +465,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
         except Exception as e:
             log.warning("video pipeline failed: %s", e)
 
+    msg = None
     if video and not video_sent_by_userbot and not DRY_RUN:
         # چند ویدیو → آلبوم ویدیویی با یک کپشن مشترک روی مورد اول
         to_send = video_urls if len(video_urls) >= 2 else ([video] if video else [])
@@ -476,15 +510,17 @@ def _process_item_internal(item, key, force=False, reply_to=None):
                     video_local = None
                     thumb_local = None
             else:
-                tg.send_video(config.ADMIN_CHAT_ID, video, caption=caption, silent=not high,
-                              thumb=thumb_local or thumb, reply_to=reply_to)
-            msg = tg.send_message(
-                config.ADMIN_CHAT_ID,
-                "\u200b",
-                reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
-                silent=not high,
-                reply_to=reply_to,
-            )
+                if len(caption.encode('utf-16-le')) // 2 <= 1024:
+                    msg = tg.send_video(config.ADMIN_CHAT_ID, video, caption=caption,
+                                        reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+                                        silent=not high, thumb=thumb, reply_to=reply_to)
+                else:
+                    tg.send_video(config.ADMIN_CHAT_ID, video, silent=not high, thumb=thumb, reply_to=reply_to)
+            # Local uploads and long captions always receive the complete text separately.
+            if not msg or len(caption.encode('utf-16-le')) // 2 > 1024:
+                msg = tg.send_message(config.ADMIN_CHAT_ID, caption,
+                                      reply_markup=formatter.keyboard(key, config.PUBLISH_MODE),
+                                      silent=not high, reply_to=reply_to)
     elif len(images) >= 2:
         # دکمه روی آلبوم کار نمی‌کند — اول آلبوم را جدا می‌فرستیم،
         # بعد کپشن + دکمه‌ها را به صورت پیام متنی جداگانه
@@ -519,7 +555,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
 
     # شکست ارسال → هیچ‌وقت گم‌شدن ساکت: retry_pending با خطا و شمارنده تلاش
     err = getattr(tg, "last_error", "") or "send failed"
-    db.mark_attempt(key, db.STATUS_RETRY_PENDING, error=err, retry=True)
+    db.stage_failed(key, "send", err)
     trace(nid, "TELEGRAM", upload="failed", retry_pending=True, error=err[:80])
     health.record_counter("send_failed")
     log.error("sending to group failed (check ADMIN_CHAT_ID): %s", err)
@@ -727,8 +763,7 @@ def retry_pending_sends(limit=5):
             trace(nid, "TELEGRAM", retry="success")
             retried += 1
         else:
-            db.mark_attempt(key, db.STATUS_RETRY_PENDING,
-                            error=getattr(tg, "last_error", "retry failed"), retry=True)
+            db.stage_failed(key, "send", getattr(tg, "last_error", "retry failed"))
             trace(nid, "TELEGRAM", retry="failed")
     if retried:
         log.info("retried %d pending send(s)", retried)
@@ -739,17 +774,16 @@ def run_cycle(force=False):
     health.record_counter("cycles")
     maybe_prune()
     # اول تلاش‌های ناتمام قبلی، بعد خبرها
-    retry_pending_sends()
-    items = collect()
-    log.info("collected %d items", len(items))
-    if not items:
-        log.warning("no items from sources. test with: python main.py --sample")
-        return 0
-    sent = 0
-    for it in items:
-        if sent >= config.MAX_ITEMS_PER_CYCLE:
-            break
-        if process_item(it, force=force):
+    retry_attempts = len(db.retryable_items(limit=config.MAX_ITEMS_PER_CYCLE))
+    retried = retry_pending_sends(limit=config.MAX_ITEMS_PER_CYCLE)
+    collected = collect()
+    # Compatibility with callers that replace collect() with an in-memory list.
+    db.ingest_batch('collected', SourceBatch(collected))
+    rows = db.queue_items(limit=max(0, config.MAX_ITEMS_PER_CYCLE - retry_attempts))
+    log.info("collected %d items; claimed %d queued items", len(collected), len(rows))
+    sent = retried
+    for row in rows:
+        if process_item(row['payload'], force=force):
             sent += 1
             time.sleep(2)
     log.info("sent %d item(s) this cycle", sent)
@@ -786,18 +820,10 @@ def drain_pending_updates(timeout=5):
 
 
 def poller_loop():
-    first_run = db.count() == 0
     while not _stop.is_set():
         started = time.time()
         try:
-            if first_run and config.BOOTSTRAP_SILENT:
-                items = collect()
-                for it in items:
-                    db.save(it, status="skipped")
-                log.info("first run: %d old items recorded silently", len(items))
-                first_run = False
-            else:
-                run_cycle()
+            run_cycle()
         except Exception as e:
             log.exception("poller error: %s", e)
 
@@ -1296,8 +1322,25 @@ def handle_message(m):
             "\u2705 ربات فعال است\n"
             f"حالت انتشار: <b>{'دستی' if config.PUBLISH_MODE == 'manual' else 'خودکار'}</b>\n"
             f"خبرهای ثبت‌شده: {db.count()}\n"
-            f"بازه چک منابع: هر {config.POLL_INTERVAL} ثانیه",
+            f"بازه چک منابع: هر {config.POLL_INTERVAL} ثانیه\n" + queue_report(),
         )
+    elif cmd == "/names":
+        parts = text.split(maxsplit=3)
+        if len(parts) == 4 and parts[1] in ('set', 'approve'):
+            try:
+                names.approve(int(parts[2]), parts[3])
+                tg.send_message(chat_id, '✅ نام فارسی تأیید شد')
+            except (ValueError, KeyError) as exc:
+                tg.send_message(chat_id, formatter.esc(str(exc)))
+        else:
+            tg.send_message(chat_id, names.report())
+    elif cmd == "/retry":
+        parts = text.split()
+        if len(parts) == 2:
+            db.reset_retry(parts[1])
+            tg.send_message(chat_id, 'خبر برای تلاش مجدد در صف قرار گرفت')
+        else:
+            tg.send_message(chat_id, 'استفاده: /retry شناسه‌خبر\n' + queue_report())
     elif cmd == "/health":
         try:
             src_report = source_health.report()
@@ -1336,6 +1379,8 @@ def handle_message(m):
         tg.send_message(
             chat_id,
             "دستورات:\n"
+            "/names — تأیید و اصلاح نام فارسی\n"
+            "/retry شناسه — تلاش دوباره خبر ناموفق\n"
             "/id — نمایش chat_id این گروه\n"
             "/status — وضعیت ربات\n"
             "/sample — ارسال یک خبر نمونه برای تست\n"
@@ -1347,6 +1392,21 @@ def handle_message(m):
             "\U0001F4E5 ارسال به کانال — مستقیم روی کانال عمومی\n"
             "\U0001F504 ترجمه مجدد — بازبینی ترجمه",
         )
+
+
+def queue_report():
+    stats = db.pipeline_stats()
+    counts = health._state.get('counters', {})
+    pending = sum(stats.get(k, 0) for k in ('discovered', 'new', 'processing', 'retry_pending'))
+    report = (f"دریافتی: {counts.get('received', 0)} | تکراری دقیق: {counts.get('exact_duplicates', 0)}\n"
+              f"منتظر پردازش: {pending} | ردشده: {stats.get('rejected', 0)} | ناموفق: {stats.get('failed', 0)}\n"
+              f"ارسال‌شده به ادمین: {stats.get('sent_admin', 0) + stats.get('pending_admin', 0)}")
+    with db._lock:
+        rows = db._c().execute("SELECT key,error FROM items WHERE status IN ('failed','rejected') "
+                               "ORDER BY created_at DESC LIMIT 5").fetchall()
+    for row in rows:
+        report += '\n<code>' + row['key'] + '</code>: ' + formatter.esc(row['error'] or '')
+    return report
 
 
 def _tail_errors(n=12):
@@ -1423,6 +1483,8 @@ def main():
             time.sleep(1)
         log.info("sample items sent. keep the bot running with python main.py to test buttons.")
         return
+
+    names.start_refresh(stop=_stop)
 
     if args.once or args.test:
         if not DRY_RUN:
