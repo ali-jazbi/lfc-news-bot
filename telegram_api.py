@@ -70,6 +70,20 @@ class Telegram:
             text = text.replace("\u200b", "").replace("\u2060", "").replace("\ufeff", "")
             if not text.strip():
                 text = "•"
+        if len(text.encode('utf-16-le')) // 2 > 3500:
+            from telegram_text import split_html
+            parts = split_html(text)
+            first = None
+            for index, part in enumerate(parts):
+                result = self.call('sendMessage', chat_id=chat_id, text=part, parse_mode='HTML',
+                                   disable_web_page_preview=disable_preview,
+                                   disable_notification=silent,
+                                   reply_markup=reply_markup if index == 0 else None,
+                                   reply_to_message_id=reply_to if index == 0 else first.get('message_id'))
+                if not result:
+                    return None
+                first = first or result
+            return first
         return self.call(
             "sendMessage",
             chat_id=chat_id,
@@ -325,6 +339,12 @@ class Telegram:
         """اگر ویدیو بود sendVideo می‌فرستد؛ اگر ≤۲ عکس داشت و دکمه‌ای در کار
         نبود آلبوم؛ ورنه طبق رفتار قدیمی: یک عکس + متن (یا فقط متن)."""
         imgs = [u for u in (images or []) if u]
+
+        if video and len(text.encode('utf-16-le')) // 2 > 1024:
+            res = self.send_video(chat_id, video, silent=silent, thumb=thumb, reply_to=reply_to)
+            if not res:
+                return None
+            return self.send_message(chat_id, text, reply_markup, silent=silent, reply_to=reply_to)
 
         if video and len(text) <= 1024:
             res = self.send_video(chat_id, video, text, reply_markup, silent, thumb,

@@ -221,6 +221,8 @@ def build_admin_caption(item, tr):
         tail += f" | ترجمه: {esc(str(tr['provider']))}"
     if tr.get("machine"):
         tail += "\n\u26A0\uFE0F ترجمه ماشینی — قبل از انتشار متن را بازبینی کن"
+    if tr.get('human_review_required'):
+        tail += '\n⚠️ نیازمند بازبینی: ' + esc('؛ '.join(tr.get('quality_issues') or ['کیفیت تأیید نشده']))
     # یادداشت منبع اصلی (نقل‌قول/ریتوییت)
     orig_note = build_original_source_note(item)
     if orig_note:

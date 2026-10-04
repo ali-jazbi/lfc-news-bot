@@ -1,0 +1,6 @@
+{
+  "providers": [
+    "groq/qwen/qwen3.8-27b"
+  ],
+  "basis": "Three valid Persian samples; other configured providers rate limited. Provisional, requires human fluency review."
+}
