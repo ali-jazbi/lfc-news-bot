@@ -181,12 +181,16 @@ OUTLET_RSS_FEEDS = _list(
 )
 
 # منابع RSS جدید و اختیاری (کاتالوگ آماده در sources/outlet_rss.py: CATALOG).
-# پیش‌فرض خالی = هیچ منبع جدیدی فعال نیست و رفتار قبلی عوض نمی‌شود.
+# پیش‌فرض all؛ مقدار خالی صریح در env این ورودی‌ها را خاموش می‌کند.
 # مثال: OUTLET_RSS_SOURCES=guardian,football365,liverpoolcom,thisisanfield
 # یا OUTLET_RSS_SOURCES=all
-OUTLET_RSS_SOURCES = _list("OUTLET_RSS_SOURCES", "")
-# خبر قدیمی‌تر از این‌قدر ساعت از منابع جدید رد می‌شود (0 = بدون فیلتر سن)
+OUTLET_RSS_SOURCES = _list("OUTLET_RSS_SOURCES", "all")
+# پنجرهٔ گزارش /missed؛ خبر دریافت‌شده در صف به‌دلیل سن حذف نمی‌شود.
 OUTLET_RSS_MAX_AGE_HOURS = _int("OUTLET_RSS_MAX_AGE_HOURS", 12)
+
+# Independent discovery; explicit false/empty settings still disable these inputs.
+ENABLE_NEWS_SEARCH = _get("ENABLE_NEWS_SEARCH", "true").lower() == "true"
+NEWS_SEARCH_INTERVAL = _int("NEWS_SEARCH_INTERVAL", 300)
 
 # بلواسکای — جایگزین رسمی نیتر برای خبرنگارانی که آنجا هم پست می‌گذارند.
 # غیرفعال است تا وقتی BLUESKY_HANDLES پر شود (نمونه: someone.bsky.social)

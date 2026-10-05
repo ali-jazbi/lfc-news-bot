@@ -96,9 +96,18 @@ def refresh():
             c = db._c()
             for english, url in roster.items():
                 existing = next((fa for en, fa in config.GLOSSARY.items() if en.casefold() == english.casefold()), None)
-                c.execute('INSERT INTO person_names (english,persian,official_url,approved_at) VALUES (?,?,?,?) '
-                          'ON CONFLICT(english) DO UPDATE SET official_url=excluded.official_url',
-                          (english, existing, url, time.time() if existing else None))
+                c.execute('INSERT INTO person_names (english,persian,official_url,approved_at,roster_seen_at) VALUES (?,?,?,?,?) '
+                          'ON CONFLICT(english) DO UPDATE SET official_url=excluded.official_url,roster_seen_at=excluded.roster_seen_at',
+                          (english, existing, url, time.time() if existing else None, time.time()))
+                c.execute("INSERT INTO news_entities VALUES (?,'current',0,?,?) ON CONFLICT(name) DO UPDATE SET "
+                          "role='current',expires_at=0,evidence=excluded.evidence,updated_at=excluded.updated_at",
+                          (english.casefold(), url, time.time()))
+            # Only a successful, nonempty roster snapshot can retire an affiliation.
+            for entity in c.execute("SELECT name FROM news_entities WHERE role='current' "
+                                    "AND evidence LIKE 'https://www.liverpoolfc.com/%'").fetchall():
+                if entity['name'] not in {en.casefold() for en in roster}:
+                    c.execute("UPDATE news_entities SET role='former',updated_at=? WHERE name=?",
+                              (time.time(), entity['name']))
             c.commit()
             rows = c.execute('SELECT * FROM person_names WHERE checked_at<?', (time.time() - 86400,)).fetchall()
         club = _api({'action': 'wbgetentities', 'sites': 'enwiki', 'titles': 'Liverpool F.C.', 'props': 'labels'})

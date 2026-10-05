@@ -261,6 +261,9 @@ def build_admin_caption(item, tr):
     orig_note = build_original_source_note(item)
     if orig_note:
         tail += "\n\n" + orig_note
+    sources = item.get('story_sources') or []
+    if len(sources) > 1:
+        tail += '\n📚 ' + str(len(sources)) + ' منبع؛ جزئیات در دکمهٔ منابع خبر'
     return caption + tail
 
 
@@ -314,5 +317,9 @@ def keyboard(key, mode="manual"):
             [{"text": "\U0001F4E4 نسخه آماده انتشار", "callback_data": f"pub:{key}"},
              {"text": "\U0001F4E2 انتشار در کانال", "callback_data": f"s2c:{key}"}],
             [{"text": "\U0001F4C4 متن اصلی", "callback_data": f"orig:{key}"}],
+            [{"text": "✅ مرتبط", "callback_data": f"rel:{key}"},
+             {"text": "❌ نامرتبط", "callback_data": f"irr:{key}"}],
+            [{"text": "📚 منابع خبر", "callback_data": f"story:{key}"},
+             {"text": "🔗 مسیر ترجمه", "callback_data": f"chain:{key}"}],
         ]
     }

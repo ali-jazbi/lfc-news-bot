@@ -854,6 +854,46 @@ def chain_names():
     return names + (["مترجم گوگل"] if plain else [])
 
 
+def chain_report():
+    """Explain configured order, including slots silently excluded from deployments."""
+    from html import escape
+    lines = ['🔗 <b>زنجیرهٔ ترجمه به ترتیب تنظیمات</b>']
+    for raw in config.TRANSLATE_ORDER:
+        slot = raw.strip().lower()
+        cfg = config.LLM_SLOTS.get(slot)
+        if slot in ('translate', 'translator', 'deep_translator', 'google'):
+            name, reason = 'مترجم گوگل', ('فعال؛ خروجی نیازمند بازبینی' if config.ENABLE_DEEP_TRANSLATOR else 'غیرفعال')
+        elif slot == 'gemini':
+            name, reason = 'Gemini', ('فعال' if config.GEMINI_API_KEYS else 'حذف‌شده: کلید تنظیم نشده')
+        elif cfg:
+            name = cfg['name'] or slot
+            missing = [field for field in ('key', 'base_url', 'model') if not cfg.get(field)]
+            if missing:
+                reason = 'حذف‌شده: تنظیم ناقص (' + ', '.join(missing) + ')'
+            elif any(kind in cfg['model'].lower() for kind in ('whisper', 'embedding', 'tts')):
+                reason = 'حذف‌شده: مدل گفت‌وگوی متنی نیست'
+            else:
+                stat = health.stats(name)
+                reason = f"فعال | موفق {stat.get('ok', 0)} | خطا {stat.get('fail', 0)}"
+        else:
+            name, reason = slot, 'حذف‌شده: سرویس شناخته‌شده نیست'
+        lines.append(escape(name) + ' — ' + escape(reason))
+    lines.append('ترتیب مؤثر: ' + escape(' → '.join(chain_names()) or 'هیچ سرویس فعالی تنظیم نشده'))
+    return '\n'.join(lines)
+
+
+def _attempt_error(exc):
+    message = str(exc)[:300]
+    for cfg in config.LLM_SLOTS.values():
+        for field in ('key', 'key_backup'):
+            if cfg.get(field):
+                message = message.replace(cfg[field], '[redacted]')
+    for key in config.GEMINI_API_KEYS:
+        message = message.replace(key, '[redacted]')
+    message = re.sub(r'(?:gsk_|sk-or-v1-|sk-)[A-Za-z0-9_-]+', '[redacted]', message)
+    return message
+
+
 def _provider_of(resp, default):
     """کدام مدل واقعاً جواب داد."""
     try:
@@ -902,11 +942,14 @@ def _normalise(data, item, provider):
 def _translate_short(item, review=True):
     _, _, plain_enabled = _deployments()
     errors = []
+    attempts = []
+    item['translation_attempts'] = attempts
     try:
         router, model_names = _get_router()
     except Exception as exc:
         router, model_names = None, []
         errors.append('router initialization: ' + str(exc)[:120])
+        attempts.append({'provider': 'router', 'outcome': 'error', 'error': _attempt_error(exc)})
     # Model output validity belongs to the application, not the HTTP fallback router.
     for model in model_names if router else []:
         t0 = time.time()
@@ -921,21 +964,30 @@ def _translate_short(item, review=True):
                 raise ValueError('invalid translation output')
             provider = _provider_of(resp, model)
             data = _normalise(data, item, provider)
+            attempts.append({'provider': model, 'outcome': 'ok', 'ms': round((time.time() - t0) * 1000)})
+            data['translation_attempts'] = list(attempts)
             health.record_ok(provider, ms=(time.time() - t0) * 1000)
             health.record_counter('translated')
             if model != model_names[0]:
                 health.record_counter('fallback_used')
             return _quality_review(item, data, semantic=review)
         except Exception as exc:
+            attempts.append({'provider': model, 'outcome': 'error', 'error': _attempt_error(exc),
+                             'ms': round((time.time() - t0) * 1000)})
             health.record_fail(model, exc)
             errors.append(model + ': ' + str(exc)[:120])
     if plain_enabled:
         try:
             data = _normalise(_deep_translate(item), item, 'مترجم گوگل')
             data['machine'] = True
+            attempts.append({'provider': 'مترجم گوگل', 'outcome': 'ok'})
+            data['translation_attempts'] = list(attempts)
+            health.record_ok('مترجم گوگل')
             health.record_counter('machine_used')
             return _quality_review(item, data, semantic=False)
         except Exception as exc:
+            attempts.append({'provider': 'مترجم گوگل', 'outcome': 'error', 'error': _attempt_error(exc)})
+            health.record_fail('مترجم گوگل', exc)
             errors.append('machine: ' + str(exc)[:120])
     health.record_counter('chain_failed')
     log.error('translation chain failed: %s', '; '.join(errors))
@@ -1032,6 +1084,9 @@ def _translate_long_article(item):
             part = dict(item, title=item.get('title') if index == 0 else '', body=chunk)
             part.pop('_translation_chunks', None)
             result = _translate_short(part)
+            item['translation_attempts'] = [dict(a, chunk=i+1) for i, r in enumerate(results)
+                                             for a in r.get('translation_attempts', [])]
+            item['translation_attempts'] += [dict(a, chunk=index+1) for a in part.get('translation_attempts', [])]
             if result is None:
                 return None
             cache['parts'][key] = result
@@ -1042,6 +1097,8 @@ def _translate_long_article(item):
     out['body'] = '\n\n'.join(r['body'] for r in results)
     out['provider'] = ', '.join(dict.fromkeys(r['provider'] for r in results))
     out['machine'] = any(r.get('machine') for r in results)
+    out['translation_attempts'] = [dict(a, chunk=i + 1) for i, r in enumerate(results)
+                                   for a in r.get('translation_attempts', [])]
     issues = [i for r in results for i in r.get('quality_issues', [])]
     issues += translation_quality.check(item, out, person_names.glossary())
     out['quality_issues'] = list(dict.fromkeys(issues))

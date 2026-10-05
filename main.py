@@ -45,6 +45,8 @@ import source_health
 import translate
 import news_policy
 import names
+import discovery
+import admin_news
 from sources.base import SourceBatch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ai.tracing import news_id_of, trace
@@ -114,7 +116,9 @@ def _sources():
         out.append(("romano", "رومانو", romano.fetch))
     # منابع RSS جدید (اختیاری، OUTLET_RSS_SOURCES) — آخر لیست تا خبر توییتر
     # در سقف آیتم‌های هر سیکل عقب نیفتد؛ سلامت/backoff مستقل از بقیه.
-    if getattr(config, "OUTLET_RSS_SOURCES", None):
+    if config.ENABLE_NEWS_SEARCH:
+        out.append(('news_search', 'جست‌وجوی اخبار', discovery.fetch_search))
+    if config.ENABLE_OUTLET_RSS and getattr(config, "OUTLET_RSS_SOURCES", None):
         out.append(("rss_extra", "منابع RSS جدید", outlet_rss.fetch_extra))
     return out
 
@@ -167,6 +171,7 @@ def collect():
     items = []
     for sid, _, _ in sources:
         items += results.get(sid) or []
+    discovery.discover_sources(items)
     return items
 
 
@@ -314,6 +319,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             tr = {"title": item.get("title") or "", "body": item.get("body") or "",
                   "importance": "normal", "tags": [], "provider": "raw"}
         else:
+            db.update_payload(key, item)
             db.stage_failed(key, "translation", "translation chain failed")
             trace(nid, "TRANSLATION", success=False)
             return False
@@ -411,7 +417,7 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             import userbot_downloader
             ub = userbot_downloader.get_downloader()
             if ub.is_configured():
-                tweet_url = item.get("url") or video
+                tweet_url = item.get('video_source_url') or item.get("url") or video
                 log.info("Requesting cloud video from @twittervid_bot for: %s", tweet_url)
                 video_sent_by_userbot = ub.download_and_forward_sync(
                     tweet_url=tweet_url,
@@ -575,7 +581,7 @@ def _send_final_post(target, text, item):
             import userbot_downloader
             ub = userbot_downloader.get_downloader()
             if ub.is_configured():
-                tweet_url = item.get("url") or video
+                tweet_url = item.get('video_source_url') or item.get("url") or video
                 log.info("Final video via UserBot for: %s", tweet_url)
                 if ub.download_and_forward_sync(
                     tweet_url=tweet_url,
@@ -606,6 +612,8 @@ def send_to_channel(key):
     row = db.get(key)
     if not row:
         return False, "این خبر در دیتابیس نیست"
+    if row['status'] in ('rejected', 'skipped', 'grouped', 'published'):
+        return False, 'این خبر رد، تجمیع یا قبلاً منتشر شده؛ وضعیت آن را در /queue بررسی کن.'
     item = row["payload"]
     tr = item.get("translated")
     if not tr:
@@ -647,6 +655,8 @@ def approve(key, chat_id, from_user_id=None):
     row = db.get(key)
     if not row:
         return False, "این خبر در دیتابیس نیست"
+    if row['status'] in ('rejected', 'skipped', 'grouped', 'published'):
+        return False, 'این خبر رد، تجمیع یا قبلاً منتشر شده؛ وضعیت آن را در /queue بررسی کن.'
     item = row["payload"]
     tr = item.get("translated")
     if not tr:
@@ -823,6 +833,8 @@ def poller_loop():
         started = time.time()
         try:
             run_cycle()
+            if not DRY_RUN:
+                admin_news.maybe_audit(tg)
         except Exception as e:
             log.exception("poller error: %s", e)
 
@@ -860,6 +872,8 @@ def handle_callback(cq):
         tg.answer_callback(cid)
         return
     action, key = data.split(":", 1)
+    if admin_news.callback(tg, cq, action, key):
+        return
     row = db.get(key)
     if not row:
         tg.answer_callback(cid, "این خبر دیگر در دیتابیس نیست", alert=True)
@@ -1319,6 +1333,9 @@ def handle_message(m):
         )
         return
 
+    if admin_news.command(tg, chat_id, text):
+        return
+
     if cmd == "/id":
         tg.send_message(chat_id, f"chat_id این گفتگو: <code>{chat_id}</code>\nآیدی عددی تو: <code>{from_user.get('id')}</code>")
     elif cmd == "/status":
@@ -1353,7 +1370,7 @@ def handle_message(m):
             src_report = ""
         tg.send_message(
             chat_id,
-            health.report(translate.chain_names()) + "\n\n"
+            translate.chain_report() + '\n\n' + health.report(translate.chain_names()) + "\n\n"
             + channel_guard.status()
             + (("\n\n" + src_report) if src_report else ""),
         )
@@ -1386,6 +1403,12 @@ def handle_message(m):
         tg.send_message(
             chat_id,
             "دستورات:\n"
+            '/queue [pending|review|failed|rejected|grouped|all] — صف تعاملی\n'
+            '/missed — بررسی و بازیابی خبرهای جاافتاده\n'
+            '/accounts — سلامت هر اکانت\n'
+            '/sources — پیشنهاد اکانت و پایش موقت\n'
+            '/watch — افراد فعلی، سابق و اهداف نقل‌وانتقال\n'
+            '/merge شناسه۱ شناسه۲ — تأیید تجمیع منابع\n'
             "/names — تأیید و اصلاح نام فارسی\n"
             "/retry شناسه — تلاش دوباره خبر ناموفق\n"
             "/id — نمایش chat_id این گروه\n"

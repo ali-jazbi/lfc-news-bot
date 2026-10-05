@@ -16,6 +16,7 @@ class SourceBatch:
     """Unfiltered received items and checkpoints committed together by the collector."""
     items: list = field(default_factory=list)
     checkpoints: dict = field(default_factory=dict)
+    diagnostics: list = field(default_factory=list)
 
     def __iter__(self):
         return iter(self.items)
@@ -90,7 +91,7 @@ def extract_tweet_id_from_link(link):
     return m.group(1) if m else None
 
 
-def parse_rss(url, timeout=25, raw=None):
+def parse_rss(url, timeout=25, raw=None, strict=False):
     """خروجی: لیستی از dict با کلیدهای title, link, summary, image.
 
     اگر raw داده شود، همان متن استفاده می‌شود و دوباره گرفته نمی‌شود
@@ -101,9 +102,15 @@ def parse_rss(url, timeout=25, raw=None):
         if raw is None:
             raw = http_get(url, timeout=timeout)
         if not raw:
+            if strict:
+                raise ConnectionError('RSS request failed: ' + url)
             return []  # Do not let feedparser make a second, unbounded network call.
         feed = feedparser.parse(raw)
+        if strict and not getattr(feed, 'entries', []) and not getattr(feed, 'version', ''):
+            raise ValueError('Response is not an RSS/Atom feed: ' + url)
     except Exception as e:
+        if strict:
+            raise
         log.warning("rss %s failed: %s", url, e)
         return []
 
@@ -122,6 +129,9 @@ def parse_rss(url, timeout=25, raw=None):
                     break
         if not image:
             image = first_image_in_html(summary)
+        publisher = e.get('source') or {}
+        if not isinstance(publisher, dict):
+            publisher = {}
         out.append(
             {
                 "title": e.get("title", ""),
@@ -129,6 +139,8 @@ def parse_rss(url, timeout=25, raw=None):
                 "summary": summary,
                 "image": image,
                 "published": e.get("published", ""),
+                "publisher": publisher.get('title', ''),
+                "publisher_url": publisher.get('href', ''),
             }
         )
     return out

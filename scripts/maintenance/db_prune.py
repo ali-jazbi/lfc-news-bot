@@ -43,7 +43,7 @@ PRUNE_INTERVAL_SECONDS = int(os.environ.get("DB_PRUNE_INTERVAL_SECONDS", "3600")
 # وضعیت‌هایی که هنوز برای دکمه‌های ادمین لازمند — فشرده نمی‌شوند تا تازه‌اند
 _ACTIVE_STATUSES = ("new", "discovered", "processing", "analyzing", "verification",
                     "approved_by_ai", "translation", "translation_review", "media_processing",
-                    "retry_pending", "failed", "sent_admin", "pending_admin", "approved")
+                    "retry_pending", "failed", "sent_admin", "pending_admin", "approved", "grouped", "rejected")
 
 
 def _conn():
@@ -60,11 +60,14 @@ def prune(keep_days=DB_KEEP_DAYS, trim_hours=DB_TRIM_AFTER_HOURS, dry=False):
     c = _conn()
     now = _now()
     stats = {"deleted": 0, "trimmed": 0, "kept": 0}
+    # A retained grouped member must never outlive the parent used by its admin button.
+    story_parents = {r[0] for r in c.execute("SELECT DISTINCT story_key FROM items WHERE status='grouped' "
+                                           'AND story_key IS NOT NULL')}
 
     # ۱) حذف ردیف‌های قدیمی
     cutoff = now - keep_days * 86400
     cur = c.execute("SELECT key, payload, status FROM items WHERE created_at < ?", (cutoff,))
-    old_rows = [row for row in cur.fetchall() if row[2] not in _ACTIVE_STATUSES]
+    old_rows = [row for row in cur.fetchall() if row[2] not in _ACTIVE_STATUSES and row[0] not in story_parents]
     stats["deleted"] = len(old_rows)
     if old_rows and not dry:
         for r in old_rows:
@@ -78,7 +81,7 @@ def prune(keep_days=DB_KEEP_DAYS, trim_hours=DB_TRIM_AFTER_HOURS, dry=False):
             stats["kept"] += 1
             continue
         # ردیف تازه‌ای که هنوز برای دکمه‌ها لازم است را دست نزن
-        if status in _ACTIVE_STATUSES:
+        if status in _ACTIVE_STATUSES or key in story_parents:
             stats["kept"] += 1
             continue
         try:

@@ -10,9 +10,13 @@ import logging
 import time
 
 import config
-from sources.base import parse_rss, clean_text
+from sources.base import parse_rss as _parse_rss, clean_text
 
 log = logging.getLogger("src.outlet_rss")
+
+
+def parse_rss(url, timeout=25):
+    return _parse_rss(url, timeout=timeout, strict=True)
 
 # فقط برای نمایش زیبای‌تر در پست — رفتار فیلترینگ را عوض نمی‌کند
 _OUTLET_NAMES = (
@@ -66,8 +70,12 @@ def fetch(limit=6):
             entries = parse_rss(feed_url)
         except Exception as e:
             log.warning("feed %s failed: %s", feed_url, e)
+            import source_health
+            source_health.mark_fail('feed:' + feed_url, error=str(e))
             continue
         name = _outlet_name(feed_url)
+        import source_health
+        source_health.mark_ok('feed:' + feed_url, items=len(entries))
         got = 0
         for e in entries:
             title = clean_text(e.get("title") or "")
@@ -84,6 +92,8 @@ def fetch(limit=6):
                     "body": summary or title,
                     "image": e.get("image"),
                     "published_at": e.get("published"),
+                    "feed_url": feed_url,
+                    "club_specific": _team_specific(feed_url),
                 }
             )
             got += 1
@@ -92,7 +102,7 @@ def fetch(limit=6):
 
 
 # ---------------------------------------------------------------- منابع جدید (اختیاری)
-# فهرست فیدهای آماده‌ی «فقط لیورپول». پیش‌فرض همه خاموش‌اند؛ با
+# فهرست فیدهای آماده‌ی «فقط لیورپول». با
 # OUTLET_RSS_SOURCES در .env روشن می‌شوند (مثلاً guardian,football365 یا all).
 # این مسیر جدا از fetch() بالاست و فید BBC / OUTLET_RSS_FEEDS را تغییر نمی‌دهد.
 # همه‌ی این فیدها اختصاصی لیورپول‌اند، پس فیلتر کلمه (RELEVANCE_KEYWORDS) لازم نیست.
@@ -152,15 +162,13 @@ def _too_old(published, max_hours):
 
 
 def fetch_extra(limit=6):
-    """فیدهای فعال‌شده‌ی کاتالوگ. سقف `limit` برای هر منبع جداست، تا یک فید
-    شلوغ فیدهای بعدی را گرسنه نگذارد. خبر کهنه‌تر از OUTLET_RSS_MAX_AGE_HOURS
-    رد می‌شود تا با روشن‌کردن یک منبع، پیام‌های چند روزه‌ی قدیمی به گروه نریزد."""
+    """تمام آیتم‌های فیدهای فعال به صف پایدار می‌رسند. `limit` سقف پردازش نیست؛
+    پنجرهٔ زمانی فقط برای بررسی مستقل /missed استفاده می‌شود."""
     ids = enabled_source_ids()
     if not ids:
         return []
 
     legacy = {u.strip() for u in getattr(config, "OUTLET_RSS_FEEDS", []) if u.strip()}
-    max_age = getattr(config, "OUTLET_RSS_MAX_AGE_HOURS", 12)
     out = []
     for sid in ids:
         src = CATALOG[sid]
@@ -170,7 +178,11 @@ def fetch_extra(limit=6):
             entries = parse_rss(src["url"])
         except Exception as e:
             log.warning("feed %s failed: %s", src["url"], e)
+            import source_health
+            source_health.mark_fail('feed:' + src['url'], error=str(e))
             continue
+        import source_health
+        source_health.mark_ok('feed:' + src['url'], items=len(entries))
         got = 0
         for e in entries:
             title = clean_text(e.get("title") or "")
@@ -187,6 +199,8 @@ def fetch_extra(limit=6):
                     "body": summary or title,
                     "image": e.get("image"),
                     "published_at": e.get("published"),
+                    "feed_url": src['url'],
+                    "club_specific": True,
                 }
             )
             got += 1

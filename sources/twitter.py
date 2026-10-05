@@ -518,6 +518,11 @@ def read_feed(base, user, timeout=FEED_TIMEOUT):
 def _accounts():
     tier1 = [a.lstrip("@") for a in config.TWITTER_TIER1 if a.strip()]
     everyone = [a.lstrip("@") for a in config.TWITTER_ACCOUNTS if a.strip()]
+    from discovery import source_handles
+    unique = {}
+    for account in everyone + source_handles():
+        unique.setdefault(account.casefold(), account)
+    everyone = list(unique.values())
     rest = [a for a in everyone if a.lower() not in {t.lower() for t in tier1}]
     return tier1, rest
 
@@ -1097,18 +1102,26 @@ def _fetch_fxembed_batch():
     def since_for(user):
         last = since_map.get(user.lower())
         return max(0, int(last) - overlap) if last and config.FXEMBED_USE_SINCE else None
-    feeds, checkpoints = {}, {}
+    feeds, checkpoints, diagnostics = {}, {}, []
     workers = max(1, min(len(due), getattr(config, "FXEMBED_WORKERS", 6)))
+    def read_account(user):
+        started = time.time()
+        try:
+            entries = fxembed.scrape_user(user, config.FXEMBED_TWEETS_PER_ACCOUNT, since_for(user))
+            error = ''
+        except Exception as exc:
+            entries, error = [], str(exc)
+            log.warning('poll @%s failed: %s', user, exc)
+        return entries, dict(handle=user, received=len(entries), error=error,
+                             latest_at=_newest_timestamp(entries),
+                             outcome='error' if error else ('returned' if entries else 'empty'),
+                             latency_ms=(time.time() - started) * 1000)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(fxembed.scrape_user, u, config.FXEMBED_TWEETS_PER_ACCOUNT,
-                               since_for(u)): u for u in due}
+        futures = {pool.submit(read_account, u): u for u in due}
         for fut in as_completed(futures):
             user = futures[fut]
-            try:
-                entries = fut.result()
-            except Exception as exc:
-                log.warning("poll @%s failed: %s", user, exc)
-                entries = []
+            entries, diagnostic = fut.result()
+            diagnostics.append(diagnostic)
             if entries:
                 feeds[user] = entries
                 newest = _newest_timestamp(entries)
@@ -1118,7 +1131,7 @@ def _fetch_fxembed_batch():
         health.record_counter("fxembed_dead_cycle", 1)
     log.info("fxembed: %d/%d accounts returned items; empty accounts remain eligible",
              len(feeds), len(due))
-    return SourceBatch(_entries_to_items(feeds, due, raw=True), checkpoints)
+    return SourceBatch(_entries_to_items(feeds, due, raw=True), checkpoints, diagnostics)
 
 
 def _fetch_fxembed(limit=6):

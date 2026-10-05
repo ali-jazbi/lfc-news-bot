@@ -33,11 +33,32 @@ QUEUE_STATUSES = (STATUS_DISCOVERED, "new", "processing", STATUS_ANALYZING,
                   STATUS_VERIFICATION, STATUS_APPROVED_BY_AI, STATUS_TRANSLATION,
                   STATUS_TRANSLATION_REVIEW, STATUS_MEDIA_PROCESSING,
                   STATUS_RETRY_PENDING, STATUS_FAILED, STATUS_PENDING_ADMIN,
-                  "sent_admin", STATUS_APPROVED)
+                  "sent_admin", STATUS_APPROVED, "grouped")
 # وضعیت‌های قدیمی که برای سازگاری حفظ شده‌اند:
 # new | sent_admin | skipped | rejected | approved | published
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS discovery_candidates (
+    key TEXT PRIMARY KEY, payload TEXT NOT NULL, found_at REAL, updated_at REAL,
+    state TEXT DEFAULT 'missing'
+);
+CREATE TABLE IF NOT EXISTS account_polls (
+    handle TEXT PRIMARY KEY, attempted_at REAL, last_item_at REAL,
+    received INTEGER DEFAULT 0, polls INTEGER DEFAULT 0, empty_streak INTEGER DEFAULT 0,
+    outcome TEXT, error TEXT, latency_ms REAL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS source_candidates (
+    handle TEXT PRIMARY KEY, state TEXT DEFAULT 'suggested', expires_at REAL DEFAULT 0,
+    club_only INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS source_citations (
+    handle TEXT, news_key TEXT, url TEXT, cited_by TEXT, created_at REAL,
+    PRIMARY KEY(handle,news_key)
+);
+CREATE TABLE IF NOT EXISTS news_entities (
+    name TEXT PRIMARY KEY, role TEXT, expires_at REAL DEFAULT 0, evidence TEXT,
+    updated_at REAL
+);
 CREATE TABLE IF NOT EXISTS pipeline_meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS checkpoints (
     source_id TEXT, account TEXT, watermark REAL,
@@ -121,6 +142,8 @@ _COLUMN_MIGRATIONS = (
     "ALTER TABLE items ADD COLUMN retry_stage TEXT",
     "ALTER TABLE items ADD COLUMN next_retry_at REAL DEFAULT 0",
     "ALTER TABLE items ADD COLUMN canonical_url TEXT",
+    "ALTER TABLE items ADD COLUMN story_key TEXT",
+    "ALTER TABLE person_names ADD COLUMN roster_seen_at REAL DEFAULT 0",
 )
 
 
@@ -141,10 +164,11 @@ def init():
     # Back up an existing DB before the first queue migration, including WAL data.
     has_items = _conn.execute("SELECT 1 FROM sqlite_master WHERE name='items'").fetchone()
     has_meta = _conn.execute("SELECT 1 FROM sqlite_master WHERE name='pipeline_meta'").fetchone()
-    if has_items and not has_meta:
+    has_discovery = _conn.execute("SELECT 1 FROM sqlite_master WHERE name='discovery_candidates'").fetchone()
+    if has_items and (not has_meta or not has_discovery):
         folder = Path(config.DB_PATH).resolve().parent / "backups"
         folder.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(folder / f"pre-queue-{time.time_ns()}.db") as backup:
+        with sqlite3.connect(folder / f"pre-pipeline-{time.time_ns()}.db") as backup:
             _conn.backup(backup)
     # WAL: چون poller_loop (ترد پس‌زمینه) و bot_loop (ترد اصلی) هم‌زمان به
     # دیتابیس می‌نویسند/می‌خوانند، WAL خواندن و نوشتن هم‌زمان را ممکن می‌کند
@@ -238,7 +262,7 @@ def is_duplicate(item: dict) -> bool:
         if row:
             return row['status'] in ('sent_admin', STATUS_PENDING_ADMIN,
                                      STATUS_APPROVED, STATUS_PUBLISHED, STATUS_REJECTED,
-                                     'skipped')
+                                     'skipped', 'grouped')
         return False  # Similar titles are advisory; a different URL is not a duplicate.
 
 def similar_sources(item: dict, hours=48, statuses=None, exclude_self=True):
@@ -340,6 +364,22 @@ def ingest_batch(source_id, batch):
                      normalize_title(item.get('title')), json.dumps(item, ensure_ascii=False),
                      STATUS_DISCOVERED, time.time(), normalize_url(item.get('url') or '')))
                 inserted += cur.rowcount
+            for diag in batch.diagnostics:
+                handle = diag['handle'].lstrip('@').casefold()
+                count = int(diag.get('received', 0))
+                now = time.time()
+                c.execute('INSERT INTO account_polls '
+                          '(handle,attempted_at,last_item_at,received,polls,empty_streak,outcome,error,latency_ms) '
+                          'VALUES (?,?,?,?,1,?,?,?,?) ON CONFLICT(handle) DO UPDATE SET '
+                          'attempted_at=excluded.attempted_at, '
+                          'last_item_at=CASE WHEN excluded.last_item_at>COALESCE(account_polls.last_item_at,0) '
+                          'THEN excluded.last_item_at ELSE account_polls.last_item_at END, '
+                          'received=account_polls.received+excluded.received,polls=account_polls.polls+1, '
+                          'empty_streak=CASE WHEN excluded.received>0 THEN 0 ELSE account_polls.empty_streak+1 END, '
+                          'outcome=excluded.outcome,error=excluded.error,latency_ms=excluded.latency_ms',
+                          (handle, now, diag.get('latest_at') or None, count, 0 if count else 1,
+                           diag.get('outcome', 'returned' if count else 'empty'),
+                           str(diag.get('error') or '')[:300], diag.get('latency_ms', 0)))
             for account, watermark in batch.checkpoints.items():
                 c.execute("INSERT INTO checkpoints VALUES (?,?,?) ON CONFLICT(source_id,account) "
                           "DO UPDATE SET watermark=MAX(checkpoints.watermark,excluded.watermark)",
@@ -351,6 +391,8 @@ def queue_items(limit=5):
     """Claim FIFO per source/account, rotating across groups between cycles."""
     with _lock:
         c = _c()
+        from discovery import group_pending_stories
+        group_pending_stories(c)
         rows = c.execute("SELECT * FROM items WHERE status IN ('discovered','new') "
                          "OR (status='retry_pending' AND retry_stage!='send' AND "
                          "COALESCE(next_retry_at,0)<=?) ORDER BY created_at,key",
