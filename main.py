@@ -20,6 +20,7 @@ import re
 import sys
 import threading
 import time
+from collections import deque
 from logging.handlers import RotatingFileHandler
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -1358,6 +1359,8 @@ def handle_message(m):
         )
     elif cmd == "/errors":
         tg.send_message(chat_id, _tail_errors())
+    elif cmd == "/log":
+        tg.send_message(chat_id, _tail_log())
     elif cmd == "/sample":
         tg.send_message(chat_id, "در حال ساخت خبر نمونه...")
         threading.Thread(
@@ -1391,6 +1394,7 @@ def handle_message(m):
             "/check — چک فوری منابع واقعی\n"
             "/health — وضعیت سرویس‌های ترجمه و منابع\n"
             "/errors — آخرین خطاهای ثبت‌شده\n\n"
+            "/log — ۱۰۰ خط آخر لاگ ربات\n\n"
             "دکمه‌های خبر:\n"
             "\U0001F4E4 نسخه آماده انتشار — نسخه تمیز در همین گروه\n"
             "\U0001F4E5 ارسال به کانال — مستقیم روی کانال عمومی\n"
@@ -1427,6 +1431,22 @@ def _tail_errors(n=12):
         return "\u2705 هیچ خطایی ثبت نشده."
     body = "".join(lines)[-3000:]
     return "\U0001F41E <b>آخرین خطاها</b>\n<pre>" + formatter.esc(body) + "</pre>"
+
+
+def _tail_log(n=100):
+    """آخرین n خط لاگ کامل ربات را برمی‌گرداند؛ متن بلند خودکار تکه می‌شود."""
+    path = os.path.join("logs", "bot.log")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = list(deque(f, maxlen=n))
+    except FileNotFoundError:
+        return "ℹ️ فایل لاگ هنوز ساخته نشده است."
+    except Exception as e:
+        return "خواندن لاگ ممکن نشد: " + formatter.esc(str(e))
+    if not lines:
+        return "ℹ️ لاگ هنوز خالی است."
+    return (f"📜 <b>آخرین {len(lines)} خط لاگ</b>\n<pre>"
+            + formatter.esc("".join(lines)) + "</pre>")
 
 
 def bot_loop():
