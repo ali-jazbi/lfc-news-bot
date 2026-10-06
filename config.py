@@ -52,6 +52,10 @@ def channel_target():
 # آیدی عددی خودت را با /id در همان گروه می‌گیری.
 ADMIN_USER_IDS = [int(x) for x in _list("ADMIN_USER_IDS") if x.lstrip("-").isdigit()]
 
+# /update always requires an explicit admin allowlist and the admin chat.
+UPDATE_ENABLED = _get("UPDATE_ENABLED", "false").lower() == "true"
+UPDATE_DRAIN_TIMEOUT = max(1, _int("UPDATE_DRAIN_TIMEOUT", 600))
+
 # --- UserBot Downloader Settings ---
 USERBOT_API_ID = _get("USERBOT_API_ID")
 USERBOT_API_HASH = _get("USERBOT_API_HASH")

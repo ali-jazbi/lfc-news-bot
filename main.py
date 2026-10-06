@@ -47,6 +47,7 @@ import news_policy
 import names
 import discovery
 import admin_news
+import bot_update
 from sources.base import SourceBatch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ai.tracing import news_id_of, trace
@@ -96,6 +97,8 @@ log = logging.getLogger("main")
 tg = Telegram()
 DRY_RUN = False
 _stop = threading.Event()
+_restart_requested = threading.Event()
+_service_mode = False
 _check_running = False
 
 
@@ -185,6 +188,7 @@ _processing_keys = set()
 _processing_lock = threading.Lock()
 
 
+@bot_update.activity
 def process_item(item, force=False, reply_to=None):
     """یک خبر را از مسیر کامل عبور می‌دهد و در گروه ادمین/تست می‌گذارد.
 
@@ -193,7 +197,7 @@ def process_item(item, force=False, reply_to=None):
     (برای وقتی ادمین خودش لینک توییت را فرستاده).
     وقتی HERMES_ENABLED=false رفتار قبلی دقیقاً حفظ می‌شود (فقط ترجمه + ارسال).
     """
-    if not item:
+    if bot_update.new_job_paused() or not item:
         return False
 
     key = db.make_key(item)
@@ -779,7 +783,10 @@ def retry_pending_sends(limit=5):
     return retried
 
 
+@bot_update.activity
 def run_cycle(force=False):
+    if bot_update.paused():
+        return
     health.record_counter("cycles")
     maybe_prune()
     # اول تلاش‌های ناتمام قبلی، بعد خبرها
@@ -834,7 +841,7 @@ def poller_loop():
         try:
             run_cycle()
             if not DRY_RUN:
-                admin_news.maybe_audit(tg)
+                _daily_audit()
         except Exception as e:
             log.exception("poller error: %s", e)
 
@@ -843,6 +850,12 @@ def poller_loop():
 
 
 # ------------------------------------------------------------------ bot
+@bot_update.activity
+def _daily_audit():
+    if not bot_update.paused():
+        admin_news.maybe_audit(tg)
+
+
 def _is_admin(user_id):
     """اگر ADMIN_USER_IDS خالی باشد همه اجازه دارند (رفتار قدیم)،
     وگرنه فقط آیدی‌های فهرست شده اجازه دارند."""
@@ -851,7 +864,11 @@ def _is_admin(user_id):
     return user_id in config.ADMIN_USER_IDS
 
 
+@bot_update.activity
 def handle_callback(cq):
+    if bot_update.paused():
+        tg.answer_callback(cq.get("id"), "بات در حال آپدیت است؛ کمی بعد دوباره امتحان کن", alert=True)
+        return
     data = cq.get("data", "")
     cid = cq["id"]
     msg = cq.get("message", {})
@@ -957,12 +974,15 @@ _LFC_LINK_ONLY = re.compile(
 )
 
 
+@bot_update.activity
 def _handle_lfc_link(url, chat_id, reply_to=None, status_msg_id=None):
     """لینک خبر سایت باشگاه را به پست معمولی تبدیل می‌کند.
 
     این مسیر عمداً از article_pipeline استفاده نمی‌کند و به ENABLE_ARTICLES
     وابسته نیست؛ بنابراین با خاموش‌بودن قابلیت مقاله، خبر عادی همچنان کار می‌کند.
     """
+    if _update_blocks_link(chat_id, reply_to, status_msg_id):
+        return
     try:
         item = lfc_official._parse_article(url)
     except Exception as e:
@@ -985,10 +1005,22 @@ def _cleanup_status(chat_id, status_msg_id):
         log.debug("status cleanup failed: %s", e)
 
 
+def _update_blocks_link(chat_id, reply_to, status_msg_id):
+    if not bot_update.paused():
+        return False
+    _cleanup_status(chat_id, status_msg_id)
+    tg.send_message(chat_id, "⏳ بات در حال آپدیت است؛ لینک را کمی بعد دوباره بفرست.",
+                    reply_to=reply_to)
+    return True
+
+
+@bot_update.activity
 def _handle_tweet_link(url, chat_id, reply_to=None, status_msg_id=None):
     """لینک خام توییت را مثل یک خبر عادی پردازش می‌کند — همان پیش‌نمایش و دکمه‌ها.
     reply_to → پیش‌نمایش به همان پیامِ لینک ریپلای می‌شود.
     status_msg_id → پیام «در حال استخراج…» بعد از ساخت پست پاک می‌شود."""
+    if _update_blocks_link(chat_id, reply_to, status_msg_id):
+        return
     from sources import twitter as twitter_src
 
     item = twitter_src.item_from_url(url)
@@ -1005,8 +1037,11 @@ def _handle_tweet_link(url, chat_id, reply_to=None, status_msg_id=None):
         tg.send_message(chat_id, "⚠️ پردازش توییت ناتمام ماند — لاگ را ببین.")
 
 
+@bot_update.activity
 def _handle_article_link(url, chat_id, reply_to=None, status_msg_id=None):
     """لینک مقاله (غیر توییت) → آرشیو + اسکرپ + ترجمه + Telegraph + Instant View."""
+    if _update_blocks_link(chat_id, reply_to, status_msg_id):
+        return
     import article_pipeline
 
     result = article_pipeline.run(url)
@@ -1268,10 +1303,24 @@ def _refresh_preview(row, item, tr):
         log.warning("edit preview refresh failed: %s", e)
 
 
+def _request_restart():
+    _restart_requested.set()
+    _stop.set()
+
+
+@bot_update.activity
 def handle_message(m):
     text = (m.get("text") or "").strip()
     chat_id = m.get("chat", {}).get("id")
     from_user = m.get("from", {})
+
+    cmd = text.split()[0].split("@")[0] if text.startswith("/") else ""
+    if cmd == "/update":
+        bot_update.request(tg, m, _request_restart, dry_run=DRY_RUN, service_mode=_service_mode)
+        return
+    if bot_update.paused():
+        tg.send_message(chat_id, "⏳ بات در حال آپدیت است؛ کمی بعد دوباره امتحان کن.", silent=True)
+        return
 
     # ✏️ ویرایش با ریپلای + /edit، ادیت یا ویرایش — بدون مهلت زمانی
     # فقط خودِ خط اول فرمان مهم است؛ «ادیتور» یا متن عادی اشتباهی فعال نمی‌شود.
@@ -1418,6 +1467,7 @@ def handle_message(m):
             "/health — وضعیت سرویس‌های ترجمه و منابع\n"
             "/errors — آخرین خطاهای ثبت‌شده\n\n"
             "/log — ۱۰۰ خط آخر لاگ ربات\n\n"
+            "/update — دریافت نسخهٔ جدید و ری‌استارت (ادمین‌های مشخص)\n\n"
             "دکمه‌های خبر:\n"
             "\U0001F4E4 نسخه آماده انتشار — نسخه تمیز در همین گروه\n"
             "\U0001F4E5 ارسال به کانال — مستقیم روی کانال عمومی\n"
@@ -1495,7 +1545,7 @@ def bot_loop():
 
 # ------------------------------------------------------------------ entry
 def main():
-    global DRY_RUN
+    global DRY_RUN, _service_mode
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="یک سیکل و خروج")
     ap.add_argument("--test", action="store_true", help="یک سیکل با فیلتر تکراری خاموش")
@@ -1503,6 +1553,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="بدون ارسال به تلگرام")
     args = ap.parse_args()
     DRY_RUN = args.dry_run
+    _service_mode = not (args.once or args.test or args.sample)
 
     db.init()
 
@@ -1531,6 +1582,9 @@ def main():
         log.info("sample items sent. keep the bot running with python main.py to test buttons.")
         return
 
+    if not DRY_RUN and not (args.once or args.test):
+        bot_update.notify_startup(tg)
+
     names.start_refresh(stop=_stop)
 
     if args.once or args.test:
@@ -1548,6 +1602,8 @@ def main():
     except KeyboardInterrupt:
         _stop.set()
         log.info("shutdown.")
+    if _restart_requested.is_set():
+        bot_update.restart_process()
 
 
 if __name__ == "__main__":

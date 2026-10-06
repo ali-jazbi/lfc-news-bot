@@ -44,6 +44,13 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
+## Telegram updates
+
+For a direct Python deployment, enable `UPDATE_ENABLED=true` and set explicit
+`ADMIN_USER_IDS`. `/update` in the admin group pulls the current branch's upstream,
+checks the update and restarts this bot. See [setup and testing](docs/bot-update.md).
+Keep this disabled for Docker deployments, which should rebuild their image.
+
 ## Project structure
 
 | File | Responsibility |
