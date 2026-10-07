@@ -29,15 +29,20 @@ def evaluate(limit=30, live=False):
         start = time.monotonic()
         result = {'model': dep['model_name'], 'id': sample['id']}
         try:
-            params = dict(dep['litellm_params'], timeout=25, max_retries=0)
+            params = dict(dep['litellm_params'], max_retries=0)
+            params.setdefault('timeout', 25)
             resp = translate.litellm.completion(messages=translate._build_messages(sample),
                                               temperature=0, max_tokens=translate._output_budget(sample), **params)
             tr = translate._extract_json(translate._msg_text(resp))
             result['valid'] = translate._valid_result(tr)
             result['issues'] = translation_quality.check(sample, tr, config.GLOSSARY) if result['valid'] else ['invalid output']
             result['translation'] = tr if result['valid'] else None
+            usage = getattr(resp, 'usage', None)
+            if usage is not None:
+                result['usage'] = usage.model_dump(mode='json') if hasattr(usage, 'model_dump') else usage
         except Exception as exc:
-            result.update(valid=False, issues=['provider unavailable'], error_type=type(exc).__name__)
+            result.update(valid=False, issues=['provider unavailable'], error_type=type(exc).__name__,
+                          error=translate._attempt_error(exc), status_code=getattr(exc, 'status_code', None))
         result['seconds'] = round(time.monotonic() - start, 2)
         return result
     def run_model(dep):

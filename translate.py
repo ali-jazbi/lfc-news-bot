@@ -737,6 +737,11 @@ def _deployments():
                     "reasoning_effort": "none",
                     "reasoning_format": "hidden",
                 }
+            elif cfg["model"].lower() == "gpt-6-luna":
+                params["extra_body"] = {"reasoning_effort": "none"}
+            elif cfg["model"].lower().startswith("qwen") and any(
+                    domain in host for domain in ("avalai.ir", "avalapis.ir")):
+                params["extra_body"] = {"enable_thinking": False}
             elif "googleapis.com" in host:
                 params["extra_body"] = {"reasoning_effort": "none"}
             elif not any(h in host for h in ("cerebras.ai", "mistral.ai")):
@@ -916,7 +921,7 @@ def chain_report():
 
 
 def _attempt_error(exc):
-    message = str(exc)[:300]
+    message = str(exc)
     for cfg in config.LLM_SLOTS.values():
         for field in ('key', 'key_backup'):
             if cfg.get(field):
@@ -924,7 +929,7 @@ def _attempt_error(exc):
     for key in config.GEMINI_API_KEYS:
         message = message.replace(key, '[redacted]')
     message = re.sub(r'(?:gsk_|sk-or-v1-|sk-)[A-Za-z0-9_-]+', '[redacted]', message)
-    return message
+    return message[:300]
 
 
 def _provider_of(resp, default):

@@ -97,6 +97,38 @@ def test_audio_models_are_not_translation_providers(monkeypatch):
     monkeypatch.setattr(translate.config, 'LLM_SLOTS', {'llm1': {'key': 'test', 'base_url': 'https://example.test', 'model': 'whisper-large-v3-turbo'}})
     assert translate._deployments()[0] == []
 
+@pytest.mark.parametrize('base_url', ['https://api.gapgpt.app/v1', 'https://api.gapapi.com/v1'])
+@pytest.mark.parametrize('nothink', [True, False])
+def test_gapgpt_luna_reasoning_parameter(monkeypatch, base_url, nothink):
+    monkeypatch.setattr(translate.config, 'TRANSLATE_ORDER', ['llm7'])
+    monkeypatch.setattr(translate.config, 'LLM_SLOTS', {'llm7': {
+        'name': 'gapgpt-luna', 'key': 'test-primary', 'key_backup': 'test-backup',
+        'base_url': base_url, 'model': 'gpt-6-luna',
+    }})
+    monkeypatch.setenv('LLM7_NOTHINK', str(nothink).lower())
+    deployments, _, _ = translate._deployments()
+    assert len(deployments) == 2
+    for deployment in deployments:
+        params = deployment['litellm_params']
+        assert params['model'] == 'openai/gpt-6-luna'
+        if nothink:
+            assert params['extra_body'] == {'reasoning_effort': 'none'}
+        else:
+            assert 'extra_body' not in params
+
+
+@pytest.mark.parametrize('base_url', ['https://api.avalai.ir/v1', 'https://api.avalapis.ir/v1'])
+@pytest.mark.parametrize('model', ['qwen3.8-flash', 'qwen3.5-flash'])
+def test_avalai_qwen_can_disable_thinking(monkeypatch, base_url, model):
+    monkeypatch.setattr(translate.config, 'TRANSLATE_ORDER', ['llm8'])
+    monkeypatch.setattr(translate.config, 'LLM_SLOTS', {'llm8': {
+        'name': 'avalai-' + model, 'key': 'test-key', 'base_url': base_url, 'model': model,
+    }})
+    monkeypatch.setenv('LLM8_NOTHINK', 'true')
+    deployment = translate._deployments()[0][0]
+    assert deployment['litellm_params']['extra_body'] == {'enable_thinking': False}
+
+
 def test_short_news_does_not_reserve_full_article_token_budget():
     assert translate._output_budget({'body': 'Liverpool won 2-0.'}) < 1000
 
