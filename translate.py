@@ -1099,13 +1099,17 @@ def _review_call(item, tr):
                                                                   ensure_ascii=False)}])
             if JSON_MODE:
                 kwargs['response_format'] = {'type': 'json_object'}
-            def call():
-                data = _extract_json(_msg_text(router.completion(**kwargs)))
-                if not (isinstance(data, dict) and isinstance(data.get('ok'), bool)
-                        and isinstance(data.get('issues'), list)):
-                    raise ValueError('invalid review output')
-                return data
-            return _provider_call(model, call)
+            # A malformed QC answer does not mean translation is unavailable.
+            # Only transport/API failures belong to the shared provider circuit.
+            response = _provider_call(model, lambda: router.completion(**kwargs))
+            data = _extract_json(_msg_text(response))
+            if not (isinstance(data, dict) and isinstance(data.get('ok'), bool)
+                    and isinstance(data.get('issues'), list)):
+                finish = getattr(response.choices[0], 'finish_reason', None)
+                log.warning('invalid translation review for %s (finish_reason=%s); '
+                            'translation retained for admin review', model, finish)
+                continue
+            return data
         except ProviderUnavailable:
             continue
         except Exception as exc:

@@ -99,3 +99,50 @@ def test_audio_models_are_not_translation_providers(monkeypatch):
 
 def test_short_news_does_not_reserve_full_article_token_budget():
     assert translate._output_budget({'body': 'Liverpool won 2-0.'}) < 1000
+
+
+@pytest.mark.parametrize('review_output', [{}, {'ok': 'true', 'issues': []},
+                                          {'body': 'پاسخ خارج از قرارداد'}])
+def test_invalid_qc_keeps_translation_provider_available(monkeypatch, review_output):
+    import health
+    calls = []
+
+    class Router:
+        def completion(self, **kwargs):
+            calls.append(kwargs)
+            if 'You review Persian' in kwargs['messages'][0]['content']:
+                return response(review_output)
+            return response({'title': '', 'body': 'لیورپول پیروز شد.'})
+
+    monkeypatch.setattr(translate, '_get_router', lambda: (Router(), ['luna-test']))
+    monkeypatch.setattr(translate, '_deployments', lambda: ([], [], False))
+    monkeypatch.setattr(translate.config, 'TRANSLATION_QC_ENABLED', True)
+    for _ in range(2):
+        result = translate.translate({'title': '', 'body': 'Liverpool won.'})
+        assert result is not None
+        assert result['body'] == 'لیورپول پیروز شد.'
+        assert 'semantic quality review unavailable' in result['quality_issues']
+        assert health.is_available('luna-test')
+    assert len(calls) == 4
+    assert health.stats('luna-test')['fail'] == 0
+
+
+def test_qc_transport_rate_limit_still_protects_provider(monkeypatch):
+    import health
+    calls = []
+
+    class Router:
+        def completion(self, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 2:
+                raise RuntimeError('rate limit reached; 429')
+            return response({'title': '', 'body': 'لیورپول پیروز شد.'})
+
+    monkeypatch.setattr(translate, '_get_router', lambda: (Router(), ['luna-test']))
+    monkeypatch.setattr(translate, '_deployments', lambda: ([], [], False))
+    monkeypatch.setattr(translate.config, 'TRANSLATION_QC_ENABLED', True)
+    assert translate.translate({'body': 'Liverpool won.'}) is not None
+    assert not health.is_available('luna-test')
+    assert translate.translate({'body': 'Liverpool won again.'}) is None
+    assert len(calls) == 2
+    assert health.stats('luna-test')['error_code'] == 'rate_limit'
