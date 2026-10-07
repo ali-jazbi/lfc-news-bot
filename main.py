@@ -240,7 +240,8 @@ def _process_item_internal(item, key, force=False, reply_to=None):
     editor = None
 
     if not config.HERMES_ENABLED and not force:
-        action, reason = news_policy.decision(item)
+        stored = db.get(key)
+        action, reason = news_policy.decision(item, discovered_at=stored['created_at'] if stored else None)
         item['editorial_decision'] = action
         item['editorial_reason'] = reason
         db.save(item, status=db.STATUS_DISCOVERED)

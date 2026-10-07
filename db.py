@@ -293,6 +293,7 @@ def similar_sources(item: dict, hours=48, statuses=None, exclude_self=True):
         ).fetchall()
 
     out = []
+    from discovery import same_story
     for r in rows:
         if not r["norm_title"]:
             continue
@@ -303,6 +304,8 @@ def similar_sources(item: dict, hours=48, statuses=None, exclude_self=True):
         try:
             old = json.loads(r["payload"] or "{}")
         except Exception:
+            continue
+        if not same_story(item, old):
             continue
         tag = old.get("source_tag") or old.get("source")
         if not tag or tag in out:

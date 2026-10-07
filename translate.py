@@ -72,6 +72,9 @@ SYSTEM_PROMPT = """تو مترجم و خبرنگار حرفه‌ای فوتبا�
 
 قواعد:
 1. خبر  را به فارسی روان، خبری و طبیعی برگردان. ترجمه تحت‌اللفظی ممنوع است.
+تشخیص ارتباط خبر با لیورپول در کد انجام می‌شود؛ فقط متن را ترجمه کن.
+پیام‌هایی مانند «خطای ورودی»، «متن خبری نیست» یا «قابل ترجمه نیست» جای ترجمه ننویس.
+در نتیجهٔ مسابقه، تعداد گل هر تیم و ترتیب نام تیم‌ها را دقیقاً حفظ کن.
 
 1-الف. مهم‌ترین قاعده — زاویه دید متن را عوض نکن:
    تو مترجمی، نه گزارشگر. متن را عیناً با همان زبانی که نوشته شده برگردان.
@@ -952,6 +955,8 @@ def _valid_result(data):
         return False
     if not isinstance(data.get('title', ''), str) or not isinstance(data.get('body', ''), str):
         return False
+    if translation_quality.model_refusal(data):
+        return False
     blob = (data.get('body') or data.get('title') or '').strip()
     latin = len(re.findall('[A-Za-z]', blob))
     persian = sum(ch.isalpha() and '\u0600' <= ch <= '\u06ff' for ch in blob)
@@ -1164,6 +1169,8 @@ def _translate_long_article(item):
     for index, chunk in enumerate(_split_article(body, limit=ARTICLE_CHUNK_CHARS)):
         key = str(index)
         result = cache['parts'].get(key)
+        if result is not None and not _valid_result(result):
+            result = None
         if result is None:
             part = dict(item, title=item.get('title') if index == 0 else '', body=chunk)
             part.pop('_translation_chunks', None)

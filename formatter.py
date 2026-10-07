@@ -236,7 +236,7 @@ def build_original_source_note(item):
     if item.get("_is_quote"):
         head = f"\U0001F4AC نقل‌قول از: {esc(orig_tag)} ({esc(orig)})"
     else:
-        head = f"\U0001F517 منبع اصلی: {esc(orig_tag)} ({esc(orig)})"
+        head = f"\U0001F517 نویسندهٔ اصلی: {esc(orig_tag)} ({esc(orig)})"
     # منابع اضافه (هر @منشن دیگر در همان توییت) — فقط یادداشت ادمین
     extra = item.get("original_sources") or []
     extra = [s for s in extra if s.lower() != str(orig).lower()]
@@ -251,12 +251,23 @@ def build_admin_caption(item, tr):
     caption = build_caption(item, tr)
     src = item.get("url", "")
     tail = f"\n\n\u2500\u2500\u2500\n\U0001F517 <a href=\"{esc(src)}\">منبع اصلی</a>"
+    import news_policy
+    from datetime import datetime, timezone
+    import time
+    stamp = news_policy.publication_time(item)
+    if stamp is not None:
+        date = datetime.fromtimestamp(stamp, timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+        hours = news_policy.age_limit(item)
+        prefix = '⚠️ خبر قدیمی؛ انتشار منبع: ' if hours > 0 and time.time() - stamp > hours * 3600 else '🗓 انتشار منبع: '
+        tail += '\n' + prefix + date
     if tr.get('provider') == 'raw':
         tail += '\n⚠️ ترجمه انجام نشده؛ متن اصلی پیش از انتشار باید ترجمه شود.'
     elif tr.get('machine'):
         tail += '\n⚠️ ترجمه ماشینی است؛ پیش از انتشار بازبینی کن.'
     elif tr.get('human_review_required'):
         tail += '\n⚠️ پیش از انتشار، ترجمه و نام‌ها را بازبینی کن.'
+    if 'match score/team order requires review' in tr.get('quality_issues', []):
+        tail += '\n⚠️ نتیجهٔ بازی و ترتیب تیم‌ها را با متن اصلی بررسی کن.'
     # یادداشت منبع اصلی (نقل‌قول/ریتوییت)
     orig_note = build_original_source_note(item)
     if orig_note:

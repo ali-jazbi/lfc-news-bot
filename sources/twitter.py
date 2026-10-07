@@ -1186,6 +1186,7 @@ def build_tweet_item(entry, user):
         "image": tweet_image(entry),
         "priority": True,
         "linked_urls": linked_urls(entry),
+        "published_at": entry.get('published'),
     }
     _attach_media(item, entry, user)
 

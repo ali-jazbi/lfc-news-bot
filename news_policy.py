@@ -1,6 +1,7 @@
 """Conservative channel policy, independent of agent/editor integrations."""
 import re
 import time
+from datetime import datetime, timezone
 
 import config
 
@@ -147,7 +148,31 @@ def _has_liverpool_context(text, profiles=None):
     return False
 
 
-def decision(item, profiles=None):
+def publication_time(item):
+    from discovery import published_time
+    return published_time(item.get('published_at') or item.get('published')
+                          or (item.get('raw_entry') or {}).get('published'))
+
+
+def age_limit(item):
+    return config.TWEET_MAX_AGE_HOURS if item.get('source') == 'Twitter' else config.OUTLET_RSS_MAX_AGE_HOURS
+
+
+def _stale_reason(item, discovered_at, text):
+    stamp = publication_time(item)
+    hours = age_limit(item)
+    if stamp is None or hours <= 0 or time.time() - stamp <= hours * 3600:
+        return None
+    live = re.search(r'\b(ft|full[ -]?time|half[ -]?time|line[ -]?ups?|kick[ -]?off|live update)\b'
+                     r'|پایان بازی|پایان نیمه|ترکیب بازی', text, re.I)
+    # Keep ordinary news that was fresh when received, even after provider outages.
+    if (discovered_at if discovered_at is not None else time.time()) - stamp > hours * 3600 or live:
+        date = datetime.fromtimestamp(stamp, timezone.utc).strftime('%Y-%m-%d')
+        return 'old source publication (' + date + '); needs admin confirmation'
+    return None
+
+
+def decision(item, profiles=None, discovered_at=None):
     title = _content_text(item.get('title')).casefold()
     body = _content_text(item.get('body')).casefold()
     blob = title + ' ' + body
@@ -168,6 +193,17 @@ def decision(item, profiles=None):
     if _SELF_PROMO_RE.search(blob) and not re.search(
             r'\b(injured|injury|scored|won|lost|signed|agreed|bid|goals?|line.?up)\b', blob):
         return 'reject', 'podcast or personal account announcement'
+
+    greeting_text = re.sub(r'^[\W_]+', '', title.strip() or body.strip())
+    greetings = re.search(r'^(good\s*(?:night|morning)|sleep well|bye\b|شب[\s\u200c]*بخیر|صبح[\s\u200c]*بخیر)', greeting_text)
+    facts = re.search(r'\b(won|lost|signed|agreed|bid|injur\w*|transfer|contract|talks|deal|fee|'
+                      r'rumou?r|tactic\w*|perform\w*|xg|possession|passing|passes|chances|shots)\b', blob)
+    if greetings and not (_FOOTBALL_EVENT_RE.search(blob) or facts):
+        return 'reject', 'personal greeting with no football news'
+
+    stale = _stale_reason(item, discovered_at, blob)
+    if stale:
+        return 'hold', stale
 
     if _NON_FOOTBALL_RE.search(blob) and not _FOOTBALL_EVENT_RE.search(blob):
         return 'hold', 'non-football topic or ambiguous person/place identity'
@@ -198,11 +234,11 @@ def classify_queued():
     rejected = 0
     with db._lock, db._c():
         c = db._c()
-        rows = c.execute("SELECT key,payload,status FROM items WHERE status IN ('discovered','new') "
+        rows = c.execute("SELECT key,payload,status,created_at FROM items WHERE status IN ('discovered','new') "
                          "OR (status='retry_pending' AND retry_stage='translation')").fetchall()
         for row in rows:
             item = json.loads(row['payload'])
-            action, reason = decision(item, profiles)
+            action, reason = decision(item, profiles, discovered_at=row['created_at'])
             item.update(editorial_decision=action, editorial_reason=reason)
             status = 'rejected' if action == 'reject' else 'awaiting_relevance' if action == 'hold' else row['status']
             c.execute('UPDATE items SET payload=?,status=?,error=CASE WHEN ? IN '

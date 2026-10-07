@@ -30,7 +30,7 @@ def test_content_duplicate_similar_headline(news_db):
     assert not news_db.is_duplicate(a)
     news_db.save(a, status="sent_admin")
     assert not news_db.is_duplicate(b)
-    assert news_db.similar_sources(b, exclude_self=False)
+    assert news_db.similar_sources(b, exclude_self=False) == []  # A headline alone is not corroboration.
 
 
 def test_same_story_different_source_not_duplicate(news_db):

@@ -1,10 +1,11 @@
 """Independent news discovery and conservative story grouping; no agent calls."""
 import email.utils
 import json
+import math
 import re
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import config
@@ -21,13 +22,20 @@ def published_time(value):
         return None
     try:
         if isinstance(value, (int, float)):
-            return float(value)
-        try:
-            date = email.utils.parsedate_to_datetime(value)
-        except (TypeError, ValueError):
-            date = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
-        return date.timestamp() if date.tzinfo is not None else None
-    except (ValueError, TypeError, OverflowError):
+            stamp = float(value)
+        else:
+            try:
+                date = email.utils.parsedate_to_datetime(value)
+            except (TypeError, ValueError):
+                date = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+            if date.tzinfo is None:
+                return None
+            stamp = date.timestamp()
+        if not math.isfinite(stamp):
+            return None
+        datetime.fromtimestamp(stamp, timezone.utc)  # Validate dates before captions use them.
+        return stamp
+    except (ValueError, TypeError, OverflowError, OSError):
         return None
 
 
@@ -127,12 +135,15 @@ def material_signature(item):
 def _links(item):
     text = (item.get('title') or '') + ' ' + (item.get('body') or '')
     urls = re.findall(r'https?://[^\s<>"\]]+', text)
-    urls += item.get('external_urls') or []
+    urls += (item.get('external_urls') or []) + (item.get('linked_urls') or [])
     return {db.normalize_url(u.rstrip('.,)')) for u in urls}
 
 
 def same_story(a, b):
     """A similar headline alone is never sufficient to suppress a received item."""
+    date_a, date_b = news_policy.publication_time(a), news_policy.publication_time(b)
+    if date_a is not None and date_b is not None and abs(date_a - date_b) > 12 * 3600:
+        return False
     if material_signature(a) != material_signature(b):
         return False
     body_a = db.normalize_title(a.get('body') or '')
@@ -187,7 +198,7 @@ def group_pending_stories(c):
     with c:
         for row in rows:
             item = json.loads(row['payload'])
-            if news_policy.decision(item)[0] != 'review':
+            if news_policy.decision(item, discovered_at=row['created_at'])[0] != 'review':
                 continue
             norm = db.normalize_title(item.get('body') or '')
             candidates = list(by_body.get(norm, {}).values())
