@@ -61,6 +61,25 @@ Each step is tried in order; the first that returns a valid, non-empty translati
 ## Runtime model
 The bot runs as a single long-lived Python process using Telegram long-polling (`getUpdates`), on a fixed interval loop (fetch → process → sleep). It does not require a public HTTP endpoint/webhook. This means hosting only needs outbound internet access and a process that is allowed to run continuously (see RELEASE_POLICY.md for hosting options).
 
+### News drafts and full articles (verified 2026-10-07)
+
+- Automatic collection follows `main()` → `poller_loop()` → `run_cycle()` →
+  `collect()` → SQLite ingestion/policy/queue → `process_item()` →
+  `_process_item_internal()` → admin draft. All enabled polling sources use
+  this news path; `run_cycle()` does not invoke `article_pipeline`.
+- Manually pasted tweets and official LFC article links also use `process_item()`
+  with `force=True`, after `_handle_tweet_link()` or `_handle_lfc_link()` extracts
+  an item. Official LFC news works independently of `ENABLE_ARTICLES`.
+- Other manually pasted article URLs use `_handle_article_link()` only when
+  `ENABLE_ARTICLES=true`. Its `article_pipeline.run()` → `process_article()`
+  flow archives/extracts the full article, translates it, publishes a Telegraph
+  page, and sends its link to the admin chat. It uses `article_cache`, rather
+  than the news queue and draft approval buttons, and also has a standalone CLI.
+- Both paths already share `translate.translate()`; the article `_translate()`
+  helper is an async thread wrapper. Their handlers can run concurrently, but
+  automatic polling does not process each news item through both pipelines.
+  Further unification requires separate approval; these are different outputs.
+
 ## External dependencies
 - Telegram Bot API (bot token, admin group, public channel).
 - **FxEmbed/FxTwitter public API** (`api.fxtwitter.com`) — free, key-less, cookie-less
