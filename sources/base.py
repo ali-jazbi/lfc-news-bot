@@ -30,9 +30,9 @@ if config.PROXY:
     _session.proxies = {"http": config.PROXY, "https": config.PROXY}
 
 
-def http_get(url, timeout=25):
+def http_get(url, timeout=25, headers=None):
     try:
-        r = _session.get(url, timeout=timeout)
+        r = _session.get(url, timeout=timeout, **({'headers': headers} if headers else {}))
         if r.status_code == 200:
             return r.text
         log.warning("GET %s -> %s", url, r.status_code)

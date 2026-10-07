@@ -187,7 +187,7 @@ def group_pending_stories(c):
     with c:
         for row in rows:
             item = json.loads(row['payload'])
-            if news_policy.decision(item)[0] == 'reject':
+            if news_policy.decision(item)[0] != 'review':
                 continue
             norm = db.normalize_title(item.get('body') or '')
             candidates = list(by_body.get(norm, {}).values())
@@ -330,7 +330,7 @@ def recover(key):
         c = db._c()
         row = db.get(key)
         candidate = c.execute('SELECT * FROM discovery_candidates WHERE key=?', (key,)).fetchone()
-        if row and row['status'] not in ('rejected', 'failed', 'retry_pending', 'skipped'):
+        if row and row['status'] not in ('rejected', 'failed', 'retry_pending', 'skipped', 'awaiting_relevance'):
             raise ValueError('این خبر در صف، در انتظار ادمین یا منتشرشده است.')
         if not row and not candidate:
             raise ValueError('خبر پیدا نشد.')

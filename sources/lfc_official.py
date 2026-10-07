@@ -10,6 +10,7 @@ from urllib.parse import urljoin, unquote
 
 import config
 from sources.base import http_get, soup_of, meta, clean_text
+from sources.media_preview import element_image
 
 log = logging.getLogger("src.lfc")
 GOOGLE_FALLBACK = (
@@ -175,21 +176,7 @@ def _article_images(s, primary):
     for img in container.find_all("img"):
         if len(imgs) >= MAX_ALBUM_IMAGES:
             break
-        # data-src/srcset اولویت دارند چون خیلی از سایت‌ها در src فقط یک تصویر خالی/blank برای lazy-load می‌گذارند
-        candidates = [
-            img.get("data-src"),
-            img.get("data-srcset"),
-            img.get("srcset"),
-            img.get("src"),
-        ]
-        for c in candidates:
-            if not c:
-                continue
-            if "," in c:
-                # بزرگ‌ترین کاندیدا (آخرین آیتم srcset) را انتخاب کن
-                c = c.split(",")[-1].strip().split(" ")[0]
-            if _add(c):
-                break
+        _add(element_image(img, 'https://www.liverpoolfc.com'))
     return imgs
 
 
@@ -293,13 +280,13 @@ def _listing_summaries():
         if not title or title.lower() in ('read more', 'read article', 'view all'):
             continue
         seen.add(url)
-        image = anchor.find('img')
         card = anchor.find_parent(['article', 'li']) or anchor
+        image = element_image(card, url)
         summary = card.find('p')
         stamp = card.find('time')
         out.append({'source': 'LFC Official', 'source_tag': 'Liverpool FC',
                     'url': url, 'title': _clean_title(title),
                     'body': clean_text(summary.get_text(' ', strip=True)) if summary else title,
-                    'image': urljoin(url, image.get('src', '')) if image and image.get('src') else None,
+                    'image': image, 'images': [image] if image else [],
                     'published_at': stamp.get('datetime') if stamp else None})
     return out or _google_fallback(100)

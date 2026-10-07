@@ -12,7 +12,32 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 
+@pytest.fixture(autouse=True)
+def isolated_provider_health(monkeypatch, tmp_path):
+    import health
+    monkeypatch.setattr(health, 'STATE_PATH', str(tmp_path / 'health.json'))
+    monkeypatch.setattr(health, '_state', {'providers': {}, 'sources': {}, 'counters': {}, 'provider_gate_version': 2})
+    monkeypatch.setattr(health, '_inflight', set())
+    monkeypatch.setattr(health, '_notifier', None)
+    monkeypatch.setattr(health, '_alerted', set())
+
+
+@pytest.fixture(autouse=True)
+def isolated_key_rotation(monkeypatch):
+    import config
+    import translate
+    monkeypatch.setattr(config, 'LLM_KEY_ROTATION', 'fallback')
+    monkeypatch.setattr(translate, '_key_cursors', {})
+
+
 # --------------------------------------------------------------- DB ایزوله
+@pytest.fixture(autouse=True)
+def isolated_media_previews(monkeypatch):
+    from sources import media_preview
+    monkeypatch.setattr(media_preview, '_cache', {})
+    monkeypatch.setattr(media_preview, 'http_get', lambda *a, **k: None)
+
+
 @pytest.fixture()
 def tmp_db(tmp_path, monkeypatch):
     """DB جدا روی دیسک موقت + reset اتصال جهانی."""
@@ -95,6 +120,7 @@ class FakeTelegram:
         self.last_error = ""
         self.fail_send = False
         self.sent_messages = []
+        self.edits = []
 
     def _maybe_fail(self):
         if self.fail_send:
@@ -147,14 +173,21 @@ class FakeTelegram:
 
     def edit_markup(self, chat_id, msg_id, markup):
         self.calls.append(("edit_markup", chat_id, msg_id))
+        self.edits.append({'kind': 'markup', 'message_id': msg_id, 'markup': markup})
         return True
 
     def edit_caption(self, chat_id, msg_id, caption, kb=None):
         self.calls.append(("edit_caption", chat_id, msg_id))
+        self.edits.append({'kind': 'caption', 'message_id': msg_id, 'text': caption, 'markup': kb})
         return True
 
     def edit_text(self, chat_id, msg_id, text, kb=None):
         self.calls.append(("edit_text", chat_id, msg_id))
+        self.edits.append({'kind': 'text', 'message_id': msg_id, 'text': text, 'markup': kb})
+        return True
+
+    def delete_message(self, chat_id, msg_id):
+        self.calls.append(("delete_message", chat_id, msg_id))
         return True
 
 
@@ -184,6 +217,7 @@ def patched_main(monkeypatch, tmp_db, fake_tg):
         }
 
     monkeypatch.setattr(main.translate, "translate", _fake_translate)
+    monkeypatch.setattr(main.translate, "providers_available", lambda: True)
     monkeypatch.setattr(main.channel_guard, "check", lambda tr, item=None: None)
     monkeypatch.setattr(main, "DRY_RUN", False)
     return main

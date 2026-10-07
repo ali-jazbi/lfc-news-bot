@@ -288,10 +288,6 @@ def build_original_message(item, expandable=True):
     if not raw:
         return None
 
-    # سقف پیام تلگرام ۴۰۹۶ کاراکتر است؛ با حاشیه امن می‌بریم
-    if len(raw) > 3200:
-        raw = raw[:3200].rsplit(" ", 1)[0] + " …"
-
     # یادداشت منبع اصلی (اگر نقل‌قول/ریتوییت باشد)
     orig_note = build_original_source_note(item)
     if orig_note:
@@ -303,7 +299,31 @@ def build_original_message(item, expandable=True):
     return head + esc(raw)
 
 
-def keyboard(key, mode="manual"):
+def relevance_buttons(key, choice=None):
+    if choice in ('related', 'unrelated'):
+        label = '✅ مرتبط' if choice == 'related' else '❌ نامرتبط'
+        return [{'text': label + ' · انتخاب‌شده', 'callback_data': f'relstate:{key}'}]
+    return [{'text': '✅ مرتبط', 'callback_data': f'rel:{key}'},
+            {'text': '❌ نامرتبط', 'callback_data': f'irr:{key}'}]
+
+
+def selected_relevance(markup, key, choice):
+    rows = []
+    for row in (markup or {}).get('inline_keyboard', []):
+        selected = False
+        buttons = []
+        for button in row:
+            if button.get('callback_data') in (f'rel:{key}', f'irr:{key}', f'relstate:{key}'):
+                if not selected:
+                    buttons += relevance_buttons(key, choice)
+                    selected = True
+            else:
+                buttons.append(dict(button))
+        rows.append(buttons)
+    return {'inline_keyboard': rows}
+
+
+def keyboard(key, mode="manual", relevance=None):
     """دکمه‌ها — رفتار ثابت در هر دو حالت manual/auto:
     1. ترجمه مجدد      → rtr
     2. نسخه آماده انتشار → pub (نسخه تمیز در گروه ادمین)
@@ -311,14 +331,17 @@ def keyboard(key, mode="manual"):
     4. متن اصلی         → orig (متن ، به‌جای پیام جداگانه)
 
     ویرایش دیگر دکمه ندارد: روی پیش‌نمایش ریپلای کن و /edit بزن."""
+    if relevance is None:
+        import db
+        row = db.get(key) if db._conn is not None else None
+        relevance = row['payload'].get('admin_relevance') if row else None
     return {
         "inline_keyboard": [
             [{"text": "\U0001F504 ترجمه مجدد", "callback_data": f"rtr:{key}"}],
             [{"text": "\U0001F4E4 نسخه آماده انتشار", "callback_data": f"pub:{key}"},
              {"text": "\U0001F4E2 انتشار در کانال", "callback_data": f"s2c:{key}"}],
             [{"text": "\U0001F4C4 متن اصلی", "callback_data": f"orig:{key}"}],
-            [{"text": "✅ مرتبط", "callback_data": f"rel:{key}"},
-             {"text": "❌ نامرتبط", "callback_data": f"irr:{key}"}],
+            relevance_buttons(key, relevance),
             [{"text": "📚 منابع خبر", "callback_data": f"story:{key}"},
              {"text": "🔗 مسیر ترجمه", "callback_data": f"chain:{key}"}],
         ]

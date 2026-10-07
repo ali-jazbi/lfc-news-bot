@@ -5,7 +5,7 @@
      (با ریست شدن ربات هم پاک نمی‌شود)
   2) قطع‌کننده مدار (circuit breaker): سرویسی که پشت‌سر‌هم خطا می‌دهد
      مدتی کنار گذاشته می‌شود تا وقت هدر ندهد
-  3) هشدار تلگرامی به ادمین وقتی چیزی خراب می‌شود
+  3) وضعیت را برای گزارش ادمین آماده می‌کند؛ تغییر مدار پیام خودکار ندارد
 
 عمداً هیچ وابستگی به telegram_api ندارد تا حلقه import نسازد؛
 ارسال پیام را main.py با set_notifier تزریق می‌کند.
@@ -13,23 +13,28 @@
 import json
 import logging
 import os
+import shutil
 import threading
 import time
+import re
+from contextlib import contextmanager
 
 log = logging.getLogger("health")
 
 STATE_PATH = os.path.join("data", "health.json")
 
-# بعد از چند خطای پشت‌سر‌هم، سرویس موقتاً کنار گذاشته شود
+# Legacy source failure policy; translation providers use failure_policy below.
 FAIL_LIMIT = 3
-# مدت کنارگذاشتن (ثانیه) — پلکانی: ۵ دقیقه، ۱۵ دقیقه، ۱ ساعت، ۶ ساعت
+# Source cooldown steps in seconds.
 COOLDOWN_STEPS = [300, 900, 3600, 21600]
 
-_lock = threading.Lock()
+_lock = threading.RLock()
+_inflight = set()
 _notifier = None          # تابعی که پیام به ادمین می‌فرستد
 _alerted = set()          # تا خرابی رفع نشده، دوباره هشدار ندهیم
 
 _state = {
+    "provider_gate_version": 2,
     "providers": {},   # نام سرویس → آمار
     "sources": {},     # نام منبع خبری → آمار
     "counters": {},    # شمارنده‌های عمومی
@@ -48,6 +53,7 @@ def _blank():
         "last_error": "",
         "cooldown_until": 0,
         "avg_ms": 0,
+        "error_code": "",
     }
 
 
@@ -58,7 +64,23 @@ def load():
             data = json.load(f)
         for k in ("providers", "sources", "counters"):
             data.setdefault(k, {})
+        # Retire legacy escalating cooldowns; keep historical counters intact.
+        migrated = data.get("provider_gate_version") != 2
+        if migrated:
+            try:
+                folder = os.path.join(os.path.dirname(STATE_PATH) or '.', 'backups')
+                os.makedirs(folder, exist_ok=True)
+                shutil.copy2(STATE_PATH, os.path.join(folder, f'pre-provider-health-{time.time_ns()}.json'))
+            except OSError as exc:
+                _state = data
+                log.error('health migration deferred: backup failed (%s)', exc)
+                return
+            for b in data["providers"].values():
+                b.update(cooldown_until=0, streak=0, error_code="")
+            data["provider_gate_version"] = 2
         _state = data
+        if migrated:
+            save()
     except Exception:
         pass
 
@@ -113,16 +135,42 @@ def record_ok(name, ms=0, kind="provider"):
         b["cooldown_until"] = 0
         b["last_ok"] = int(time.time())
         b["last_error"] = ""
+        b["error_code"] = ""
         if ms:
             n = min(b["ok"], 20)
             b["avg_ms"] = int((b["avg_ms"] * (n - 1) + ms) / n) if n > 1 else int(ms)
         save()
     if was_down:
         clear_alert("down:" + name)
-        alert("\u2705 دوباره سر پا شد: <b>" + _esc(name) + "</b>", once=False)
+        log.info("service recovered: %s", name)
 
 
-def record_fail(name, error="", kind="provider"):
+def failure_policy(error):
+    """One circuit policy for translation, QC and machine fallback."""
+    text = str(error).casefold()
+    if "invalid review" in text:
+        return "invalid_review", 180
+    if any(x in text for x in ("invalid translation", "invalid output")):
+        return "invalid_output", 0
+    if any(x in text for x in ("unavailable for free", "notfounderror", "model not found", "does not exist", "404")):
+        return "model_unavailable", 21600
+    if any(x in text for x in ("authenticationerror", "invalid api key", "401", "unauthorized")):
+        return "authentication", 3600
+    if any(x in text for x in ("rate limit", "ratelimit", "too many requests", "429", "overloaded")):
+        delay = 60 if "overloaded" in text else 180
+        headers = getattr(getattr(error, "response", None), "headers", {}) or {}
+        try:
+            delay = max(1, float(headers.get("retry-after", delay)))
+        except (ValueError, TypeError):
+            pass
+        match = re.search(r'(?:try again in|retry after)\s*(?:(\d+(?:\.\d+)?)h)?\s*(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?', text)
+        if match and any(match.groups()):
+            delay = sum(float(n or 0) * scale for n, scale in zip(match.groups(), (3600, 60, 1)))
+        return "rate_limit", min(max(delay, 1), 86400)
+    return "temporary_error", 30
+
+
+def record_fail(name, error="", kind="provider", *, code=None, retry_after=None):
     with _lock:
         b = _bucket(kind).setdefault(name, _blank())
         b["fail"] += 1
@@ -131,7 +179,16 @@ def record_fail(name, error="", kind="provider"):
         b["last_error"] = str(error)[:220]
         streak = b["streak"]
 
-        if streak >= FAIL_LIMIT:
+        if kind == "provider":
+            inferred_code, delay = failure_policy(error)
+            b["error_code"] = code or inferred_code
+            delay = delay if retry_after is None else retry_after
+            if b["error_code"] == "invalid_output":
+                delay = 180 if streak >= 2 else 0
+            b["cooldown_until"] = time.time() + delay
+            if delay:
+                b["outages"] += 1
+        elif streak >= FAIL_LIMIT:
             step = min((streak - FAIL_LIMIT) // FAIL_LIMIT, len(COOLDOWN_STEPS) - 1)
             cd = COOLDOWN_STEPS[step]
             b["cooldown_until"] = time.time() + cd
@@ -139,13 +196,7 @@ def record_fail(name, error="", kind="provider"):
                 b["outages"] += 1
         save()
 
-    if streak == FAIL_LIMIT:
-        alert(
-            "\u26a0\ufe0f سرویس <b>" + _esc(name) + "</b> از مدار خارج شد\n"
-            + "دلیل: <code>" + _esc(str(error)[:150]) + "</code>\n"
-            + "فعلاً رد می‌شود و سرویس بعدی زنجیره کار را ادامه می‌دهد.",
-            key="down:" + name,
-        )
+    log.debug("service failure recorded: %s (%s)", name, b.get("error_code", "source"))
 
 
 def record_counter(name, n=1):
@@ -170,6 +221,34 @@ def cooldown_left(name, kind="provider"):
 
 def stats(name, kind="provider"):
     return dict(_bucket(kind).get(name) or _blank())
+
+
+@contextmanager
+def provider_slot(name):
+    """Never probe a cooling-down provider or overlap its translation/QC calls."""
+    with _lock:
+        allowed = is_available(name) and name not in _inflight
+        if allowed:
+            _inflight.add(name)
+    try:
+        yield allowed
+    finally:
+        if allowed:
+            with _lock:
+                _inflight.discard(name)
+
+
+def next_provider_retry(names):
+    now = time.time()
+    return min((max(now + 15, stats(n).get("cooldown_until", 0)) for n in names), default=now + 300)
+
+
+def provider_status(name):
+    left = cooldown_left(name)
+    if left:
+        return "موقتاً متوقف — " + _fmt_dur(left) + " تا تلاش بعدی"
+    with _lock:
+        return "در حال درخواست" if name in _inflight else "آمادهٔ تلاش"
 
 
 def _esc(t):
@@ -228,7 +307,7 @@ def report(chain_names=None):
     """متن HTML برای دستور /health."""
     out = ["\U0001F4CA <b>وضعیت سرویس‌ها</b>", ""]
 
-    out.append("\U0001F9E0 <b>سرویس‌های ترجمه</b> (به ترتیب اولویت)")
+    out.append("\U0001F9E0 <b>سرویس‌های ترجمه</b> (آمار تجمعی درخواست‌های ترجمه و بازبینی)")
     names = chain_names or list(_state["providers"].keys())
     if not names:
         out.append("➖ هیچ سرویسی تعریف نشده")
@@ -236,13 +315,13 @@ def report(chain_names=None):
         out.append(str(i) + ". " + _line(n, _state["providers"].get(n) or _blank()))
 
     if _state["sources"]:
-        out += ["", "\U0001F4E1 <b>منابع خبری</b>"]
+        out += ["", "\U0001F4E1 <b>منابع خبری</b> (موفقیت دریافت؛ نه ارتباط خبر)"]
         for n, b in _state["sources"].items():
             out.append("• " + _line(n, b))
 
     c = _state["counters"]
     if c:
-        out += ["", "\U0001F522 <b>آمار</b>"]
+        out += ["", "\U0001F522 <b>آمار تجمعی</b>"]
         labels = {
             "translated": "خبر ترجمه‌شده",
             "chain_failed": "شکست کامل زنجیره",
@@ -256,7 +335,7 @@ def report(chain_names=None):
     alive = [n for n in names if is_available(n)]
     out += ["", "سرویس فعال در مدار: <b>" + str(len(alive)) + " از " + str(len(names)) + "</b>"]
     if not alive and names:
-        out.append("\u274c هیچ سرویسی سالم نیست — کلیدها را چک کن")
+        out.append("⏳ فعلاً سرویسی آمادهٔ تلاش نیست؛ خبرها در صف می‌مانند. دلیل هر توقف بالاتر آمده است.")
     return "\n".join(out)
 
 

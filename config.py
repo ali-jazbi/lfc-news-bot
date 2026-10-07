@@ -261,6 +261,7 @@ TWEET_MAX_AGE_HOURS = _int("TWEET_MAX_AGE_HOURS", 24)
 # --- رسانه‌های توییتر ---
 # استخراج همه عکس‌های خودِ توییت (آلبوم) + ویدیو از طریق API بدون کلید
 ENABLE_TWITTER_MEDIA = _get("ENABLE_TWITTER_MEDIA", "true").lower() == "true"
+ENABLE_AUTO_IMAGE = _get("ENABLE_AUTO_IMAGE", "true").lower() == "true"
 ENABLE_TWITTER_VIDEO = _get("ENABLE_TWITTER_VIDEO", "true").lower() == "true"
 TWITTER_ALBUM_MAX = _int("TWITTER_ALBUM_MAX", 10)      # سقف آلبوم تلگرام = ۱۰
 TWITTER_VIDEO_MAX = _int("TWITTER_VIDEO_MAX", 4)        # سقف ویدیوهای forward چندتایی
@@ -353,6 +354,7 @@ BOOTSTRAP_SILENT = _get("BOOTSTRAP_SILENT", "false").lower() == "true"
 # زنجیره سرویس‌ها به ترتیب اولویت. هر کدام خطا بدهد خودکار می‌رود سراغ بعدی.
 # مقادیر مجاز: llm1 تا llm10 ، gemini ، translate
 TRANSLATE_ORDER = _list("TRANSLATE_ORDER", "llm1,llm2,llm3,gemini,translate")
+LLM_KEY_ROTATION = _get('LLM_KEY_ROTATION', 'fallback').strip().lower()
 
 
 def _llm_slot(n):

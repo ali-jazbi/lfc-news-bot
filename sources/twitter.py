@@ -33,6 +33,7 @@ import config
 import health
 import db
 from sources.base import SourceBatch
+from sources.media_preview import linked_urls
 from sources.base import (
     parse_rss,
     clean_text,
@@ -228,13 +229,14 @@ def tweet_image(entry):
             img = m.group(1)
     if not img:
         quoted = entry.get("_xscrape_quoted") or {}
-        q_img = quoted.get("image")
+        q_img = quoted.get("image") or quoted.get('card_image')
         if isinstance(q_img, dict):
             img = q_img.get("url") or q_img.get("href") or q_img.get("src") or ""
         elif isinstance(q_img, str):
             img = q_img
         elif quoted.get("media"):
-            first_m = (quoted.get("media") or [None])[0]
+            first_m = next((m for m in quoted['media'] if isinstance(m, dict)
+                            and m.get('type') in ('image', 'photo')), None)
             if isinstance(first_m, dict):
                 img = first_m.get("url") or first_m.get("href") or first_m.get("src") or ""
             elif isinstance(first_m, str):
@@ -249,9 +251,8 @@ def _own_media_urls(entry, max_imgs=ALBUM_MAX):
     html = entry.get("summary") or ""
     if not html:
         return []
-    own_part = re.split(r"<blockquote>", html, maxsplit=1)[0]
     out, seen = [], set()
-    for u in images_in_html(own_part, max_imgs=max_imgs * 3):
+    for u in images_in_html(html, max_imgs=max_imgs * 3):
         if _IMG_CARD.search(u):
             continue
         if "media%2F" not in u and "media/" not in u and "pbs.twimg.com" not in u:
@@ -263,20 +264,6 @@ def _own_media_urls(entry, max_imgs=ALBUM_MAX):
         out.append(fixed)
         if len(out) >= max_imgs:
             break
-    # اگر خود توییت عکسی نداشت ولی در کل خلاصه (مثلاً کووت) عکس بود، آن را هم می‌آوریم
-    if not out:
-        for u in images_in_html(html, max_imgs=max_imgs * 3):
-            if _IMG_CARD.search(u):
-                continue
-            if "media%2F" not in u and "media/" not in u and "pbs.twimg.com" not in u:
-                continue
-            fixed = fix_image(u)
-            if not fixed or fixed in seen:
-                continue
-            seen.add(fixed)
-            out.append(fixed)
-            if len(out) >= max_imgs:
-                break
     return out
 
 
@@ -935,12 +922,20 @@ def _attach_media(item, entry, user):
     if scraped is not None:
         tid = extract_tweet_id_from_link(entry.get("link")
                                          or item.get("url"))
-        photos = [m["url"] for m in scraped if m.get("type") == "image"]
-        videos = [m["url"] for m in scraped if m.get("type") == "video"]
+        quoted = entry.get('_xscrape_quoted') or {}
+        quote_media = quoted.get('media') or []
+        photos = list(dict.fromkeys(m['url'] for m in scraped + quote_media
+                                    if m.get('type') == 'image' and m.get('url')))
+        quote_image = quoted.get('card_image') or quoted.get('image')
+        if not photos and isinstance(quote_image, str):
+            photos = [quote_image]
+        videos = [m['url'] for m in scraped if m.get('type') == 'video' and m.get('url')]
+        if not videos:
+            videos = [m['url'] for m in quote_media if m.get('type') == 'video' and m.get('url')]
         if getattr(config, "ENABLE_TWITTER_MEDIA", True):
             item["images"] = photos[:getattr(config, "TWITTER_ALBUM_MAX", 10)]
-            if not item.get("image"):
-                item["image"] = item["images"][0] if item["images"] else None
+            if item['images']:
+                item['image'] = item['images'][0]
         if getattr(config, "ENABLE_TWITTER_VIDEO", True) and videos and tid:
             # همه‌ی ویدیوها برای forward چندتایی (یوزربات یا لوکال) ذخیره می‌شوند
             item["video_urls"] = videos[:getattr(config, "TWITTER_VIDEO_MAX", 4)]
@@ -1077,6 +1072,7 @@ def _entries_to_items(feeds, users, limit=None, raw=False):
                 "ingest_handle": "@" + user,
                 "published_at": e.get("published"),
                 "raw_entry": e,
+                "linked_urls": linked_urls(e),
             }
             _attach_media(item, e, user)
 
@@ -1189,6 +1185,7 @@ def build_tweet_item(entry, user):
         "body": full_body,
         "image": tweet_image(entry),
         "priority": True,
+        "linked_urls": linked_urls(entry),
     }
     _attach_media(item, entry, user)
 

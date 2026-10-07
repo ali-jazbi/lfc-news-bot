@@ -10,13 +10,48 @@ import formatter
 import news_policy
 
 PAGE_SIZE = 6
+
+
+def temporary_message(tg, chat_id, text, ttl=120, **kwargs):
+    """Full button views expire; ordinary command reports keep using send_message."""
+    from telegram_text import split_html
+    first = None
+    for index, part in enumerate(split_html(text)):
+        options = dict(kwargs)
+        if index:
+            options.pop('reply_markup', None)
+            options['reply_to'] = first['message_id'] if first else None
+        result = tg.send_message(chat_id, part, **options)
+        if not result:
+            return None
+        first = first or result
+        if result.get('message_id'):
+            timer = threading.Timer(ttl, tg.delete_message, args=(chat_id, result['message_id']))
+            timer.daemon = True
+            timer.start()
+    return first
+
+
+def _view(tg, chat_id, text, markup=None, message_id=None):
+    if message_id:
+        if len(text.encode('utf-16-le')) // 2 <= 3500:
+            return tg.edit_text(chat_id, message_id, text, markup)
+        return temporary_message(tg, chat_id, text, reply_markup=markup, silent=True)
+    return tg.send_message(chat_id, text, reply_markup=markup, silent=True)
+
+
+def _toast(tg, callback_id, text):
+    plain = formatter.plain(text)
+    clipped = plain.encode('utf-16-le')[:400].decode('utf-16-le', errors='ignore')
+    return tg.answer_callback(callback_id, clipped)
 FILTERS = {
     'pending': ('discovered', 'new', 'retry_pending'),
     'review': ('sent_admin', 'pending_admin', 'approved'),
+    'relevance': ('awaiting_relevance',),
     'failed': ('failed',), 'rejected': ('rejected', 'skipped'), 'grouped': ('grouped',),
 }
 LABELS = {'pending': 'منتظر پردازش', 'review': 'منتظر ادمین', 'failed': 'ناموفق',
-          'rejected': 'ردشده', 'grouped': 'تجمیع‌شده', 'all': 'همه'}
+          'rejected': 'ردشده', 'grouped': 'تجمیع‌شده', 'relevance': 'تأیید ارتباط', 'all': 'همه'}
 
 
 def _page(value):
@@ -36,9 +71,9 @@ def _navigation(prefix, page, total):
     return [buttons] if buttons else []
 
 
-def queue(tg, chat_id, kind='pending', page=0):
+def queue(tg, chat_id, kind='pending', page=0, message_id=None):
     if kind not in LABELS:
-        raise ValueError('فیلترها: pending, review, failed, rejected, grouped, all')
+        raise ValueError('فیلترها: pending, review, relevance, failed, rejected, grouped, all')
     where, args = '', []
     if kind != 'all':
         statuses = FILTERS[kind]
@@ -50,25 +85,37 @@ def queue(tg, chat_id, kind='pending', page=0):
         rows = db._c().execute('SELECT * FROM items' + where + ' ORDER BY created_at,key LIMIT ? OFFSET ?',
                                args + [PAGE_SIZE, page * PAGE_SIZE]).fetchall()
     lines = [f'📋 <b>صف خبرها: {LABELS[kind]}</b> — {total} خبر | صفحهٔ {page+1}']
+    if kind == 'pending':
+        import translate
+        if not translate.providers_available():
+            lines.append('⏳ پردازش منتظر سرویس ترجمه است؛ بعد از باز شدن محدودیت ادامه پیدا می‌کند.')
+        held = db.pipeline_stats().get('awaiting_relevance', 0)
+        if held:
+            lines.append(f'{held} خبر مبهم جدا نگه‌داری شده؛ /queue relevance برای تأیید ارتباط.')
     buttons = [[_button(label, f'qpg:{key}:0') for key, label in list(LABELS.items())[:3]],
-               [_button(LABELS[k], f'qpg:{k}:0') for k in ('rejected', 'grouped', 'all')]]
+               [_button(LABELS[k], f'qpg:{k}:0') for k in ('rejected', 'grouped', 'all')],
+               [_button(LABELS['relevance'], 'qpg:relevance:0')]]
     for n, row in enumerate(rows, 1):
         item = json.loads(row['payload'])
         title = (item.get('translated') or {}).get('title') or item.get('title') or 'بدون عنوان'
         lines.append(f"\n{n}. {formatter.esc(title[:180])}\n<code>{row['key']}</code> · {formatter.esc(row['status'])}")
         if row['error']:
-            lines.append(formatter.esc(row['error'][:180]))
+            error = ('منتظر سرویس ترجمه؛ تلاش ناموفق خبر محسوب نمی‌شود.'
+                     if row['error'] == 'waiting for translation provider' else row['error'][:180])
+            lines.append(formatter.esc(error))
         actions = [_button(f'{n}. مشاهده', 'qview:' + row['key'])]
+        if row['status'] == 'awaiting_relevance':
+            actions += formatter.relevance_buttons(row['key'], item.get('admin_relevance'))
         if row['status'] in ('failed', 'retry_pending', 'rejected', 'skipped'):
             actions.append(_button('بازیابی در صف', 'recover:' + row['key']))
         elif row['status'] in ('discovered', 'new', 'sent_admin', 'pending_admin'):
             actions.append(_button('رد خبر', 'irr:' + row['key']))
         buttons.append(actions)
     buttons += _navigation('qpg:' + kind, page, total)
-    tg.send_message(chat_id, '\n'.join(lines), reply_markup={'inline_keyboard': buttons}, silent=True)
+    _view(tg, chat_id, '\n'.join(lines), {'inline_keyboard': buttons}, message_id)
 
 
-def show_item(tg, chat_id, key):
+def show_item(tg, chat_id, key, message_id=None):
     row = db.get(key)
     if not row:
         raise ValueError('خبر پیدا نشد.')
@@ -85,10 +132,12 @@ def show_item(tg, chat_id, key):
         buttons = formatter.keyboard(key)['inline_keyboard']
     elif row['status'] in ('failed', 'retry_pending', 'rejected', 'skipped'):
         buttons.append([_button('بازیابی در صف', 'recover:' + key)])
-    tg.send_message(chat_id, text, reply_markup={'inline_keyboard': buttons}, silent=True)
+    elif row['status'] == 'awaiting_relevance':
+        buttons.append(formatter.relevance_buttons(key, item.get('admin_relevance')))
+    _view(tg, chat_id, text, {'inline_keyboard': buttons}, message_id)
 
 
-def missed(tg, chat_id, page=0):
+def missed(tg, chat_id, page=0, message_id=None):
     candidates = discovery.missed_candidates()
     summary = json.loads(discovery._meta('missed_scan', '{}'))
     lines = [f'🔎 <b>خبرهای جاافتاده در منابع مرجع</b>: {len(candidates)}']
@@ -116,18 +165,18 @@ def missed(tg, chat_id, page=0):
         buttons.append([_button(f'{n}. واردکردن به صف', 'recover:' + row['key']),
                         _button('نادیده بگیر', 'dismiss:' + row['key'])])
     buttons += _navigation('mpg', page, len(candidates))
-    tg.send_message(chat_id, '\n'.join(lines), reply_markup={'inline_keyboard': buttons}, silent=True)
+    _view(tg, chat_id, '\n'.join(lines), {'inline_keyboard': buttons}, message_id)
 
 
-def scan_async(tg, chat_id):
+def scan_async(tg, chat_id, message_id=None):
     def work():
         try:
             if not discovery.scan_missed():
-                tg.send_message(chat_id, 'بررسی دیگری در حال اجراست.', silent=True)
+                _view(tg, chat_id, 'بررسی دیگری در حال اجراست.', message_id=message_id)
                 return
-            missed(tg, chat_id)
+            missed(tg, chat_id, message_id=message_id)
         except Exception as exc:
-            tg.send_message(chat_id, 'بررسی خبرها ناموفق: ' + formatter.esc(str(exc)), silent=True)
+            _view(tg, chat_id, 'بررسی خبرها ناموفق: ' + formatter.esc(str(exc)), message_id=message_id)
     threading.Thread(target=work, daemon=True).start()
 
 
@@ -205,79 +254,109 @@ def feedback(key, related):
         db.update_payload(key, item, status=('rejected' if not related and row['status'] != 'published' else None))
         db.record_feedback(key, ai_decision=previous_decision,
                            human_action='related' if related else 'unrelated', reason='admin relevance feedback')
-        if related and row['status'] in ('rejected', 'failed', 'skipped'):
+        if related and row['status'] in ('rejected', 'failed', 'skipped', 'awaiting_relevance'):
             discovery.recover(key)
 
 
+def details(action, key):
+    row = db.get(key)
+    if not row:
+        raise ValueError('خبر پیدا نشد.')
+    item = row['payload']
+    if action == 'story':
+        if row['story_key']:
+            parent = db.get(row['story_key'])
+            if parent:
+                item = parent['payload']
+        sources_list = item.get('story_sources') or [{'url': item.get('url'), 'source': item.get('source_tag') or item.get('source')}]
+        text = '📚 <b>منابع این خبر</b>\n' + '\n'.join(
+            f'<a href="{formatter.esc(s.get("url") or "").replace(chr(34), "&quot;")}">{formatter.esc(s.get("source") or "منبع")}</a>'
+            for s in sources_list)
+        if item.get('text_source_url'):
+            text += f'\nمتن کامل‌تر: <a href="{formatter.esc(item["text_source_url"]).replace(chr(34), "&quot;")}">منبع متن</a>'
+        return text
+    attempts = (item.get('translated') or {}).get('translation_attempts') or item.get('translation_attempts') or []
+    text = '🔗 <b>مسیر ترجمهٔ این خبر</b>\n'
+    outcomes = {'ok': '✅ موفق', 'error': '❌ خطا', 'waiting': '⏳ منتظر'}
+    for attempt in attempts:
+        outcome = outcomes.get(attempt.get('outcome'), attempt.get('outcome') or 'نامشخص')
+        text += formatter.esc(attempt.get('provider', '')) + ' — ' + formatter.esc(outcome)
+        if attempt.get('chunk'):
+            text += ' · قطعهٔ ' + str(attempt['chunk'])
+        if attempt.get('error'):
+            text += '\n' + formatter.esc(attempt['error'])
+        text += '\n'
+    return text if attempts else text + 'تاریخچهٔ تلاش برای این خبر قدیمی ثبت نشده است.'
+
+
 def callback(tg, cq, action, value):
-    if action not in ('qpg', 'qview', 'mpg', 'mscan', 'recover', 'dismiss', 'rel', 'irr', 'story', 'chain', 'swatch'):
+    if action not in ('qpg', 'qview', 'mpg', 'mscan', 'recover', 'dismiss', 'rel', 'irr', 'relstate', 'story', 'chain', 'swatch'):
         return False
-    tg.answer_callback(cq['id'])
-    chat_id = cq['message']['chat']['id']
+    message = cq['message']
+    chat_id, message_id = message['chat']['id'], message.get('message_id')
+    answered = action in ('qpg', 'qview', 'mpg', 'mscan')
+    if answered:
+        _toast(tg, cq['id'], 'در حال نمایش نتیجه…' if action != 'mscan' else 'بررسی منابع شروع شد؛ نتیجه روی همین پیام می‌آید.')
     try:
+        notice = ''
         if action == 'qpg':
             kind, page = value.split(':')
-            queue(tg, chat_id, kind, _page(page))
+            queue(tg, chat_id, kind, _page(page), message_id)
         elif action == 'qview':
-            show_item(tg, chat_id, value)
+            show_item(tg, chat_id, value, message_id)
         elif action == 'mpg':
-            missed(tg, chat_id, _page(value))
+            missed(tg, chat_id, _page(value), message_id)
         elif action == 'mscan':
-            scan_async(tg, chat_id)
+            scan_async(tg, chat_id, message_id)
         elif action == 'recover':
             discovery.recover(value)
-            tg.send_message(chat_id, '✅ خبر در صف قرار گرفت؛ انتشار همچنان با تأیید ادمین است.', silent=True)
+            notice = '✅ خبر در صف قرار گرفت؛ انتشار همچنان با تأیید ادمین است.'
         elif action == 'dismiss':
             with db._lock, db._c():
                 db._c().execute("UPDATE discovery_candidates SET state='dismissed' WHERE key=?", (value,))
-            tg.send_message(chat_id, 'این پیشنهاد نادیده گرفته شد.', silent=True)
+            notice = 'این پیشنهاد نادیده گرفته شد.'
         elif action in ('rel', 'irr'):
+            choice = 'related' if action == 'rel' else 'unrelated'
             feedback(value, action == 'rel')
-            tg.send_message(chat_id, 'بازخورد مرتبط ثبت شد.' if action == 'rel' else
-                            'بازخورد نامرتبط ثبت شد؛ خبر منتشرشده از کانال حذف نمی‌شود.', silent=True)
-        elif action == 'swatch':
-            discovery.set_source(value)
-            tg.send_message(chat_id, 'اکانت برای ۷ روز به نوبت عادی دریافت اضافه شد.', silent=True)
-        else:
+            _toast(tg, cq['id'], 'بازخورد مرتبط ثبت شد.' if action == 'rel' else
+                   'بازخورد نامرتبط ثبت شد؛ خبر منتشرشده از کانال حذف نمی‌شود.')
+            answered = True
+            markup = message.get('reply_markup') or formatter.keyboard(value, relevance=choice)
+            tg.edit_markup(chat_id, message_id, formatter.selected_relevance(markup, value, choice))
+        elif action == 'relstate':
             row = db.get(value)
             if not row:
                 raise ValueError('خبر پیدا نشد.')
-            item = row['payload']
-            if action == 'story':
-                if row['story_key']:
-                    parent = db.get(row['story_key'])
-                    if parent:
-                        item = parent['payload']
-                sources_list = item.get('story_sources') or [{'url': item.get('url'), 'source': item.get('source_tag') or item.get('source')}]
-                text = '📚 <b>منابع این خبر</b>\n' + '\n'.join(
-                    f'<a href="{formatter.esc(s["url"] or "")}">{formatter.esc(s.get("source") or "منبع")}</a>' for s in sources_list)
-                if item.get('text_source_url'):
-                    text += f'\nمتن کامل‌تر: <a href="{formatter.esc(item["text_source_url"])}">منبع متن</a>'
-            else:
-                attempts = (item.get('translated') or {}).get('translation_attempts') or item.get('translation_attempts') or []
-                text = '🔗 <b>مسیر ترجمهٔ این خبر</b>\n'
-                for attempt in attempts:
-                    text += formatter.esc(attempt.get('provider', '')) + ' — ' + formatter.esc(attempt['outcome'])
-                    if attempt.get('chunk'):
-                        text += ' · قطعهٔ ' + str(attempt['chunk'])
-                    if attempt.get('error'):
-                        text += '\n' + formatter.esc(attempt['error'])
-                    text += '\n'
-                if not attempts:
-                    text += 'تاریخچهٔ تلاش برای این خبر قدیمی ثبت نشده است.'
-            tg.send_message(chat_id, text, silent=True)
+            choice = row['payload'].get('admin_relevance')
+            notice = 'انتخاب فعلی: مرتبط ✅' if choice == 'related' else 'انتخاب فعلی: نامرتبط ❌'
+        elif action == 'swatch':
+            discovery.set_source(value)
+            notice = 'اکانت برای ۷ روز به نوبت عادی دریافت اضافه شد.'
+        else:
+            notice = formatter.plain(details(action, value))
+            if len(notice.encode('utf-16-le')) // 2 > 200:
+                notice = notice.encode('utf-16-le')[:300].decode('utf-16-le', errors='ignore') + f'\nکامل: /{action} {value}'
+        if not answered:
+            _toast(tg, cq['id'], notice)
     except (ValueError, KeyError, TypeError) as exc:
-        tg.send_message(chat_id, formatter.esc(str(exc)), silent=True)
+        if answered:
+            _view(tg, chat_id, formatter.esc(str(exc)), message_id=message_id)
+        else:
+            _toast(tg, cq['id'], str(exc))
     return True
 
 
 def command(tg, chat_id, text):
     parts = text.split()
     cmd = parts[0].split('@')[0]
-    if cmd not in ('/queue', '/missed', '/accounts', '/sources', '/watch', '/merge'):
+    if cmd not in ('/queue', '/missed', '/accounts', '/sources', '/watch', '/merge', '/chain', '/story'):
         return False
     try:
-        if cmd == '/queue':
+        if cmd in ('/chain', '/story'):
+            if len(parts) != 2:
+                raise ValueError(f'استفاده: {cmd} شناسه‌خبر')
+            tg.send_message(chat_id, details(cmd[1:], parts[1]), silent=True)
+        elif cmd == '/queue':
             queue(tg, chat_id, parts[1] if len(parts) > 1 else 'pending', max(0, _page(parts[2]) - 1) if len(parts) > 2 else 0)
         elif cmd == '/missed':
             if len(parts) == 1 or parts[1] == 'refresh':

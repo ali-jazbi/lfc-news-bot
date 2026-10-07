@@ -19,7 +19,7 @@ def test_generic_league_and_transfer_words_are_not_liverpool_signals(monkeypatch
     monkeypatch.setattr(config, 'TWITTER_LFC_ONLY', [])
     result = news_policy.decision(_item(
         'Medical completed; here we go', 'Premier League transfer window update'))
-    assert result == ('review', 'no explicit Liverpool context; admin review')
+    assert result == ('hold', 'Liverpool relevance needs confirmation')
 
 
 def test_liverpool_story_survives_rival_comparison(monkeypatch):

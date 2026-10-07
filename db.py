@@ -7,6 +7,7 @@ import hashlib
 import threading
 import time
 from collections import defaultdict, deque
+from contextlib import closing
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
@@ -29,11 +30,12 @@ STATUS_APPROVED = "approved"
 STATUS_PUBLISHED = "published"
 STATUS_FAILED = "failed"
 STATUS_RETRY_PENDING = "retry_pending"
+STATUS_AWAITING_RELEVANCE = "awaiting_relevance"
 QUEUE_STATUSES = (STATUS_DISCOVERED, "new", "processing", STATUS_ANALYZING,
                   STATUS_VERIFICATION, STATUS_APPROVED_BY_AI, STATUS_TRANSLATION,
                   STATUS_TRANSLATION_REVIEW, STATUS_MEDIA_PROCESSING,
                   STATUS_RETRY_PENDING, STATUS_FAILED, STATUS_PENDING_ADMIN,
-                  "sent_admin", STATUS_APPROVED, "grouped")
+                  "sent_admin", STATUS_APPROVED, "grouped", STATUS_AWAITING_RELEVANCE)
 # وضعیت‌های قدیمی که برای سازگاری حفظ شده‌اند:
 # new | sent_admin | skipped | rejected | approved | published
 
@@ -168,7 +170,7 @@ def init():
     if has_items and (not has_meta or not has_discovery):
         folder = Path(config.DB_PATH).resolve().parent / "backups"
         folder.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(folder / f"pre-pipeline-{time.time_ns()}.db") as backup:
+        with closing(sqlite3.connect(folder / f"pre-pipeline-{time.time_ns()}.db")) as backup:
             _conn.backup(backup)
     # WAL: چون poller_loop (ترد پس‌زمینه) و bot_loop (ترد اصلی) هم‌زمان به
     # دیتابیس می‌نویسند/می‌خوانند، WAL خواندن و نوشتن هم‌زمان را ممکن می‌کند
@@ -199,6 +201,15 @@ def init():
                   "'translation','translation_review','media_processing')",
                   (STATUS_DISCOVERED,))
     _conn.commit()
+    if not _conn.execute("SELECT 1 FROM pipeline_meta WHERE key='translation_wait_v2'").fetchone():
+        folder = Path(config.DB_PATH).parent / 'backups'
+        folder.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(folder / f'pre-provider-queue-{time.time_ns()}.db')) as backup:
+            _conn.backup(backup)
+        with _conn:
+            _conn.execute("UPDATE items SET status='retry_pending',retry_stage='translation',retry_count=0,"
+                          "next_retry_at=0 WHERE status='failed' AND error='translation chain failed'")
+            _conn.execute("INSERT INTO pipeline_meta VALUES ('translation_wait_v2','1')")
     return _conn
 
 
@@ -437,6 +448,13 @@ def stage_failed(key, stage, error):
                   (status, stage, attempts, str(error)[:500], time.time(),
                    time.time() + min(30 * 2 ** (attempts - 1), 1800), key))
         c.commit()
+
+
+def defer_translation(key, until):
+    with _lock, _c():
+        _c().execute("UPDATE items SET status='retry_pending',retry_stage='translation',"
+                     "next_retry_at=?,last_attempt_at=?,error='waiting for translation provider' WHERE key=?",
+                     (until, time.time(), key))
 
 
 def reset_retry(key):

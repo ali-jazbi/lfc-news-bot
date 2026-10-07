@@ -248,6 +248,9 @@ def _process_item_internal(item, key, force=False, reply_to=None):
             db.mark_attempt(key, db.STATUS_REJECTED, error=reason)
             health.record_counter('policy_rejected')
             return False
+        if action == 'hold':
+            db.mark_attempt(key, db.STATUS_AWAITING_RELEVANCE, error=reason)
+            return False
         log.debug('editorial review: %s', reason)
 
     # --------------------------------------------------------- مرحله AI
@@ -324,7 +327,10 @@ def _process_item_internal(item, key, force=False, reply_to=None):
                   "importance": "normal", "tags": [], "provider": "raw"}
         else:
             db.update_payload(key, item)
-            db.stage_failed(key, "translation", "translation chain failed")
+            if item.get('translation_failure_kind') == 'provider_unavailable':
+                db.defer_translation(key, item.get('translation_retry_at') or time.time() + 60)
+            else:
+                db.stage_failed(key, "translation", "translation chain failed")
             trace(nid, "TRANSLATION", success=False)
             return False
 
@@ -368,6 +374,9 @@ def _process_item_internal(item, key, force=False, reply_to=None):
         notes.append("\U0001F501 این خبر را این‌ها هم داده‌اند: " + "، ".join(others[:4]))
         log.info("shared with: %s", ", ".join(others[:4]))
 
+    if not config.HERMES_ENABLED:
+        from sources.media_preview import enrich
+        enrich(item)
     item["translated"] = tr
     if config.HERMES_ENABLED:
         db.update_payload(key, item)
@@ -795,7 +804,10 @@ def run_cycle(force=False):
     collected = collect()
     # Compatibility with callers that replace collect() with an in-memory list.
     db.ingest_batch('collected', SourceBatch(collected))
-    rows = db.queue_items(limit=max(0, config.MAX_ITEMS_PER_CYCLE - retry_attempts))
+    if not force:
+        news_policy.classify_queued()
+    rows = (db.queue_items(limit=max(0, config.MAX_ITEMS_PER_CYCLE - retry_attempts))
+            if force or config.HERMES_ENABLED or translate.providers_available() else [])
     log.info("collected %d items; claimed %d queued items", len(collected), len(rows))
     sent = retried
     for row in rows:
@@ -864,10 +876,28 @@ def _is_admin(user_id):
     return user_id in config.ADMIN_USER_IDS
 
 
+def _callback_problem(cq, key, action, text):
+    row = db.get(key)
+    if row:
+        item = row['payload']
+        item['button_error'] = str(text)
+        db.update_payload(key, item)
+    msg = cq.get('message') or {}
+    markup = msg.get('reply_markup') or formatter.keyboard(key, config.PUBLISH_MODE)
+    rows = [[dict(button) for button in buttons if button.get('callback_data') != f'notice:{key}']
+            for buttons in markup.get('inline_keyboard', [])]
+    for buttons in rows:
+        for button in buttons:
+            if button.get('callback_data') == f'{action}:{key}':
+                button['text'] = '⚠️ تلاش ناموفق؛ دوباره امتحان کن'
+    rows.append([{'text': '⚠️ جزئیات خطا', 'callback_data': f'notice:{key}'}])
+    tg.edit_markup(msg.get('chat', {}).get('id'), msg.get('message_id'), {'inline_keyboard': rows})
+
+
 @bot_update.activity
 def handle_callback(cq):
     if bot_update.paused():
-        tg.answer_callback(cq.get("id"), "بات در حال آپدیت است؛ کمی بعد دوباره امتحان کن", alert=True)
+        tg.answer_callback(cq.get("id"), "بات در حال آپدیت است؛ کمی بعد دوباره امتحان کن")
         return
     data = cq.get("data", "")
     cid = cq["id"]
@@ -878,7 +908,7 @@ def handle_callback(cq):
     user = from_user.get("first_name", "admin")
 
     if not _is_admin(from_user.get("id")):
-        tg.answer_callback(cid, "\u26d4 اجازه نداری این دکمه را بزنی.", alert=True)
+        tg.answer_callback(cid, "\u26d4 اجازه نداری این دکمه را بزنی.")
         log.warning(
             "\u062aلاش دکمه از کاربر غیرمجاز: %s (%s)",
             from_user.get("id"), user,
@@ -893,23 +923,23 @@ def handle_callback(cq):
         return
     row = db.get(key)
     if not row:
-        tg.answer_callback(cid, "این خبر دیگر در دیتابیس نیست", alert=True)
+        tg.answer_callback(cid, "این خبر دیگر در دیتابیس نیست")
         return
 
-    if action == "orig":
-        tg.answer_callback(cid)
+    if action == 'notice':
+        admin_news._toast(tg, cid, row['payload'].get('button_error') or 'خطایی ثبت نشده است.')
+    elif action == "orig":
         # متن  دست‌نخورده — فقط وقتی ادمین بخواهد ارسال می‌شود
         original = formatter.build_original_message(row["payload"])
         if not original:
-            tg.send_message(chat_id, "متن اصلی برای این خبر موجود نیست", silent=True,
-                            reply_to=msg_id)
+            tg.answer_callback(cid, "متن اصلی برای این خبر موجود نیست")
             return
-        sent = tg.send_message(chat_id, original, silent=True,
-                               reply_to=msg_id)
+        tg.answer_callback(cid, 'متن اصلی برای دو دقیقه نمایش داده می‌شود.')
+        sent = admin_news.temporary_message(tg, chat_id, original, silent=True, reply_to=msg_id)
         if not sent:
-            tg.send_message(chat_id,
-                            formatter.build_original_message(row["payload"], expandable=False),
-                            silent=True, reply_to=msg_id)
+            admin_news.temporary_message(tg, chat_id,
+                                         formatter.build_original_message(row["payload"], expandable=False),
+                                         silent=True, reply_to=msg_id)
     elif action == "pub":
         tg.answer_callback(cid, "در حال انتشار…")
         ok, message = approve(key, chat_id, from_user_id=from_user.get("id"))
@@ -919,7 +949,7 @@ def handle_callback(cq):
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
         else:
-            tg.send_message(chat_id, message, silent=True, reply_to=msg_id)
+            _callback_problem(cq, key, action, message)
     elif action == "s2c":
         tg.answer_callback(cid, "در حال ارسال به کانال…")
         ok, message = send_to_channel(key)
@@ -929,23 +959,24 @@ def handle_callback(cq):
                 chat_id, msg_id, {"inline_keyboard": [[{"text": label, "callback_data": "noop"}]]}
             )
         else:
-            tg.send_message(chat_id, message, silent=True, reply_to=msg_id)
+            _callback_problem(cq, key, action, message)
     elif action == "edit":
         # ویرایش دیگر دکمه ندارد — ریپلای + /edit. برای سازگاری با کیبوردهای قدیمی:
-        tg.answer_callback(cid, "برای ویرایش: روی همین پیام ریپلای کن و /edit بزن", alert=True)
+        tg.answer_callback(cid, "برای ویرایش: روی همین پیام ریپلای کن و /edit بزن")
     elif action == "rtr":
         tg.answer_callback(cid, "در حال ترجمه مجدد...")
         item = row["payload"]
         tr = translate.translate(item)
         if not tr:
-            tg.send_message(chat_id, "ترجمه مجدد ناموفق بود", silent=True,
-                            reply_to=msg_id)
+            db.update_payload(key, item)
+            _callback_problem(cq, key, action, 'ترجمه مجدد ناموفق بود؛ مسیر ترجمه یا /health را ببین.')
             return
+        item.pop('button_error', None)
         item["translated"] = tr
         db.save(item, status=row["status"], admin_msg=row["admin_msg"])
         new_caption = formatter.build_admin_caption(item, tr)
         kb = formatter.keyboard(key, config.PUBLISH_MODE)
-        if msg.get("photo"):
+        if msg.get("photo") or msg.get("video") or msg.get("document"):
             tg.edit_caption(chat_id, msg_id, new_caption, kb)
         else:
             tg.edit_text(chat_id, msg_id, new_caption, kb)
@@ -1133,16 +1164,7 @@ def _entities_to_html(raw_text, entities):
 
 def _transient(chat_id, text, ttl=4):
     """پیام گذرا: بعد از ttl ثانیه خودش پاک می‌شود — گروه را شلوغ نمی‌کند."""
-    msg = tg.send_message(chat_id, text)
-    if msg and msg.get("message_id"):
-        def _rm():
-            try:
-                tg.delete_message(chat_id, msg["message_id"])
-            except Exception:
-                pass
-        t = threading.Timer(ttl, _rm)
-        t.daemon = True
-        t.start()
+    return admin_news.temporary_message(tg, chat_id, text, ttl=ttl)
 
 
 def _utf16_slice(text, u16_start, u16_end):
@@ -1453,9 +1475,12 @@ def handle_message(m):
             chat_id,
             "دستورات:\n"
             '/queue [pending|review|failed|rejected|grouped|all] — صف تعاملی\n'
+            '/queue relevance — تأیید ارتباط خبرهای مبهم\n'
             '/missed — بررسی و بازیابی خبرهای جاافتاده\n'
             '/accounts — سلامت هر اکانت\n'
             '/sources — پیشنهاد اکانت و پایش موقت\n'
+            '/chain شناسه‌خبر — مسیر کامل ترجمه\n'
+            '/story شناسه‌خبر — همهٔ منابع خبر\n'
             '/watch — افراد فعلی، سابق و اهداف نقل‌وانتقال\n'
             '/merge شناسه۱ شناسه۲ — تأیید تجمیع منابع\n'
             "/names — تأیید و اصلاح نام فارسی\n"
@@ -1481,6 +1506,7 @@ def queue_report():
     pending = sum(stats.get(k, 0) for k in ('discovered', 'new', 'processing', 'retry_pending'))
     report = (f"دریافتی: {counts.get('received', 0)} | تکراری دقیق: {counts.get('exact_duplicates', 0)}\n"
               f"منتظر پردازش: {pending} | ردشده: {stats.get('rejected', 0)} | ناموفق: {stats.get('failed', 0)}\n"
+              f"نیازمند تأیید ارتباط: {stats.get('awaiting_relevance', 0)} (/queue relevance)\n"
               f"ارسال‌شده به ادمین: {stats.get('sent_admin', 0) + stats.get('pending_admin', 0)}")
     with db._lock:
         rows = db._c().execute("SELECT key,error FROM items WHERE status IN ('failed','rejected') "

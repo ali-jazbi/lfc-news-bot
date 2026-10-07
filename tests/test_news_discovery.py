@@ -361,7 +361,8 @@ def test_failed_translation_trace_is_saved_for_admin_callback(patched_main, monk
     assert db.get(key)['payload']['translation_attempts'][0]['error'] == 'rate limit'
     main.handle_callback({'id': 'q', 'data': 'chain:' + key, 'from': {'id': 1},
                           'message': {'message_id': 2, 'chat': {'id': -1}}})
-    assert 'rate limit' in main.tg.sent_messages[-1]
+    assert 'rate limit' in main.tg.calls[-1][2]
+    assert not main.tg.sent_messages
 
 
 def test_chain_report_explains_skipped_slots_without_credentials(monkeypatch):

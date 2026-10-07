@@ -21,17 +21,66 @@ _GENERIC_TERMS = {
 }
 _EXPLICIT_CLUB_TERMS = {
     'liverpool', 'liverpool fc', 'lfc', 'anfield', 'merseyside derby',
-    'axa training centre', 'kirby', 'kirkby', 'the reds',
+    'axa training centre', 'لیورپول',
 }
 _UNIQUE_PLAYER_TERMS = {
-    'salah', 'alisson', 'wirtz', 'szoboszlai', 'gakpo', 'gravenberch',
-    'mamardashvili', 'konate', 'frimpong', 'ekitike', 'ngumoha',
+    'salah': 'mohamed salah', 'alisson': 'alisson becker', 'wirtz': 'florian wirtz',
+    'szoboszlai': 'dominik szoboszlai', 'gakpo': 'cody gakpo', 'gravenberch': 'ryan gravenberch',
+    'mamardashvili': 'giorgi mamardashvili', 'konate': 'ibrahima konate',
+    'frimpong': 'jeremie frimpong', 'ekitike': 'hugo ekitike', 'ngumoha': 'rio ngumoha',
 }
 _RIVAL_RE = re.compile(
     r"\b(arsenal|chelsea|tottenham|spurs|manchester united|man utd|"
     r"manchester city|man city|everton|newcastle|west ham|aston villa|"
     r"nottingham forest|bournemouth|wolves|fulham|brentford|crystal palace|"
     r"sunderland|leeds|burnley|brighton)\b", re.I)
+_FOREIGN_RE = re.compile(
+    r'\b(barcelona|real madrid|raphinha|arda g[uü]ler|roma|calafiori|juventus|'
+    r'psg|paris saint.germain|inter miami|messi|belgium|turkey|italy|ireland|israel)\b'
+    r'|بارسلونا|رافینیا|رئال مادرید|آردا گولر|بلژیک|ترکیه|اسرائیل|ایرلند|تیم ملی ایتالیا', re.I)
+_SELF_PROMO_RE = re.compile(
+    r'\b(podcast|new episode|subscribe|listen (?:now|here)|we.?re back tonight|'
+    r'we are back tonight|i.?m back tonight)\b|پادکست|قسمت جدید', re.I)
+_NON_FOOTBALL_RE = re.compile(
+    r'\b(city council|airport|museum|university|cathedral|mayor|housing|'
+    r'residents|road repairs|cafe|bakery|chemistry|weather|rain|forecast|'
+    r'nintendo|baseball|basketball|volleyball|fashion collection|appears in court)\b'
+    r'|شهرداری|فرودگاه|موزه|دانشگاه|بسکتبال|والیبال|باران', re.I)
+_FOOTBALL_EVENT_RE = re.compile(
+    r'\b(football|soccer|goal|goals|striker|midfielder|defender|goalkeeper|'
+    r'first.team|squad|fixture|match|training|anfield stadium)\b'
+    r'|فوتبال|گل|بازیکن|مهاجم|مدافع|دروازه.بان|تمرین|مسابقه', re.I)
+# A short alias followed by another name must not identify the approved player.
+_NAME_CONTEXT_WORDS = set(('is are was were has have had will would could should '
+                          'can may might not the a an and or for with without to in on at '
+                          'from as by of compared scores scored score kept keeps made makes '
+                          'says said confirms confirmed returns returned starts started '
+                          'joins joined signs signed agrees agreed injured ruled ready '
+                          'out doubtful impresses impressed creates created captains '
+                          'nets saves shines leads celebrates explains discusses praises '
+                          'faces suffers recovers trains breaks dominates vs injury goal goals update magic '
+                          'captain winger forward playmaker star breaking exclusive watch s').split())
+
+
+def _content_text(text):
+    # Attribution links/handles and hashtag stuffing are not affiliation evidence.
+    return re.sub(r'https?://\S+|www\.\S+|(?<!\w)[@#][\w\u200c]+', '', text or '', flags=re.I)
+
+
+def _person_match(text, phrase, profile=None):
+    if not _has_phrase(text, phrase):
+        return False
+    if len(phrase.split()) > 1 or (profile and len(profile['name'].split()) > 1 and _has_phrase(text, profile['name'])):
+        return True
+    for match in re.finditer(r'(?<!\w)' + re.escape(phrase) + r'(?!\w)', text, re.I):
+        preceding = re.search(r'([a-z]+)\s+$', text[:match.start()], re.I)
+        if (preceding and preceding[1].casefold() not in _NAME_CONTEXT_WORDS
+                and not _FOOTBALL_EVENT_RE.fullmatch(preceding[1])):
+            continue
+        following = re.match(r'\s+([a-z]+)\b', text[match.end():], re.I)
+        if not following or following[1].casefold() in _NAME_CONTEXT_WORDS:
+            return True
+    return False
 
 
 def _has_phrase(text, phrase):
@@ -65,78 +114,101 @@ def entity_profiles():
             for alias, spelling in config.GLOSSARY.items():
                 if spelling == persian:
                     profiles.setdefault(alias.casefold(), profile)
+    surname_ids = {}
+    for profile in profiles.values():
+        identity = profile['name'].casefold()
+        surname_ids.setdefault(identity.split()[-1], set()).add(identity)
+    for name, profile in list(profiles.items()):
+        surname = name.split()[-1]
+        if len(name.split()) > 1 and len(surname) >= 5 and len(surname_ids.get(surname, ())) == 1 and surname not in {
+                'jones', 'williams', 'davies', 'gomez', 'james', 'lewis', 'walker'}:
+            profiles.setdefault(surname, profile)
     return profiles
 
 
-def _has_liverpool_context(text):
-    text = text.casefold()
+def _has_liverpool_context(text, profiles=None):
+    text = _content_text(text).casefold()
     if any(_has_phrase(text, term) for term in _EXPLICIT_CLUB_TERMS):
         return True
 
-    profiles = entity_profiles()
+    profiles = entity_profiles() if profiles is None else profiles
     for phrase, profile in profiles.items():
-        if profile['role'] == 'current' and _has_phrase(text, phrase):
+        if profile['role'] == 'current' and _person_match(text, phrase, profile):
             return True
         if (profile['role'] == 'target' and profile['expires_at'] > time.time()
-                and _has_phrase(text, phrase) and not _RIVAL_RE.search(text)
+                and _has_phrase(text, phrase) and not (_RIVAL_RE.search(text) or _FOREIGN_RE.search(text))
                 and re.search(r'\b(transfer|deal|bid|interest|target|sign|talks|agreement)\b', text)):
             return True
 
-    # Use named people only as a signal; ignore generic phrases and short,
-    # collision-prone surnames. Approved roster names from the shared glossary
-    # are authoritative; ROMANO_KEYWORDS contains a few account-specific aliases.
-    import names
-    for candidate in (*names.glossary().keys(), *config.ROMANO_KEYWORDS):
-        candidate = candidate.strip().casefold()
-        if candidate in profiles:
-            continue  # Former/expired targets must not inherit a glossary keyword match.
-        if candidate in _GENERIC_TERMS or candidate in _EXPLICIT_CLUB_TERMS:
-            continue
-        if len(candidate.split()) == 1 and len(candidate) < 7 and candidate not in _UNIQUE_PLAYER_TERMS:
-            continue
-        if _has_phrase(text, candidate):
+    # A spelling dictionary includes reporters and former players: it is not a roster.
+    for candidate, identity in _UNIQUE_PLAYER_TERMS.items():
+        if candidate not in profiles and _person_match(text, candidate, {'name': identity}):
             return True
     return False
 
 
-def decision(item):
-    title = (item.get('title') or '').casefold()
-    body = (item.get('body') or '').casefold()
+def decision(item, profiles=None):
+    title = _content_text(item.get('title')).casefold()
+    body = _content_text(item.get('body')).casefold()
     blob = title + ' ' + body
     if item.get('admin_relevance') == 'unrelated':
         return 'reject', 'admin marked unrelated'
     if item.get('admin_relevance') == 'related':
         return 'review', 'admin marked related'
-    if not config.INCLUDE_WOMEN and re.search(r"\b(women(?:'s)?|wsl|u18|u21|under-18|under-21)\b", title):
+    if any(re.match(r'^\s*rt\s+@', item.get(field) or '', re.I) for field in ('title', 'body')):
+        return 'reject', 'plain retweet'
+    women = re.search(r"\b(women(?:'s)?|wsl)\b|تیم زنان|بانوان", blob)
+    youth = re.search(r'\b(u18s?|u21s?|under-18|under-21)\b', blob)
+    senior = re.search(r'\b(first.team|senior)\b|تیم بزرگسالان|تیم اصلی', blob)
+    if not config.INCLUDE_WOMEN and (women or (youth and not senior)):
         return 'reject', 'outside men’s first-team coverage'
     if re.search(r'\b(subscribe now|buy (?:your )?tickets|shop now|bet now|enter (?:our|the) competition)\b', blob):
         return 'reject', 'explicit promotion'
-    if body.startswith('rt @') or title.startswith('rt @'):
-        return 'reject', 'plain retweet'
 
-    source = str(item.get('source') or '').casefold()
-    source_tag = str(item.get('source_tag') or '').casefold()
-    if source == 'lfc official' or 'liverpool' in source_tag or item.get('club_specific'):
-        return 'review', 'club source'
+    if _SELF_PROMO_RE.search(blob) and not re.search(
+            r'\b(injured|injury|scored|won|lost|signed|agreed|bid|goals?|line.?up)\b', blob):
+        return 'reject', 'podcast or personal account announcement'
 
-    handle = str(item.get('ingest_handle') or item.get('handle') or '').lstrip('@').casefold()
-    if handle in {x.lstrip('@').casefold() for x in config.TWITTER_LFC_ONLY}:
-        return 'review', 'Liverpool-specific account'
-    import db
-    if db._conn is not None and handle:
-        with db._lock:
-            profile = db._c().execute("SELECT club_only FROM source_candidates WHERE handle=? "
-                                      "AND state='watching' AND expires_at>?", (handle, time.time())).fetchone()
-        if profile and profile['club_only']:
-            return 'review', 'admin-confirmed Liverpool-specific account'
+    if _NON_FOOTBALL_RE.search(blob) and not _FOOTBALL_EVENT_RE.search(blob):
+        return 'hold', 'non-football topic or ambiguous person/place identity'
 
-    if _has_liverpool_context(blob):
+    if _has_liverpool_context(blob, profiles):
         return 'review', 'Liverpool context'
 
-    rival = _RIVAL_RE.search(blob)
+    rival = _RIVAL_RE.search(blob) or _FOREIGN_RE.search(blob)
     if rival:
-        return 'reject', 'rival-only news: ' + rival.group(0)
+        return 'reject', 'unrelated club or national-team news: ' + rival.group(0)
 
-    # No textual Liverpool signal: preserve plausible football news for human
-    # review, but make the reason explicit so admins can spot this edge case.
-    return 'review', 'no explicit Liverpool context; admin review'
+    source = str(item.get('source') or '').casefold()
+    if source == 'lfc official':
+        return 'review', 'club source'
+
+    # Source identity alone cannot turn a personal post into Liverpool news.
+    return 'hold', 'Liverpool relevance needs confirmation'
+
+
+def classify_queued():
+    """Classify the backlog before the five-item translation budget is consumed."""
+    import db
+    import json
+    import health
+    if config.HERMES_ENABLED:
+        return
+    profiles = entity_profiles()
+    rejected = 0
+    with db._lock, db._c():
+        c = db._c()
+        rows = c.execute("SELECT key,payload,status FROM items WHERE status IN ('discovered','new') "
+                         "OR (status='retry_pending' AND retry_stage='translation')").fetchall()
+        for row in rows:
+            item = json.loads(row['payload'])
+            action, reason = decision(item, profiles)
+            item.update(editorial_decision=action, editorial_reason=reason)
+            status = 'rejected' if action == 'reject' else 'awaiting_relevance' if action == 'hold' else row['status']
+            c.execute('UPDATE items SET payload=?,status=?,error=CASE WHEN ? IN '
+                      "('rejected','awaiting_relevance') THEN ? ELSE error END WHERE key=?",
+                      (json.dumps(item, ensure_ascii=False), status, status, reason, row['key']))
+            if action == 'reject':
+                rejected += 1
+    if rejected:
+        health.record_counter('policy_rejected', rejected)

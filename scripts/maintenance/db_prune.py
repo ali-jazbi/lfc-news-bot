@@ -43,7 +43,7 @@ PRUNE_INTERVAL_SECONDS = int(os.environ.get("DB_PRUNE_INTERVAL_SECONDS", "3600")
 # وضعیت‌هایی که هنوز برای دکمه‌های ادمین لازمند — فشرده نمی‌شوند تا تازه‌اند
 _ACTIVE_STATUSES = ("new", "discovered", "processing", "analyzing", "verification",
                     "approved_by_ai", "translation", "translation_review", "media_processing",
-                    "retry_pending", "failed", "sent_admin", "pending_admin", "approved", "grouped", "rejected")
+                    "retry_pending", "failed", "sent_admin", "pending_admin", "approved", "grouped", "rejected", "awaiting_relevance")
 
 
 def _conn():

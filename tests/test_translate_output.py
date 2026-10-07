@@ -1,6 +1,7 @@
 """پاسخ نهایی ترجمه — حذف هشتگ — کاملاً بدون شبکه."""
 
 import translate
+import pytest
 
 BS = chr(92)   # backslash
 NL = chr(10)
@@ -84,7 +85,7 @@ def test_translate_llm_output_has_no_hashtags(monkeypatch):
     assert "مسکورا" in data["body"]
 
 
-def test_google_fallback_retries_rate_limit(monkeypatch):
+def test_google_fallback_leaves_rate_limit_to_shared_gate(monkeypatch):
     monkeypatch.setattr(translate, "_google_next_request", 0.0)
     sleeps = []
     monkeypatch.setattr(translate.time, "sleep", sleeps.append)
@@ -98,6 +99,7 @@ def test_google_fallback_retries_rate_limit(monkeypatch):
             return "ترجمه فارسی"
 
     translator = Translator()
-    assert translate._google_translate(translator, "hello") == "ترجمه فارسی"
-    assert translator.calls == 2
-    assert 1 in sleeps
+    with pytest.raises(RuntimeError, match='429'):
+        translate._google_translate(translator, "hello")
+    assert translator.calls == 1
+    assert not sleeps

@@ -1,0 +1,4554 @@
+{
+  "kind": "synthetic offline challenge; no live Telegram or source API calls",
+  "seed": 20261006,
+  "distinct_stories": 84,
+  "distinct_blocked": 51,
+  "distinct_relevant": 33,
+  "variants_per_story": 6,
+  "evaluated": 504,
+  "counts": {
+    "hold": 234,
+    "review": 198,
+    "reject": 72
+  },
+  "false_positives": 0,
+  "false_negatives": 0,
+  "cases": [
+    {
+      "body": "The Champions League draw takes place tomorrow.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Champions League draw takes place tomorrow.",
+      "title": "The Champions League draw takes place tomorrow.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "the champions league draw takes place tomorrow.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Champions League draw takes place tomorrow.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Champions League draw takes place tomorrow.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Champions League draw takes place tomorrow.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Szoboszlai leads Hungary to victory.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Szoboszlai leads Hungary to victory.",
+      "title": "Szoboszlai leads Hungary to victory.",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "SZOBOSZLAI LEADS HUNGARY TO VICTORY.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Szoboszlai leads Hungary to victory.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Szoboszlai leads Hungary to victory.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Szoboszlai leads Hungary to victory.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "A Wirtz family bakery opens in Berlin.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A Wirtz family bakery opens in Berlin.",
+      "title": "A Wirtz family bakery opens in Berlin.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "a wirtz family bakery opens in berlin.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A Wirtz family bakery opens in Berlin.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A Wirtz family bakery opens in Berlin.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A Wirtz family bakery opens in Berlin.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Alisson saves a penalty in the final minute.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson saves a penalty in the final minute.",
+      "title": "Alisson saves a penalty in the final minute.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "ALISSON SAVES A PENALTY IN THE FINAL MINUTE.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson saves a penalty in the final minute.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson saves a penalty in the final minute.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson saves a penalty in the final minute.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "A new cafe opens in Kirkby town centre.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A new cafe opens in Kirkby town centre.",
+      "title": "A new cafe opens in Kirkby town centre.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A NEW CAFE OPENS IN KIRKBY TOWN CENTRE.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A new cafe opens in Kirkby town centre.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A new cafe opens in Kirkby town centre.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "A new cafe opens in Kirkby town centre.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Frimpong launches her new fashion collection.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Frimpong launches her new fashion collection.",
+      "title": "Frimpong launches her new fashion collection.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "frimpong launches her new fashion collection.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Frimpong launches her new fashion collection.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Frimpong launches her new fashion collection.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Frimpong launches her new fashion collection.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "New episode tonight: subscribe to our podcast.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "podcast or personal account announcement",
+      "correct": true
+    },
+    {
+      "body": "New episode tonight: subscribe to our podcast.",
+      "title": "New episode tonight: subscribe to our podcast.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "podcast or personal account announcement",
+      "correct": true
+    },
+    {
+      "body": "new episode tonight: subscribe to our podcast.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "podcast or personal account announcement",
+      "correct": true
+    },
+    {
+      "body": "New episode tonight: subscribe to our podcast.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "podcast or personal account announcement",
+      "correct": true
+    },
+    {
+      "body": "New episode tonight: subscribe to our podcast.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "podcast or personal account announcement",
+      "correct": true
+    },
+    {
+      "body": "New episode tonight: subscribe to our podcast.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "podcast or personal account announcement",
+      "correct": true
+    },
+    {
+      "body": "RT @LFC: Liverpool won 2-0 tonight.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @LFC: Liverpool won 2-0 tonight.",
+      "title": "RT @LFC: Liverpool won 2-0 tonight.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "rt @lfc: liverpool won 2-0 tonight.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @LFC: Liverpool won 2-0 tonight.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @LFC: Liverpool won 2-0 tonight.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @LFC: Liverpool won 2-0 tonight.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are preparing a bid for a Real Madrid midfielder.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are preparing a bid for a Real Madrid midfielder.",
+      "title": "Liverpool are preparing a bid for a Real Madrid midfielder.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "LIVERPOOL ARE PREPARING A BID FOR A REAL MADRID MIDFIELDER.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are preparing a bid for a Real Madrid midfielder.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are preparing a bid for a Real Madrid midfielder.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are preparing a bid for a Real Madrid midfielder.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.",
+      "title": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "شهرداری لیورپول ساخت یک مجموعه مسکونی را تصویب کرد.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Morning session at the AXA training centre.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Morning session at the AXA training centre.",
+      "title": "Morning session at the AXA training centre.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "MORNING SESSION AT THE AXA TRAINING CENTRE.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Morning session at the AXA training centre.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Morning session at the AXA training centre.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Morning session at the AXA training centre.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Manchester City have agreed personal terms with a defender.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: manchester city",
+      "correct": true
+    },
+    {
+      "body": "Manchester City have agreed personal terms with a defender.",
+      "title": "Manchester City have agreed personal terms with a defender.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: manchester city",
+      "correct": true
+    },
+    {
+      "body": "MANCHESTER CITY HAVE AGREED PERSONAL TERMS WITH A DEFENDER.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: manchester city",
+      "correct": true
+    },
+    {
+      "body": "Manchester City have agreed personal terms with a defender.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: manchester city",
+      "correct": true
+    },
+    {
+      "body": "Manchester City have agreed personal terms with a defender.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: manchester city",
+      "correct": true
+    },
+    {
+      "body": "Manchester City have agreed personal terms with a defender.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: manchester city",
+      "correct": true
+    },
+    {
+      "body": "The Los Angeles Lakers win an NBA game.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Los Angeles Lakers win an NBA game.",
+      "title": "The Los Angeles Lakers win an NBA game.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "THE LOS ANGELES LAKERS WIN AN NBA GAME.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Los Angeles Lakers win an NBA game.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Los Angeles Lakers win an NBA game.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The Los Angeles Lakers win an NBA game.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Nine matches in my career. What a journey.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Nine matches in my career. What a journey.",
+      "title": "Nine matches in my career. What a journey.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "nine matches in my career. what a journey.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Nine matches in my career. What a journey.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Nine matches in my career. What a journey.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Nine matches in my career. What a journey.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Florian Wirtz created four chances for Germany.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Florian Wirtz created four chances for Germany.",
+      "title": "Florian Wirtz created four chances for Germany.",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "florian wirtz created four chances for germany.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Florian Wirtz created four chances for Germany.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Florian Wirtz created four chances for Germany.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Florian Wirtz created four chances for Germany.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool museum opens an exhibition of modern paintings.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool museum opens an exhibition of modern paintings.",
+      "title": "Liverpool museum opens an exhibition of modern paintings.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "liverpool museum opens an exhibition of modern paintings.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool museum opens an exhibition of modern paintings.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool museum opens an exhibition of modern paintings.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool museum opens an exhibition of modern paintings.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Frimpong faces a fitness test tomorrow.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Frimpong faces a fitness test tomorrow.",
+      "title": "Frimpong faces a fitness test tomorrow.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "FRIMPONG FACES A FITNESS TEST TOMORROW.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Frimpong faces a fitness test tomorrow.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Frimpong faces a fitness test tomorrow.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Frimpong faces a fitness test tomorrow.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Nintendo announces a new Kirby game.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Nintendo announces a new Kirby game.",
+      "title": "Nintendo announces a new Kirby game.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "NINTENDO ANNOUNCES A NEW KIRBY GAME.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Nintendo announces a new Kirby game.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Nintendo announces a new Kirby game.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Nintendo announces a new Kirby game.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Jordan Henderson scores for Ajax.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Jordan Henderson scores for Ajax.",
+      "title": "Jordan Henderson scores for Ajax.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "JORDAN HENDERSON SCORES FOR AJAX.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Jordan Henderson scores for Ajax.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Jordan Henderson scores for Ajax.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Jordan Henderson scores for Ajax.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Gakpo shines in training ahead of the derby.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Gakpo shines in training ahead of the derby.",
+      "title": "Gakpo shines in training ahead of the derby.",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "GAKPO SHINES IN TRAINING AHEAD OF THE DERBY.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Gakpo shines in training ahead of the derby.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Gakpo shines in training ahead of the derby.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Gakpo shines in training ahead of the derby.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Here we go! Medical completed and documents signed.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Here we go! Medical completed and documents signed.",
+      "title": "Here we go! Medical completed and documents signed.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "HERE WE GO! MEDICAL COMPLETED AND DOCUMENTS SIGNED.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Here we go! Medical completed and documents signed.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Here we go! Medical completed and documents signed.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Here we go! Medical completed and documents signed.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Liverpool lost 1-0 to Manchester City.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool lost 1-0 to Manchester City.",
+      "title": "Liverpool lost 1-0 to Manchester City.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "LIVERPOOL LOST 1-0 TO MANCHESTER CITY.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool lost 1-0 to Manchester City.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool lost 1-0 to Manchester City.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool lost 1-0 to Manchester City.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah Hassan signs a contract with a Turkish club.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Salah Hassan signs a contract with a Turkish club.",
+      "title": "Salah Hassan signs a contract with a Turkish club.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "salah hassan signs a contract with a turkish club.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Salah Hassan signs a contract with a Turkish club.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Salah Hassan signs a contract with a Turkish club.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Salah Hassan signs a contract with a Turkish club.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Liverpool under-21 side face Arsenal under-21s tonight.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool under-21 side face Arsenal under-21s tonight.",
+      "title": "Liverpool under-21 side face Arsenal under-21s tonight.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "liverpool under-21 side face arsenal under-21s tonight.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool under-21 side face Arsenal under-21s tonight.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool under-21 side face Arsenal under-21s tonight.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool under-21 side face Arsenal under-21s tonight.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Ahmed Salah signs a contract with Porto.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ahmed Salah signs a contract with Porto.",
+      "title": "Ahmed Salah signs a contract with Porto.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "ahmed salah signs a contract with porto.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ahmed Salah signs a contract with Porto.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ahmed Salah signs a contract with Porto.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ahmed Salah signs a contract with Porto.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Liverpool have not agreed a fee for the defender yet.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool have not agreed a fee for the defender yet.",
+      "title": "Liverpool have not agreed a fee for the defender yet.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "liverpool have not agreed a fee for the defender yet.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool have not agreed a fee for the defender yet.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool have not agreed a fee for the defender yet.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool have not agreed a fee for the defender yet.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Patrick Wirtz moves to Bayern Munich.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Patrick Wirtz moves to Bayern Munich.",
+      "title": "Patrick Wirtz moves to Bayern Munich.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "PATRICK WIRTZ MOVES TO BAYERN MUNICH.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Patrick Wirtz moves to Bayern Munich.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Patrick Wirtz moves to Bayern Munich.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Patrick Wirtz moves to Bayern Munich.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "فردا در شهر لیورپول باران شدید می‌بارد.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "فردا در شهر لیورپول باران شدید می‌بارد.",
+      "title": "فردا در شهر لیورپول باران شدید می‌بارد.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "فردا در شهر لیورپول باران شدید می‌بارد.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "فردا در شهر لیورپول باران شدید می‌بارد.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "فردا در شهر لیورپول باران شدید می‌بارد.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "فردا در شهر لیورپول باران شدید می‌بارد.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool City Council approves a new housing project.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool City Council approves a new housing project.",
+      "title": "Liverpool City Council approves a new housing project.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "LIVERPOOL CITY COUNCIL APPROVES A NEW HOUSING PROJECT.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool City Council approves a new housing project.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool City Council approves a new housing project.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool City Council approves a new housing project.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The Reds beat the Cubs in baseball last night.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The Reds beat the Cubs in baseball last night.",
+      "title": "The Reds beat the Cubs in baseball last night.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "THE REDS BEAT THE CUBS IN BASEBALL LAST NIGHT.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The Reds beat the Cubs in baseball last night.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The Reds beat the Cubs in baseball last night.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The Reds beat the Cubs in baseball last night.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Mohamed Salah scored twice for Egypt.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Mohamed Salah scored twice for Egypt.",
+      "title": "Mohamed Salah scored twice for Egypt.",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "MOHAMED SALAH SCORED TWICE FOR EGYPT.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Mohamed Salah scored twice for Egypt.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Mohamed Salah scored twice for Egypt.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Mohamed Salah scored twice for Egypt.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool U18s defeat Everton U18s in the academy league.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool U18s defeat Everton U18s in the academy league.",
+      "title": "Liverpool U18s defeat Everton U18s in the academy league.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "liverpool u18s defeat everton u18s in the academy league.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool U18s defeat Everton U18s in the academy league.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool U18s defeat Everton U18s in the academy league.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool U18s defeat Everton U18s in the academy league.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Cody Gakpo is doubtful after picking up an injury.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Cody Gakpo is doubtful after picking up an injury.",
+      "title": "Cody Gakpo is doubtful after picking up an injury.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "cody gakpo is doubtful after picking up an injury.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Cody Gakpo is doubtful after picking up an injury.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Cody Gakpo is doubtful after picking up an injury.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Cody Gakpo is doubtful after picking up an injury.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Benfica sign a new winger on a five-year contract.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica sign a new winger on a five-year contract.",
+      "title": "Benfica sign a new winger on a five-year contract.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "BENFICA SIGN A NEW WINGER ON A FIVE-YEAR CONTRACT.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica sign a new winger on a five-year contract.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica sign a new winger on a five-year contract.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica sign a new winger on a five-year contract.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Liverpool Women beat Chelsea Women in the WSL.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool Women beat Chelsea Women in the WSL.",
+      "title": "Liverpool Women beat Chelsea Women in the WSL.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "liverpool women beat chelsea women in the wsl.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool Women beat Chelsea Women in the WSL.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool Women beat Chelsea Women in the WSL.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool Women beat Chelsea Women in the WSL.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Liverpool airport announces new flights to Spain.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool airport announces new flights to Spain.",
+      "title": "Liverpool airport announces new flights to Spain.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "liverpool airport announces new flights to spain.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool airport announces new flights to Spain.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool airport announces new flights to Spain.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool airport announces new flights to Spain.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Liverpool deny the rumour about their next manager.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool deny the rumour about their next manager.",
+      "title": "Liverpool deny the rumour about their next manager.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "LIVERPOOL DENY THE RUMOUR ABOUT THEIR NEXT MANAGER.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool deny the rumour about their next manager.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool deny the rumour about their next manager.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool deny the rumour about their next manager.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Jeremie Frimpong impressed in training today.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Jeremie Frimpong impressed in training today.",
+      "title": "Jeremie Frimpong impressed in training today.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "jeremie frimpong impressed in training today.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Jeremie Frimpong impressed in training today.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Jeremie Frimpong impressed in training today.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Jeremie Frimpong impressed in training today.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool could sign the player if negotiations progress.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool could sign the player if negotiations progress.",
+      "title": "Liverpool could sign the player if negotiations progress.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "liverpool could sign the player if negotiations progress.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool could sign the player if negotiations progress.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool could sign the player if negotiations progress.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool could sign the player if negotiations progress.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "The University of Liverpool publishes a chemistry study.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The University of Liverpool publishes a chemistry study.",
+      "title": "The University of Liverpool publishes a chemistry study.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "the university of liverpool publishes a chemistry study.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The University of Liverpool publishes a chemistry study.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The University of Liverpool publishes a chemistry study.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "The University of Liverpool publishes a chemistry study.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Portugal beat Norway 3-1 in the qualifier.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Portugal beat Norway 3-1 in the qualifier.",
+      "title": "Portugal beat Norway 3-1 in the qualifier.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "portugal beat norway 3-1 in the qualifier.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Portugal beat Norway 3-1 in the qualifier.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Portugal beat Norway 3-1 in the qualifier.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Portugal beat Norway 3-1 in the qualifier.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Good morning everyone. Coffee and a long drive today.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Good morning everyone. Coffee and a long drive today.",
+      "title": "Good morning everyone. Coffee and a long drive today.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "GOOD MORNING EVERYONE. COFFEE AND A LONG DRIVE TODAY.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Good morning everyone. Coffee and a long drive today.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Good morning everyone. Coffee and a long drive today.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Good morning everyone. Coffee and a long drive today.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Brighton beat Fulham with two late goals.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: brighton",
+      "correct": true
+    },
+    {
+      "body": "Brighton beat Fulham with two late goals.",
+      "title": "Brighton beat Fulham with two late goals.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: brighton",
+      "correct": true
+    },
+    {
+      "body": "BRIGHTON BEAT FULHAM WITH TWO LATE GOALS.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: brighton",
+      "correct": true
+    },
+    {
+      "body": "Brighton beat Fulham with two late goals.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: brighton",
+      "correct": true
+    },
+    {
+      "body": "Brighton beat Fulham with two late goals.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: brighton",
+      "correct": true
+    },
+    {
+      "body": "Brighton beat Fulham with two late goals.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: brighton",
+      "correct": true
+    },
+    {
+      "body": "The Reds are preparing for their next match at Anfield.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "The Reds are preparing for their next match at Anfield.",
+      "title": "The Reds are preparing for their next match at Anfield.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "the reds are preparing for their next match at anfield.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "The Reds are preparing for their next match at Anfield.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "The Reds are preparing for their next match at Anfield.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "The Reds are preparing for their next match at Anfield.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Anfield residents complain about road repairs.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Anfield residents complain about road repairs.",
+      "title": "Anfield residents complain about road repairs.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "ANFIELD RESIDENTS COMPLAIN ABOUT ROAD REPAIRS.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Anfield residents complain about road repairs.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Anfield residents complain about road repairs.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Anfield residents complain about road repairs.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "RT @fan: Salah scored again for Liverpool.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @fan: Salah scored again for Liverpool.",
+      "title": "RT @fan: Salah scored again for Liverpool.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "rt @fan: salah scored again for liverpool.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @fan: Salah scored again for Liverpool.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @fan: Salah scored again for Liverpool.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "RT @fan: Salah scored again for Liverpool.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "plain retweet",
+      "correct": true
+    },
+    {
+      "body": "AC Milan sack their head coach.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "AC Milan sack their head coach.",
+      "title": "AC Milan sack their head coach.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "AC MILAN SACK THEIR HEAD COACH.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "AC Milan sack their head coach.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "AC Milan sack their head coach.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "AC Milan sack their head coach.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.",
+      "title": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "بسکتبال: لیکرز با اختلاف ده امتیاز پیروز شد.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Klopp recalls his first match as Liverpool manager in 2015.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Klopp recalls his first match as Liverpool manager in 2015.",
+      "title": "Klopp recalls his first match as Liverpool manager in 2015.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "KLOPP RECALLS HIS FIRST MATCH AS LIVERPOOL MANAGER IN 2015.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Klopp recalls his first match as Liverpool manager in 2015.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Klopp recalls his first match as Liverpool manager in 2015.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Klopp recalls his first match as Liverpool manager in 2015.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Celtic win the Scottish Cup final.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Celtic win the Scottish Cup final.",
+      "title": "Celtic win the Scottish Cup final.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "CELTIC WIN THE SCOTTISH CUP FINAL.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Celtic win the Scottish Cup final.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Celtic win the Scottish Cup final.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Celtic win the Scottish Cup final.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.",
+      "title": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "لیورپول هنوز برای خرید مدافع به توافق نرسیده است.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "تیم زنان لیورپول مقابل چلسی پیروز شد.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "تیم زنان لیورپول مقابل چلسی پیروز شد.",
+      "title": "تیم زنان لیورپول مقابل چلسی پیروز شد.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "تیم زنان لیورپول مقابل چلسی پیروز شد.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "تیم زنان لیورپول مقابل چلسی پیروز شد.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "تیم زنان لیورپول مقابل چلسی پیروز شد.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "تیم زنان لیورپول مقابل چلسی پیروز شد.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "outside men’s first-team coverage",
+      "correct": true
+    },
+    {
+      "body": "Benfica, known as the Reds, win the Portuguese league.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica, known as the Reds, win the Portuguese league.",
+      "title": "Benfica, known as the Reds, win the Portuguese league.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "BENFICA, KNOWN AS THE REDS, WIN THE PORTUGUESE LEAGUE.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica, known as the Reds, win the Portuguese league.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica, known as the Reds, win the Portuguese league.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Benfica, known as the Reds, win the Portuguese league.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Liverpool first-team players train with the U21 goalkeeper today.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool first-team players train with the U21 goalkeeper today.",
+      "title": "Liverpool first-team players train with the U21 goalkeeper today.",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "liverpool first-team players train with the u21 goalkeeper today.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool first-team players train with the U21 goalkeeper today.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool first-team players train with the U21 goalkeeper today.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool first-team players train with the U21 goalkeeper today.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Becker made three saves for Brazil.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Becker made three saves for Brazil.",
+      "title": "Alisson Becker made three saves for Brazil.",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "alisson becker made three saves for brazil.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Becker made three saves for Brazil.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Becker made three saves for Brazil.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Becker made three saves for Brazil.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah: We have to improve our finishing.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah: We have to improve our finishing.",
+      "title": "Salah: We have to improve our finishing.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "SALAH: WE HAVE TO IMPROVE OUR FINISHING.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah: We have to improve our finishing.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah: We have to improve our finishing.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah: We have to improve our finishing.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Chelsea midfielder returns from injury.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: chelsea",
+      "correct": true
+    },
+    {
+      "body": "Chelsea midfielder returns from injury.",
+      "title": "Chelsea midfielder returns from injury.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: chelsea",
+      "correct": true
+    },
+    {
+      "body": "chelsea midfielder returns from injury.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: chelsea",
+      "correct": true
+    },
+    {
+      "body": "Chelsea midfielder returns from injury.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: chelsea",
+      "correct": true
+    },
+    {
+      "body": "Chelsea midfielder returns from injury.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: chelsea",
+      "correct": true
+    },
+    {
+      "body": "Chelsea midfielder returns from injury.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: chelsea",
+      "correct": true
+    },
+    {
+      "body": "Salah Abdeslam appears in court in France.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Abdeslam appears in court in France.",
+      "title": "Salah Abdeslam appears in court in France.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "salah abdeslam appears in court in france.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Abdeslam appears in court in France.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Abdeslam appears in court in France.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Abdeslam appears in court in France.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "محمد صلاح برای تیم ملی مصر دو گل زد.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "محمد صلاح برای تیم ملی مصر دو گل زد.",
+      "title": "محمد صلاح برای تیم ملی مصر دو گل زد.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "محمد صلاح برای تیم ملی مصر دو گل زد.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "محمد صلاح برای تیم ملی مصر دو گل زد.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "محمد صلاح برای تیم ملی مصر دو گل زد.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "محمد صلاح برای تیم ملی مصر دو گل زد.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Inter Milan confirm a contract extension.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Inter Milan confirm a contract extension.",
+      "title": "Inter Milan confirm a contract extension.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "INTER MILAN CONFIRM A CONTRACT EXTENSION.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Inter Milan confirm a contract extension.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Inter Milan confirm a contract extension.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Inter Milan confirm a contract extension.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Bayern Munich agree a deal for a new striker.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Bayern Munich agree a deal for a new striker.",
+      "title": "Bayern Munich agree a deal for a new striker.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "BAYERN MUNICH AGREE A DEAL FOR A NEW STRIKER.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Bayern Munich agree a deal for a new striker.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Bayern Munich agree a deal for a new striker.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Bayern Munich agree a deal for a new striker.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Salah nets a hat-trick for Egypt.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah nets a hat-trick for Egypt.",
+      "title": "Salah nets a hat-trick for Egypt.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "SALAH NETS A HAT-TRICK FOR EGYPT.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah nets a hat-trick for Egypt.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah nets a hat-trick for Egypt.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah nets a hat-trick for Egypt.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool recorded more shots than Arsenal this weekend.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool recorded more shots than Arsenal this weekend.",
+      "title": "Liverpool recorded more shots than Arsenal this weekend.",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "LIVERPOOL RECORDED MORE SHOTS THAN ARSENAL THIS WEEKEND.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool recorded more shots than Arsenal this weekend.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool recorded more shots than Arsenal this weekend.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool recorded more shots than Arsenal this weekend.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Martins joins Porto on a four-year deal.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Martins joins Porto on a four-year deal.",
+      "title": "Alisson Martins joins Porto on a four-year deal.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "ALISSON MARTINS JOINS PORTO ON A FOUR-YEAR DEAL.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Martins joins Porto on a four-year deal.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Martins joins Porto on a four-year deal.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Martins joins Porto on a four-year deal.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are interested in a Barcelona forward, according to reports.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are interested in a Barcelona forward, according to reports.",
+      "title": "Liverpool are interested in a Barcelona forward, according to reports.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "liverpool are interested in a barcelona forward, according to reports.",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are interested in a Barcelona forward, according to reports.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are interested in a Barcelona forward, according to reports.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool are interested in a Barcelona forward, according to reports.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool support the local foodbank at Anfield.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool support the local foodbank at Anfield.",
+      "title": "Liverpool support the local foodbank at Anfield.",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "liverpool support the local foodbank at anfield.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool support the local foodbank at Anfield.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool support the local foodbank at Anfield.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Liverpool support the local foodbank at Anfield.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah Brahimi has been elected mayor.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Brahimi has been elected mayor.",
+      "title": "Salah Brahimi has been elected mayor.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "salah brahimi has been elected mayor.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Brahimi has been elected mayor.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Brahimi has been elected mayor.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah Brahimi has been elected mayor.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Salah explains his role in the new formation.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah explains his role in the new formation.",
+      "title": "Salah explains his role in the new formation.",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "salah explains his role in the new formation.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah explains his role in the new formation.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah explains his role in the new formation.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Salah explains his role in the new formation.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "The best goal I have ever seen. Incredible technique.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The best goal I have ever seen. Incredible technique.",
+      "title": "The best goal I have ever seen. Incredible technique.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "THE BEST GOAL I HAVE EVER SEEN. INCREDIBLE TECHNIQUE.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The best goal I have ever seen. Incredible technique.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The best goal I have ever seen. Incredible technique.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "The best goal I have ever seen. Incredible technique.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Ramalho wins a volleyball tournament.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Alisson Ramalho wins a volleyball tournament.",
+      "title": "Alisson Ramalho wins a volleyball tournament.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "ALISSON RAMALHO WINS A VOLLEYBALL TOURNAMENT.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Alisson Ramalho wins a volleyball tournament.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Alisson Ramalho wins a volleyball tournament.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Alisson Ramalho wins a volleyball tournament.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Ajax announce their starting eleven for tonight.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ajax announce their starting eleven for tonight.",
+      "title": "Ajax announce their starting eleven for tonight.",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "ajax announce their starting eleven for tonight.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ajax announce their starting eleven for tonight.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ajax announce their starting eleven for tonight.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Ajax announce their starting eleven for tonight.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Premier League club owners meet to discuss broadcast rights.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Premier League club owners meet to discuss broadcast rights.",
+      "title": "Premier League club owners meet to discuss broadcast rights.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "PREMIER LEAGUE CLUB OWNERS MEET TO DISCUSS BROADCAST RIGHTS.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Premier League club owners meet to discuss broadcast rights.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Premier League club owners meet to discuss broadcast rights.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Premier League club owners meet to discuss broadcast rights.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Galatasaray are in talks with a goalkeeper.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Galatasaray are in talks with a goalkeeper.",
+      "title": "Galatasaray are in talks with a goalkeeper.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "GALATASARAY ARE IN TALKS WITH A GOALKEEPER.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Galatasaray are in talks with a goalkeeper.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Galatasaray are in talks with a goalkeeper.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Galatasaray are in talks with a goalkeeper.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Hugo Ekitike could return next week.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Hugo Ekitike could return next week.",
+      "title": "Hugo Ekitike could return next week.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "hugo ekitike could return next week.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Hugo Ekitike could return next week.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Hugo Ekitike could return next week.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Hugo Ekitike could return next week.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "فلوریان ویرتز در تمرین امروز حضور داشت.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "فلوریان ویرتز در تمرین امروز حضور داشت.",
+      "title": "فلوریان ویرتز در تمرین امروز حضور داشت.",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "فلوریان ویرتز در تمرین امروز حضور داشت.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "فلوریان ویرتز در تمرین امروز حضور داشت.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "فلوریان ویرتز در تمرین امروز حضور داشت.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "فلوریان ویرتز در تمرین امروز حضور داشت.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Dominik Szoboszlai captains Hungary tonight.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Dominik Szoboszlai captains Hungary tonight.",
+      "title": "Dominik Szoboszlai captains Hungary tonight.",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "dominik szoboszlai captains hungary tonight.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Dominik Szoboszlai captains Hungary tonight.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Dominik Szoboszlai captains Hungary tonight.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Dominik Szoboszlai captains Hungary tonight.\nVia @LFC",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson Santos signs for Sporting CP.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Santos signs for Sporting CP.",
+      "title": "Alisson Santos signs for Sporting CP.",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "ALISSON SANTOS SIGNS FOR SPORTING CP.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Santos signs for Sporting CP.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Santos signs for Sporting CP.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Alisson Santos signs for Sporting CP.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "Liverpool relevance needs confirmation",
+      "correct": true
+    },
+    {
+      "body": "Watch: Liverpool score twice in stoppage time.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Watch: Liverpool score twice in stoppage time.",
+      "title": "Watch: Liverpool score twice in stoppage time.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "WATCH: LIVERPOOL SCORE TWICE IN STOPPAGE TIME.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Watch: Liverpool score twice in stoppage time.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Watch: Liverpool score twice in stoppage time.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Watch: Liverpool score twice in stoppage time.\nVia @LFC",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Heavy rain is forecast in Liverpool tomorrow.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Heavy rain is forecast in Liverpool tomorrow.",
+      "title": "Heavy rain is forecast in Liverpool tomorrow.",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "HEAVY RAIN IS FORECAST IN LIVERPOOL TOMORROW.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Heavy rain is forecast in Liverpool tomorrow.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Heavy rain is forecast in Liverpool tomorrow.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Heavy rain is forecast in Liverpool tomorrow.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "hold",
+      "reason": "non-football topic or ambiguous person/place identity",
+      "correct": true
+    },
+    {
+      "body": "Wirtz: I feel better after the injury.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz: I feel better after the injury.",
+      "title": "Wirtz: I feel better after the injury.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "wirtz: i feel better after the injury.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz: I feel better after the injury.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz: I feel better after the injury.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz: I feel better after the injury.\nVia @LFC",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz celebrates his first international goal.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz celebrates his first international goal.",
+      "title": "Wirtz celebrates his first international goal.",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "wirtz celebrates his first international goal.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz celebrates his first international goal.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz celebrates his first international goal.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Wirtz celebrates his first international goal.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Trent Alexander-Arnold starts for Real Madrid.",
+      "title": "",
+      "account": "LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: real madrid",
+      "correct": true
+    },
+    {
+      "body": "Trent Alexander-Arnold starts for Real Madrid.",
+      "title": "Trent Alexander-Arnold starts for Real Madrid.",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: real madrid",
+      "correct": true
+    },
+    {
+      "body": "TRENT ALEXANDER-ARNOLD STARTS FOR REAL MADRID.",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: real madrid",
+      "correct": true
+    },
+    {
+      "body": "Trent Alexander-Arnold starts for Real Madrid.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: real madrid",
+      "correct": true
+    },
+    {
+      "body": "Trent Alexander-Arnold starts for Real Madrid.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: real madrid",
+      "correct": true
+    },
+    {
+      "body": "Trent Alexander-Arnold starts for Real Madrid.\nVia @LFC",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: real madrid",
+      "correct": true
+    },
+    {
+      "body": "West Ham announce the signing of a striker.",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: west ham",
+      "correct": true
+    },
+    {
+      "body": "West Ham announce the signing of a striker.",
+      "title": "West Ham announce the signing of a striker.",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: west ham",
+      "correct": true
+    },
+    {
+      "body": "west ham announce the signing of a striker.",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: west ham",
+      "correct": true
+    },
+    {
+      "body": "West Ham announce the signing of a striker.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "PartedBeard",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: west ham",
+      "correct": true
+    },
+    {
+      "body": "West Ham announce the signing of a striker.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "Asim_LFC",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: west ham",
+      "correct": true
+    },
+    {
+      "body": "West Ham announce the signing of a striker.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "blocked",
+      "actual": "reject",
+      "reason": "unrelated club or national-team news: west ham",
+      "correct": true
+    },
+    {
+      "body": "Alisson kept another clean sheet.",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson kept another clean sheet.",
+      "title": "Alisson kept another clean sheet.",
+      "account": "Asim_LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "ALISSON KEPT ANOTHER CLEAN SHEET.",
+      "title": "",
+      "account": "FabrizioRomano",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson kept another clean sheet.\nhttps://example.test/liverpool/lfc/salah",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson kept another clean sheet.\n#Liverpool #LFC #Salah",
+      "title": "",
+      "account": "LFC",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    },
+    {
+      "body": "Alisson kept another clean sheet.\nVia @LFC",
+      "title": "",
+      "account": "random",
+      "expected": "review",
+      "actual": "review",
+      "reason": "Liverpool context",
+      "correct": true
+    }
+  ]
+}
