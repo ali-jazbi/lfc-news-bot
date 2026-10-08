@@ -32,6 +32,16 @@ def isolated_key_rotation(monkeypatch):
 
 # --------------------------------------------------------------- DB ایزوله
 @pytest.fixture(autouse=True)
+def multi_source_test_mode(monkeypatch):
+    """Legacy tests exercise optional sources; production defaults are tested separately."""
+    import config
+    monkeypatch.setattr(config, 'CORE_SOURCES_ONLY', False)
+    monkeypatch.setattr(config, 'ENABLE_OUTLET_RSS', True)
+    monkeypatch.setattr(config, 'ENABLE_NEWS_SEARCH', True)
+    monkeypatch.setattr(config, 'OUTLET_RSS_SOURCES', ['all'])
+
+
+@pytest.fixture(autouse=True)
 def isolated_media_previews(monkeypatch):
     from sources import media_preview
     monkeypatch.setattr(media_preview, '_cache', {})

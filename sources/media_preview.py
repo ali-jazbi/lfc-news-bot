@@ -110,6 +110,9 @@ def enrich(item):
             continue
         if parsed.scheme not in ('https', 'http') or not parsed.hostname or parsed.hostname in _TWEET_HOSTS:
             continue
+        if parsed.hostname == 'news.google.com':
+            # Its preview image is the aggregator logo, not the publisher's photo.
+            continue
         now = time.time()
         hit = _cache.get(url)
         if hit and now - hit[0] < config.TWITTER_ENRICH_TTL:

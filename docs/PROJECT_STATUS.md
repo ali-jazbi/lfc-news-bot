@@ -5,6 +5,28 @@ _Last updated: reflects state as of this documentation pass. Update this file wh
 ## Mode
 Running in **test / semi-automatic mode**: bot drafts posts and sends them to an admin Telegram group for manual approval before anything reaches the public channel.
 
+## 2026-10-08 — temporary Twitter and direct-club-only production mode
+
+- `CORE_SOURCES_ONLY=true` is the default. Only Twitter status URLs and direct
+  `liverpoolfc.com/news/…` or `/article/…` URLs are eligible for drafts/delivery.
+  Optional RSS/search/Bluesky/Romano inputs remain implemented but are paused.
+- The club's independent Google News fallback was the source of aggregator URLs
+  mislabeled `Liverpool FC`; neither `ENABLE_NEWS_SEARCH=false` nor
+  `ENABLE_ARTICLES=false` stopped it. It now requires an explicit
+  `ENABLE_LFC_GOOGLE_FALLBACK=true` **and** `CORE_SOURCES_ONLY=false`, and uses
+  a distinct source label. Google News pages no longer supply preview logos.
+- Current official cards use empty overlay links with sibling headings/images.
+  The extractor now reads the article card and excludes navigation/category
+  links previously emitted as `Men`, `Women`, etc.
+- Disabled stored drafts/retries are paused as `source_disabled` before story
+  grouping/queue selection. Payloads and retry stages are retained, including
+  across restart and pruning. Delivery/retranslation of old disabled drafts is
+  also blocked. Re-enabling the source restores its previous queued stage.
+- `.env.example` is a template, never loaded at runtime. `config.py` loads `.env`
+  without overriding existing process environment variables. Configuration
+  changes require restarting/recreating the running service as appropriate.
+- Verification and exact production env instructions: `docs/core-sources-only.md`.
+
 ## 2026-09-27 — Twitter source revived: `TWITTER_MODE=fxembed`
 - **`xscrape` died quietly (structural change on X's side).** Live probing of all
   29 accounts: some requests get Cloudflare `403` with body `IPv6` (network/IP),

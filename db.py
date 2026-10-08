@@ -31,11 +31,13 @@ STATUS_PUBLISHED = "published"
 STATUS_FAILED = "failed"
 STATUS_RETRY_PENDING = "retry_pending"
 STATUS_AWAITING_RELEVANCE = "awaiting_relevance"
+STATUS_SOURCE_DISABLED = "source_disabled"
 QUEUE_STATUSES = (STATUS_DISCOVERED, "new", "processing", STATUS_ANALYZING,
                   STATUS_VERIFICATION, STATUS_APPROVED_BY_AI, STATUS_TRANSLATION,
                   STATUS_TRANSLATION_REVIEW, STATUS_MEDIA_PROCESSING,
                   STATUS_RETRY_PENDING, STATUS_FAILED, STATUS_PENDING_ADMIN,
-                  "sent_admin", STATUS_APPROVED, "grouped", STATUS_AWAITING_RELEVANCE)
+                  "sent_admin", STATUS_APPROVED, "grouped", STATUS_AWAITING_RELEVANCE,
+                  STATUS_SOURCE_DISABLED)
 # وضعیت‌های قدیمی که برای سازگاری حفظ شده‌اند:
 # new | sent_admin | skipped | rejected | approved | published
 
@@ -401,9 +403,33 @@ def ingest_batch(source_id, batch):
     return inserted
 
 
+def apply_source_policy():
+    """Pause disabled backlog without deleting it; restore its stage when enabled."""
+    import source_policy
+    with _lock, _c():
+        c = _c()
+        rows = c.execute("SELECT key,payload,status,error FROM items WHERE status IN "
+                         "('discovered','new','retry_pending','awaiting_relevance','source_disabled')").fetchall()
+        for row in rows:
+            item = json.loads(row['payload'])
+            reason = source_policy.disabled_reason(item)
+            if reason:
+                if row['status'] != STATUS_SOURCE_DISABLED:
+                    item['_source_paused_status'] = row['status']
+                    item['_source_paused_error'] = row['error']
+                c.execute('UPDATE items SET payload=?,status=?,error=? WHERE key=?',
+                          (json.dumps(item, ensure_ascii=False), STATUS_SOURCE_DISABLED, reason, row['key']))
+            elif row['status'] == STATUS_SOURCE_DISABLED:
+                status = item.pop('_source_paused_status', STATUS_DISCOVERED)
+                error = item.pop('_source_paused_error', None)
+                c.execute('UPDATE items SET payload=?,status=?,error=? WHERE key=?',
+                          (json.dumps(item, ensure_ascii=False), status, error, row['key']))
+
+
 def queue_items(limit=5):
     """Claim FIFO per source/account, rotating across groups between cycles."""
     with _lock:
+        apply_source_policy()
         c = _c()
         from discovery import group_pending_stories
         group_pending_stories(c)
