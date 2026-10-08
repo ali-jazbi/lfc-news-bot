@@ -106,8 +106,10 @@ EDIT_PROMPT = _get("EDIT_PROMPT", "").replace("\\n", "\n").replace("{{limit}}", 
 
 # --- منابع ---
 LFC_NEWS_URL = _get("LFC_NEWS_URL", "https://www.liverpoolfc.com/news")
+CORE_SOURCES_ONLY = _get("CORE_SOURCES_ONLY", "true").lower() == "true"
+ENABLE_LFC_GOOGLE_FALLBACK = _get("ENABLE_LFC_GOOGLE_FALLBACK", "false").lower() == "true"
 ENABLE_LFC = _get("ENABLE_LFC", "true").lower() == "true"
-ENABLE_ROMANO = _get("ENABLE_ROMANO", "true").lower() == "true"
+ENABLE_ROMANO = _get("ENABLE_ROMANO", "false").lower() == "true"
 ENABLE_TWITTER = _get("ENABLE_TWITTER", "true").lower() == "true"
 
 # لایه یک برداشت توییت — مستقیم از سرور خود توییتر (بدون آینه).
@@ -178,22 +180,22 @@ FXEMBED_SINCE_OVERLAP_SECONDS = _int("FXEMBED_SINCE_OVERLAP_SECONDS", 900)
 
 # فیدهای RSS رسمی خبرگزاری‌ها — رسمی و پایدار، هیچ وابستگی به آینه/میرور ندارد.
 # برای افزودن فید جدید کافی است آدرسش را اینجا اضافه کنی (با کاما جدا کن).
-ENABLE_OUTLET_RSS = _get("ENABLE_OUTLET_RSS", "true").lower() == "true"
+ENABLE_OUTLET_RSS = _get("ENABLE_OUTLET_RSS", "false").lower() == "true"
 OUTLET_RSS_FEEDS = _list(
     "OUTLET_RSS_FEEDS",
     "https://feeds.bbci.co.uk/sport/football/teams/liverpool/rss.xml",
 )
 
 # منابع RSS جدید و اختیاری (کاتالوگ آماده در sources/outlet_rss.py: CATALOG).
-# پیش‌فرض all؛ مقدار خالی صریح در env این ورودی‌ها را خاموش می‌کند.
+# پیش‌فرض خالی؛ این منابع فقط با انتخاب صریح فعال می‌شوند.
 # مثال: OUTLET_RSS_SOURCES=guardian,football365,liverpoolcom,thisisanfield
 # یا OUTLET_RSS_SOURCES=all
-OUTLET_RSS_SOURCES = _list("OUTLET_RSS_SOURCES", "all")
+OUTLET_RSS_SOURCES = _list("OUTLET_RSS_SOURCES", "")
 # پنجرهٔ گزارش /missed؛ خبر دریافت‌شده در صف به‌دلیل سن حذف نمی‌شود.
 OUTLET_RSS_MAX_AGE_HOURS = _int("OUTLET_RSS_MAX_AGE_HOURS", 12)
 
 # Independent discovery; explicit false/empty settings still disable these inputs.
-ENABLE_NEWS_SEARCH = _get("ENABLE_NEWS_SEARCH", "true").lower() == "true"
+ENABLE_NEWS_SEARCH = _get("ENABLE_NEWS_SEARCH", "false").lower() == "true"
 NEWS_SEARCH_INTERVAL = _int("NEWS_SEARCH_INTERVAL", 300)
 
 # بلواسکای — جایگزین رسمی نیتر برای خبرنگارانی که آنجا هم پست می‌گذارند.

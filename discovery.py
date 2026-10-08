@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 import config
 import db
 import news_policy
+import source_policy
 from sources.base import SourceBatch, clean_text, parse_rss
 
 _search_lock = threading.Lock()
@@ -73,7 +74,7 @@ def search_queries():
 
 
 def fetch_search(limit=100, refresh=False):
-    if not config.ENABLE_NEWS_SEARCH or not _search_lock.acquire(blocking=False):
+    if not source_policy.source_enabled('news_search') or not _search_lock.acquire(blocking=False):
         return SourceBatch()
     try:
         if not refresh and time.time() - float(_meta('search_checked', '0')) < config.NEWS_SEARCH_INTERVAL:
@@ -198,6 +199,8 @@ def group_pending_stories(c):
     with c:
         for row in rows:
             item = json.loads(row['payload'])
+            if source_policy.disabled_reason(item):
+                continue
             if news_policy.decision(item, discovered_at=row['created_at'])[0] != 'review':
                 continue
             norm = db.normalize_title(item.get('body') or '')
@@ -291,13 +294,13 @@ def scan_missed():
     try:
         from sources import outlet_rss, lfc_official
         sources = []
-        if config.ENABLE_LFC:
+        if source_policy.source_enabled('lfc_official'):
             sources.append(('lfc_official', lfc_official.fetch))
-        if config.ENABLE_OUTLET_RSS:
+        if source_policy.source_enabled('outlet_rss'):
             sources.append(('outlet_rss', outlet_rss.fetch))
             if outlet_rss.enabled_source_ids():
                 sources.append(('rss_extra', outlet_rss.fetch_extra))
-        if config.ENABLE_NEWS_SEARCH:
+        if source_policy.source_enabled('news_search'):
             sources.append(('news_search', lambda limit: fetch_search(limit, refresh=True)))
         errors, received = [], 0
         for source_id, fetch in sources:
@@ -327,6 +330,8 @@ def missed_candidates():
     out = []
     for row in rows:
         item = json.loads(row['payload'])
+        if source_policy.disabled_reason(item):
+            continue
         if not in_audit_window(item) or news_policy.decision(item)[0] == 'reject':
             continue
         existing = db.get(db.make_key(item))
@@ -346,6 +351,8 @@ def recover(key):
         if not row and not candidate:
             raise ValueError('خبر پیدا نشد.')
         item = row['payload'] if row else json.loads(candidate['payload'])
+        if source_policy.disabled_reason(item):
+            raise ValueError('این منبع فعلاً غیرفعال است؛ بازیابی خبر متوقف شد.')
         if not item.get('body') and candidate:
             item = json.loads(candidate['payload'])
         if not item.get('body') and not item.get('title'):
