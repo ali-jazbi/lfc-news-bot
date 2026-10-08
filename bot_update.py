@@ -119,14 +119,50 @@ def prepare(root):
         raise UpdateError("پوشهٔ بات باید ریشهٔ یک checkout مستقل گیت باشد")
     git("symbolic-ref", "--quiet", "HEAD", stage="شاخهٔ فعلی مشخص نیست")
     git("rev-parse", "--verify", "@{upstream}", stage="upstream شاخه تنظیم نشده")
-    if git("status", "--porcelain"):
-        raise UpdateError("تغییر محلی یا فایل ثبت‌نشده وجود دارد؛ ابتدا تعیین تکلیفش کن")
+    runtime_paths = (".env", "data", "logs", "*.session", "*.session-journal")
+    if git("ls-files", "--", *runtime_paths):
+        raise UpdateError("فایل تنظیمات یا اطلاعات runtime نباید در گیت ثبت شده باشد")
+    git("fetch", stage="دریافت آپدیت از گیت‌هاب")
+    remote_files = git("ls-tree", "-r", "--name-only", "@{upstream}").splitlines()
+    def runtime_file(name):
+        return (name == ".env" or name.split("/")[0] in ("data", "logs")
+                or name.endswith((".session", ".session-journal")))
+    if any(runtime_file(name) for name in remote_files):
+        raise UpdateError("نسخهٔ جدید فایل تنظیمات یا اطلاعات runtime را در گیت ثبت کرده است")
+    # Exclude runtime even if a local .gitignore edit accidentally exposes it.
+    code_paths = (".", *(f":(exclude){name}" for name in runtime_paths))
     old = git("rev-parse", "HEAD")
     deps_changed = False
+    backup = None
+    restore_attempted = False
     try:
+        if git("status", "--porcelain", "--", *code_paths):
+            changed = set()
+            for args in (("diff", "--name-only", "-z"),
+                         ("diff", "--cached", "--name-only", "-z"),
+                         ("ls-files", "--others", "--exclude-standard", "-z")):
+                changed.update(name for name in git(*args).split("\0")
+                               if name and not runtime_file(name))
+            # Never include ignored runtime files (-a) or discard local edits.
+            # Identity is command-local: server Git need not have a user configured.
+            git("-c", "user.name=Bot update backup", "-c",
+                "user.email=bot-update@localhost", "stash", "push", "--include-untracked",
+                "--message", f"bot-update-{uuid.uuid4().hex}",
+                "--", *(f":(literal){name}" for name in sorted(changed)),
+                stage="پشتیبان‌گیری از تغییرات محلی")
+            backup = git("rev-parse", "refs/stash")
+            # A dedicated ref survives later stash pushes/drops and is recoverable.
+            backup_ref = f"refs/bot-update-backups/{uuid.uuid4().hex}"
+            git("update-ref", backup_ref, backup, stage="ثبت پشتیبان تغییرات محلی")
+            backup = backup_ref
+            if git("status", "--porcelain", "--", *code_paths):
+                raise UpdateError("تغییرات محلی کامل پشتیبان‌گیری نشدند")
         git("pull", "--ff-only", "--no-rebase", stage="دریافت آپدیت از گیت‌هاب")
         new = git("rev-parse", "HEAD")
         if old == new:
+            if backup:
+                restore_attempted = True
+                git("stash", "apply", "--index", backup, stage="بازگرداندن تغییرات محلی")
             return {"status": "unchanged", "old_head": old, "new_head": new}
         # Check syntax without importing the bot, providers or Hermes.
         for filename in git("ls-files", "*.py").splitlines():
@@ -142,16 +178,24 @@ def prepare(root):
                  "نصب وابستگی‌های نسخهٔ جدید", timeout=600)
         # Isolated import smoke check: no main(), DB init or service calls.
         _run(root, [sys.executable, "-c", "import main"], "بررسی راه‌اندازی کد نسخهٔ جدید")
-        return {"status": "ready", "old_head": old, "new_head": new}
+        result = {"status": "ready", "old_head": old, "new_head": new}
+        if backup:
+            result["backup_ref"] = backup
+        return result
     except UpdateError as exc:
         # --keep refuses to overwrite edits made during the update.
         try:
+            if restore_attempted:
+                raise UpdateError("بازگرداندن تغییرات محلی")
             git("reset", "--keep", old, stage="بازگرداندن نسخهٔ قبلی")
             if deps_changed:
                 _run(root, [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
                      "بازگرداندن وابستگی‌های قبلی", timeout=600)
+            if backup:
+                git("stash", "apply", "--index", backup, stage="بازگرداندن تغییرات محلی")
         except UpdateError:
-            raise UpdateError(f"{exc}؛ بازگردانی کامل نشد، بررسی دستی لازم است") from None
+            saved = f"؛ پشتیبان محفوظ است: {backup}" if backup else ""
+            raise UpdateError(f"{exc}؛ بازگردانی کامل نشد، بررسی دستی لازم است{saved}") from None
         raise
 
 
@@ -224,6 +268,9 @@ def _worker(root, tg, state, restart):
             raise UpdateError("پاسخ نامعتبر آماده‌سازی آپدیت")
         state.update(outcome)
         _write_state(root, state)
+        if state.get("backup_ref"):
+            tg.send_message(state["chat_id"],
+                            "💾 تغییرات محلی سرور پشتیبان‌گیری شد؛ نسخهٔ پوش‌شده جایگزین می‌شود.")
         if state["status"] == "unchanged":
             tg.send_message(state["chat_id"], "✅ بات همین حالا آخرین نسخه است؛ ری‌استارت لازم نیست.")
             return

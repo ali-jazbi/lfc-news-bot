@@ -121,16 +121,88 @@ def test_invalid_new_code_rolls_back_without_touching_env(repositories, code):
 
 
 @pytest.mark.parametrize("untracked", [False, True])
-def test_local_edits_are_never_overwritten(repositories, untracked):
+def test_local_edits_are_backed_up_before_update(repositories, untracked):
     writer, server = repositories
-    old = git(server, "rev-parse", "HEAD")
     publish(writer)
     path = server / ("untracked.txt" if untracked else "main.py")
     path.write_text("my local changes", encoding="utf-8")
-    with pytest.raises(bot_update.UpdateError, match="تغییر محلی"):
-        bot_update.prepare(server)
-    assert path.read_text() == "my local changes"
+    (server / ".env").write_text("env sentinel", encoding="utf-8")
+    (server / "data").mkdir()
+    (server / "data" / "news.db").write_bytes(b"database sentinel")
+    # Backup also works when the deployment account has no Git identity.
+    git(server, "config", "user.name", "")
+    git(server, "config", "user.email", "")
+    result = bot_update.prepare(server)
+    assert result["status"] == "ready"
+    assert git(server, "rev-parse", "HEAD") == git(writer, "rev-parse", "HEAD")
+    assert (server / "main.py").read_text() == "VERSION = 2\n"
+    assert (server / ".env").read_text() == "env sentinel"
+    assert (server / "data" / "news.db").read_bytes() == b"database sentinel"
+    ref = result["backup_ref"]
+    # Dedicated ref survives removal from the ordinary stash list.
+    git(server, "stash", "drop")
+    revision = f"{ref}^3:untracked.txt" if untracked else f"{ref}:main.py"
+    assert git(server, "show", revision) == "my local changes"
+
+
+@pytest.mark.parametrize("new_code", [None, "broken = ("])
+def test_dirty_checkout_restored_on_noop_or_failure(repositories, new_code):
+    writer, server = repositories
+    old = git(server, "rev-parse", "HEAD")
+    (server / "main.py").write_text("LOCAL = 1\n", encoding="utf-8")
+    git(server, "add", "main.py")
+    (server / "main.py").write_text("LOCAL = 2\n", encoding="utf-8")
+    (server / "untracked.txt").write_text("local", encoding="utf-8")
+    before = git(server, "status", "--porcelain")
+    if new_code:
+        publish(writer, new_code)
+        with pytest.raises(bot_update.UpdateError):
+            bot_update.prepare(server)
+    else:
+        assert bot_update.prepare(server)["status"] == "unchanged"
     assert git(server, "rev-parse", "HEAD") == old
+    assert git(server, "status", "--porcelain") == before
+    assert git(server, "show", ":main.py") == "LOCAL = 1"
+    assert (server / "main.py").read_text() == "LOCAL = 2\n"
+    assert (server / "untracked.txt").read_text() == "local"
+
+
+def test_untracked_collision_backed_up(repositories):
+    writer, server = repositories
+    (writer / "new.txt").write_text("upstream", encoding="utf-8")
+    publish(writer)
+    (server / "new.txt").write_text("local", encoding="utf-8")
+    result = bot_update.prepare(server)
+    assert result["status"] == "ready"
+    assert (server / "new.txt").read_text() == "upstream"
+    assert git(server, "show", f"{result['backup_ref']}^3:new.txt") == "local"
+
+
+def test_runtime_excluded_even_with_broken_local_gitignore(repositories):
+    writer, server = repositories
+    publish(writer)
+    (server / ".gitignore").write_text("", encoding="utf-8")
+    (server / ".env").write_text("private", encoding="utf-8")
+    (server / "data").mkdir()
+    (server / "data" / "news.db").write_bytes(b"database")
+    (server / "account.session").write_bytes(b"session")
+    result = bot_update.prepare(server)
+    assert result["status"] == "ready"
+    assert (server / ".env").read_text() == "private"
+    assert (server / "data" / "news.db").read_bytes() == b"database"
+    assert (server / "account.session").read_bytes() == b"session"
+    assert not git(server, "ls-tree", "-r", "--name-only", f"{result['backup_ref']}^3")
+
+
+def test_remote_cannot_overwrite_ignored_env(repositories):
+    writer, server = repositories
+    (server / ".env").write_text("private", encoding="utf-8")
+    (writer / ".env").write_text("remote", encoding="utf-8")
+    git(writer, "add", "-f", ".env")
+    publish(writer)
+    with pytest.raises(bot_update.UpdateError, match="runtime"):
+        bot_update.prepare(server)
+    assert (server / ".env").read_text() == "private"
 
 
 def test_divergent_branch_is_not_reset_or_merged(repositories):
@@ -199,6 +271,19 @@ def test_worker_handoff_failure_and_noop(monkeypatch, fake_tg, status):
     assert restarts == ([True] if status == "ready" else [])
     assert bot_update._read_state(config.BASE_DIR)["status"] == status
     assert bot_update.paused() == (status == "ready")
+
+
+def test_worker_records_and_announces_backup(monkeypatch, fake_tg):
+    ref = "refs/bot-update-backups/test"
+    outcome = {"status": "ready", "new_head": "a" * 40, "backup_ref": ref}
+    monkeypatch.setattr(bot_update.subprocess, "run", lambda *a, **kw:
+                        SimpleNamespace(returncode=0, stdout=json.dumps(outcome)))
+    bot_update._deployment_lock = bot_update._lock(config.BASE_DIR)
+    restarted = []
+    bot_update._worker(config.BASE_DIR, fake_tg, {"chat_id": -100}, lambda: restarted.append(True))
+    assert restarted == [True]
+    assert bot_update._read_state(config.BASE_DIR)["backup_ref"] == ref
+    assert any("پشتیبان" in item for item in fake_tg.sent_messages)
 
 
 def test_drain_timeout_never_runs_git_or_restarts(monkeypatch, fake_tg):
