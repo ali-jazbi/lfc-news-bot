@@ -2,6 +2,15 @@
 
 Record of notable product/technical decisions made during development, with rationale, so future contributors (human or AI agent) don't re-litigate them without cause.
 
+**2026-10-08 — temporarily limit production to Twitter and direct official news.**
+The owner reported Google News logo posts with unusable one-name summaries and
+requested pausing all other news inputs. Source identity is checked against the
+actual URL, not only the `Liverpool FC` label. A shared switch covers polling,
+discovery, backlog, grouping, retries and delivery of existing drafts. Disabled
+queue items are retained for later repair. Optional sources require turning off
+`CORE_SOURCES_ONLY` and explicitly enabling their respective flags; the club's
+Google fallback additionally requires its own opt-in flag.
+
 1. **Semi-automatic publishing (admin approval step)** — Posts are drafted and sent to an admin group first, not published straight to the channel. Rationale: translation quality and duplicate/relevance scoring aren't perfect yet; a human check avoids embarrassing mistranslations or spam on the public channel.
 2. **Multi-provider translation fallback chain** instead of a single LLM. Rationale: free/low-cost LLM endpoints are occasionally rate-limited or down; chaining `opencode-deepseek → opencode-ling → groq → deep-translator` maximizes uptime without paid infrastructure.
 3. **Display names for Twitter sources use real English names** (e.g. "Fabrizio Romano"), not Persian translations or raw handles. Rationale: users recognize journalists by their real name; Persian transliteration was confusing (reverted after user feedback).

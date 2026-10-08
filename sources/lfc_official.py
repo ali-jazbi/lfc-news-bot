@@ -2,13 +2,14 @@
 
 روش: صفحه لیست را می‌گیرد، لینک خبرها را درمی‌آورد، سپس هر خبر را با
 متاتگ‌های og: (عنوان/توضیح/عکس) + پاراگراف‌های متن استخراج می‌کند.
-اگر ساختار سایت عوض شد، falling back to Google News RSS خودکار فعال می‌شود.
+Google News fallback خاموش است مگر صریحاً فعال شود و حالت core خاموش باشد.
 """
 import logging
 import re
 from urllib.parse import urljoin, unquote
 
 import config
+from source_policy import core_url
 from sources.base import http_get, soup_of, meta, clean_text
 from sources.media_preview import element_image
 
@@ -125,7 +126,7 @@ def _article_links(limit=12):
     links, seen = [], set()
     for m in re.finditer(r'href="([^"]*/(?:news|article)/[^"?#]+)"', html):
         url = urljoin("https://www.liverpoolfc.com", m.group(1))
-        if url.rstrip("/").endswith("/news"):
+        if core_url(url) != 'lfc_official':
             continue
         if url in seen:
             continue
@@ -214,13 +215,16 @@ def _parse_article(url):
 
 
 def _google_fallback(limit=5):
+    if config.CORE_SOURCES_ONLY or not config.ENABLE_LFC_GOOGLE_FALLBACK:
+        log.warning("official site unavailable or unparseable; Google News fallback disabled")
+        return []
     from sources.base import parse_rss
     items = []
     for e in parse_rss(GOOGLE_FALLBACK)[:limit]:
         items.append(
             {
-                "source": "LFC Official",
-                "source_tag": "Liverpool FC",
+                "source": "LFC Google fallback",
+                "source_tag": "Google News / Liverpool FC",
                 "url": e["link"],
                 "title": _clean_title(e["title"]),
                 "body": clean_text(e.get("summary", "")) or clean_text(e["title"]),
@@ -253,7 +257,7 @@ def fetch(limit=6):
             log.warning("article failed %s: %s", url, e)
 
     if not out:
-        log.warning("direct site parse gave nothing — falling back to Google News")
+        log.warning("direct site parse gave nothing — checking configured fallback")
         try:
             out = _google_fallback(limit)
         except Exception as e:
@@ -273,14 +277,15 @@ def _listing_summaries():
         if not re.search(r'/(?:news|article)/[^/?#]+', href):
             continue
         url = urljoin('https://www.liverpoolfc.com', href).split('#')[0]
-        if url in seen:
+        if url in seen or core_url(url) != 'lfc_official':
             continue
-        heading = anchor.find(['h2', 'h3', 'h4'])
-        title = clean_text((heading or anchor).get_text(' ', strip=True))
+        card = anchor.find_parent(['article', 'li']) or anchor
+        heading = card.find(['h2', 'h3', 'h4'])
+        title = clean_text((heading or anchor).get_text(' ', strip=True)
+                           or anchor.get('aria-label') or anchor.get('data-item-name') or '')
         if not title or title.lower() in ('read more', 'read article', 'view all'):
             continue
         seen.add(url)
-        card = anchor.find_parent(['article', 'li']) or anchor
         image = element_image(card, url)
         summary = card.find('p')
         stamp = card.find('time')

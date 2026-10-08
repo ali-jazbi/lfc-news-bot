@@ -42,6 +42,7 @@ import health
 import media
 import sample_item
 import source_health
+import source_policy
 import translate
 import news_policy
 import names
@@ -107,21 +108,21 @@ def _sources():
     """لیست (source_id, label, fn) — با احترام به ENABLE_* فعلی."""
     out = []
     # Normal club summaries are independent of full-article publishing.
-    if config.ENABLE_LFC:
+    if source_policy.source_enabled('lfc_official'):
         out.append(("lfc_official", "سایت باشگاه", lfc_official.fetch))
-    if getattr(config, "ENABLE_OUTLET_RSS", True):
+    if source_policy.source_enabled('outlet_rss'):
         out.append(("outlet_rss", "خبرگزاری رسمی", outlet_rss.fetch))
-    if getattr(config, "ENABLE_BLUESKY", False):
+    if source_policy.source_enabled('bluesky'):
         out.append(("bluesky", "بلواسکای", bluesky.fetch))
-    if getattr(config, "ENABLE_TWITTER", True):
+    if source_policy.source_enabled('twitter'):
         out.append(("twitter", "توییتر", twitter.fetch_batch))
-    elif config.ENABLE_ROMANO:
+    elif source_policy.source_enabled('romano'):
         out.append(("romano", "رومانو", romano.fetch))
     # منابع RSS جدید (اختیاری، OUTLET_RSS_SOURCES) — آخر لیست تا خبر توییتر
     # در سقف آیتم‌های هر سیکل عقب نیفتد؛ سلامت/backoff مستقل از بقیه.
-    if config.ENABLE_NEWS_SEARCH:
+    if source_policy.source_enabled('news_search'):
         out.append(('news_search', 'جست‌وجوی اخبار', discovery.fetch_search))
-    if config.ENABLE_OUTLET_RSS and getattr(config, "OUTLET_RSS_SOURCES", None):
+    if source_policy.source_enabled('rss_extra'):
         out.append(("rss_extra", "منابع RSS جدید", outlet_rss.fetch_extra))
     return out
 
@@ -198,6 +199,11 @@ def process_item(item, force=False, reply_to=None):
     وقتی HERMES_ENABLED=false رفتار قبلی دقیقاً حفظ می‌شود (فقط ترجمه + ارسال).
     """
     if bot_update.new_job_paused() or not item:
+        return False
+
+    reason = source_policy.disabled_reason(item)
+    if reason:
+        log.info("draft blocked: %s (%s)", reason, item.get('url'))
         return False
 
     key = db.make_key(item)
@@ -629,6 +635,8 @@ def send_to_channel(key):
     if row['status'] in ('rejected', 'skipped', 'grouped', 'published'):
         return False, 'این خبر رد، تجمیع یا قبلاً منتشر شده؛ وضعیت آن را در /queue بررسی کن.'
     item = row["payload"]
+    if source_policy.disabled_reason(item):
+        return False, 'این منبع فعلاً غیرفعال است؛ انتشار متوقف شد.'
     tr = item.get("translated")
     if not tr:
         return False, "ترجمه ذخیره نشده"
@@ -672,6 +680,8 @@ def approve(key, chat_id, from_user_id=None):
     if row['status'] in ('rejected', 'skipped', 'grouped', 'published'):
         return False, 'این خبر رد، تجمیع یا قبلاً منتشر شده؛ وضعیت آن را در /queue بررسی کن.'
     item = row["payload"]
+    if source_policy.disabled_reason(item):
+        return False, 'این منبع فعلاً غیرفعال است؛ انتشار متوقف شد.'
     tr = item.get("translated")
     if not tr:
         return False, "ترجمه ذخیره نشده"
@@ -757,6 +767,7 @@ def retry_pending_sends(limit=5):
     """خبرهایی که ارسال‌شان قبلاً شکست خورده دوباره امتحان می‌شوند — هیچ خبری
     به‌خاطر یک خطای موقت تلگرام گم نمی‌شود (مرحله ۸/۱۱). بعد از سقف تلاش → failed
     با خطای ذخیره‌شده (نه حذف)."""
+    db.apply_source_policy()
     retried = 0
     for row in db.retryable_items(limit=limit):
         key = row["key"]
@@ -799,6 +810,7 @@ def run_cycle(force=False):
         return
     health.record_counter("cycles")
     maybe_prune()
+    db.apply_source_policy()
     # اول تلاش‌های ناتمام قبلی، بعد خبرها
     retry_attempts = len(db.retryable_items(limit=config.MAX_ITEMS_PER_CYCLE))
     retried = retry_pending_sends(limit=config.MAX_ITEMS_PER_CYCLE)
@@ -965,6 +977,9 @@ def handle_callback(cq):
         # ویرایش دیگر دکمه ندارد — ریپلای + /edit. برای سازگاری با کیبوردهای قدیمی:
         tg.answer_callback(cid, "برای ویرایش: روی همین پیام ریپلای کن و /edit بزن")
     elif action == "rtr":
+        if source_policy.disabled_reason(row['payload']):
+            tg.answer_callback(cid, 'این منبع فعلاً غیرفعال است؛ ترجمه متوقف شد.')
+            return
         tg.answer_callback(cid, "در حال ترجمه مجدد...")
         item = row["payload"]
         tr = translate.translate(item)
